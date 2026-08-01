@@ -1,0 +1,9 @@
+{
+  "name": "@monorepo/api",
+  "private": true,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "migrate": "node ./migrate.js",
+    "start": "node ./dist/server.js"
+  }
+}

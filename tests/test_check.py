@@ -407,8 +407,10 @@ class CheckTests(unittest.TestCase):
                        if row["kind"] == "path-not-found"]
             report = self.check_repo(repo, scan_path=str(scan_file))
 
-            self.assertGreater(len(scanned), 5)
-            self.assertTrue(all("#" in row["claim"] for row in scanned))
+            # The fixture cites `schema/orders.sql#customer` and a dozen more like it. The file
+            # exists; the fragment names a symbol inside it. The scanner resolves the file and says
+            # nothing, and the anchor filter in the checker stays as the second line of defence.
+            self.assertEqual(scanned, [])
             self.assertEqual(kinds(report, "scanner-path-not-found"), [])
 
     def test_internal_service_readme_drift_is_reported_and_does_not_gate(self):

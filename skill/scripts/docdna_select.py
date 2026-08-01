@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 
 SCHEMA = 1
 TOOL = "docdna_select"
-VERSION = "1.0.1"
+VERSION = "1.1.0"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CATALOG_DIR = os.path.normpath(os.path.join(HERE, "..", "catalog"))
@@ -82,7 +82,7 @@ SPINE_REASON = "no @covers annotations found in the scanned tree; coverage is ne
 STUB_BYTES = 400
 NEAR_MISS = 1
 FAR = 99
-MAX_WRONG_ROWS = 3
+MAX_STALE_ROWS = 3
 MAX_MISSING_ROWS = 3
 MAX_ROW_LINES = 1
 MAX_ORPHAN_ROWS = 2
@@ -99,6 +99,36 @@ DIAL_LIMIT = 1
 BOUNDARY = ("I only see documentation committed to this repo. If your docs live in Confluence, "
             "SharePoint, or Notion, say so and I will mark those rows present-elsewhere rather "
             "than missing.")
+
+# There is no WRONG NOW section, and the heading is retired rather than left standing for a later
+# kind to fill. Its whole value was that a reader could act on every row in it without checking the
+# row first, and no drift kind earns that. Both passes were hand adjudicated in full, none sampled,
+# but not on the same corpus and the two must not be merged: command-not-found came out at 1 true
+# positive of 31 across 51 repositories, with all 27 rows it had reported "high" wrong, while
+# path-not-found came out at 5 of 46 on an earlier five-repository holdout, which is the only
+# adjudication the path pass has. 28 of the 30 command false positives were documents making no
+# claim about the repository they sit in: comparison tables with metasyntactic placeholders, task
+# templates, case studies about other repositories, one hypothetical drift example inside an
+# instruction about detecting drift. The recall is no better:
+# across 77 documented commands in 5 maintained repositories, not one named a missing script, so
+# the defect this pass hunts has a base rate near zero. Both passes are leads. Every row is still
+# counted, still shown, and still complete in the manifest, under one subordinate section that says
+# in plain words what a reader is meant to do with it.
+PATH_KIND = "path-not-found"
+COMMAND_KIND = "command-not-found"
+LEAD_LABEL = "Leads"
+STALE_TITLE = "POSSIBLE STALE REFERENCES"
+STALE_PATH_NOTE = ("A document may name a path for a reason other than asserting it exists right "
+                   "now: an install target, a changelog entry, a fix still to apply.")
+STALE_COMMAND_NOTE = ("A document may name a command without claiming this repository runs it: a "
+                      "comparison table, a task template, a case study about another repository.")
+STALE_READ_NOTE = "These are leads for a human to read, not findings."
+STALE_LEDGER_NOTE = "Full list: %s"
+# The scanner throws candidates away at its recall gates before it emits a single path finding. When
+# it counts what it dropped, say so here in one line: a filtered view presented as a whole one is
+# the same overclaim in a smaller font. The count is optional, so a scan that does not carry it
+# renders the section unchanged rather than failing.
+DISCARD_NOTE = "The path scan is a filtered view: %s never reached this list."
 
 LANG_NAMES = {"c": "C", "cpp": "C++", "cs": "C#", "elixir": "Elixir", "go": "Go", "java": "Java",
               "js": "JavaScript", "kotlin": "Kotlin", "lua": "Lua", "php": "PHP", "py": "Python",
@@ -1245,6 +1275,35 @@ def section(title, total, shown, lines):
         lines.append(title)
 
 
+def stale_section(total, shown, lines):
+    if total > shown:
+        lines.append("%s  (%d, showing %d)" % (STALE_TITLE, total, shown))
+    else:
+        lines.append("%s  (%d)" % (STALE_TITLE, total))
+
+
+def discarded_paths(scan):
+    dropped = ((scan.get("scan") or {}).get("drift") or {}).get("discarded")
+    if isinstance(dropped, dict):
+        return sum(value for value in dropped.values() if isinstance(value, int))
+    return dropped if isinstance(dropped, int) else 0
+
+
+def stale_note(rows, scan):
+    kinds = set(row.get("kind") for row in rows)
+    parts = []
+    if PATH_KIND in kinds:
+        parts.append(STALE_PATH_NOTE)
+        dropped = discarded_paths(scan)
+        if dropped:
+            parts.append(DISCARD_NOTE % plural(dropped, "candidate"))
+    if COMMAND_KIND in kinds:
+        parts.append(STALE_COMMAND_NOTE)
+    parts.append(STALE_READ_NOTE)
+    parts.append(STALE_LEDGER_NOTE % MANIFEST_REL)
+    return " ".join(parts)
+
+
 def drift_sentence(row):
     claim = row.get("claim")
     detail = row.get("detail") or row.get("kind")
@@ -1272,47 +1331,32 @@ def open_sentences(row):
     return [" ".join(body)]
 
 
-def render_report(ctx, manifest, scan):
-    lines = []
-    signals = ctx["signals"]
-    archetype = manifest["archetype"]
-    lines.append(fact_line(signals, archetype, archetype["overlays"]))
-    lines.append("")
+def lead_text(manifest, scan):
+    rows = manifest["drift"]
+    if rows:
+        return plural(len(rows), "possible stale reference")
+    return "none across your %s" % plural(scan["inventory"]["counts"]["total"], "document")
+
+
+# The only number in the headline that the tool decides is the coverage of the document set. The
+# lead count sits beside it as a count of things to read, because a reader who sees nothing at all
+# cannot tell a repository with no stale references from a pass that never ran.
+def headline(manifest, scan):
     coverage = manifest["coverage"]
-    drift = manifest["drift"]
-    total_docs = scan["inventory"]["counts"]["total"]
-    hit_docs = len(set(row["doc"] for row in drift))
-    if drift:
-        drift_text = "%d of your %s %s the code" % (hit_docs, plural(total_docs, "document"),
-                                                    "contradicts" if hit_docs == 1 else "contradict")
-    else:
-        drift_text = "none found across your %s" % plural(total_docs, "document")
-    headline = "Documentation  %d of %d" % (coverage["have"], coverage["need"])
+    head = "Documentation  %d of %d" % (coverage["have"], coverage["need"])
     previous = (manifest.get("previous") or {}).get("coverage") or {}
     if previous and (previous.get("have"), previous.get("need")) != (coverage["have"],
-                                                                    coverage["need"]):
-        headline += " (was %d of %d on %s)" % (previous["have"], previous["need"],
-                                               manifest["previous"]["generated_at"])
-    line = "%s        Drift  %s" % (headline, drift_text)
-    lines.append(line if len(line) <= LINE_WIDTH else "%s   Drift  %s" % (headline, drift_text))
-    if archetype["counterfactual"]:
-        blocked = [row for row in manifest["documents"] if "write_block" in row]
-        tail = "the document delta is in the manifest"
-        if blocked:
-            tail = ("and %d assure stage documents will not be written until you confirm"
-                    % len(blocked))
-        lines.append("")
-        labelled("UNCERTAIN", ["%s scores %s points above %s, %s."
-                               % (archetype["primary"], archetype["margin_points"],
-                                  archetype["runner_up"]["id"], tail)], lines)
-    for row in manifest["open_questions"][:MAX_OPEN_ROWS]:
-        lines.append("")
-        labelled("OPEN", open_sentences(row), lines)
-    if drift:
-        lines.append("")
-        section("WRONG NOW", len(drift), min(len(drift), MAX_WRONG_ROWS), lines)
-        for row in drift[:MAX_WRONG_ROWS]:
-            row_line(row["doc"], drift_sentence(row), lines)
+                                                                     coverage["need"]):
+        head += " (was %d of %d on %s)" % (previous["have"], previous["need"],
+                                           manifest["previous"]["generated_at"])
+    tail = "%s  %s" % (LEAD_LABEL, lead_text(manifest, scan))
+    line = "%s        %s" % (head, tail)
+    return line if len(line) <= LINE_WIDTH else "%s   %s" % (head, tail)
+
+
+# What the repository owes and what it does not. This is the tool's own output, the one thing in
+# the report that no human has to adjudicate, so it runs first and everything else qualifies it.
+def render_owed(ctx, manifest, lines):
     missing = [row for row in manifest["documents"] if row["action"] in ("write", "offer")]
     if missing:
         lines.append("")
@@ -1344,6 +1388,27 @@ def render_report(ctx, manifest, scan):
                                 % (plural(len(excluded), "document"), reason, MANIFEST_REL)], lines)
     for row in near_firing(ctx, excluded)[:MAX_TRIPWIRE_ROWS]:
         labelled("", ["%s is one signal away: %s" % (row["id"], " or ".join(row["needs"]))], lines)
+    lines.append("")
+    labelled("NOTE", [manifest["boundary"]], lines)
+
+
+# Every place the selection rests on something docdna decided for the reader, each with the number
+# of documents that would change if the reader decided otherwise.
+def render_assumed(manifest, lines):
+    archetype = manifest["archetype"]
+    if archetype["counterfactual"]:
+        blocked = [row for row in manifest["documents"] if "write_block" in row]
+        tail = "the document delta is in the manifest"
+        if blocked:
+            tail = ("and %d assure stage documents will not be written until you confirm"
+                    % len(blocked))
+        lines.append("")
+        labelled("UNCERTAIN", ["%s scores %s points above %s, %s."
+                               % (archetype["primary"], archetype["margin_points"],
+                                  archetype["runner_up"]["id"], tail)], lines)
+    for row in manifest["open_questions"][:MAX_OPEN_ROWS]:
+        lines.append("")
+        labelled("OPEN", open_sentences(row), lines)
     assumptions = manifest["assumptions"]
     if assumptions:
         lines.append("")
@@ -1354,8 +1419,28 @@ def render_report(ctx, manifest, scan):
             if row["becomes_required"]:
                 body.append(row["counterfactual"])
         labelled("ASSUMED", body, lines)
+
+
+def render_stale(manifest, scan, lines):
+    rows = manifest["drift"]
+    if not rows:
+        return
     lines.append("")
-    labelled("NOTE", [manifest["boundary"]], lines)
+    stale_section(len(rows), min(len(rows), MAX_STALE_ROWS), lines)
+    for row in rows[:MAX_STALE_ROWS]:
+        row_line(row["doc"], drift_sentence(row), lines)
+    labelled("", [stale_note(rows, scan)], lines)
+
+
+def render_report(ctx, manifest, scan):
+    lines = []
+    lines.append(fact_line(ctx["signals"], manifest["archetype"],
+                           manifest["archetype"]["overlays"]))
+    lines.append("")
+    lines.append(headline(manifest, scan))
+    render_owed(ctx, manifest, lines)
+    render_assumed(manifest, lines)
+    render_stale(manifest, scan, lines)
     lines.append("")
     labelled("NEXT", ["  ·  ".join(next_actions(manifest, ctx))], lines)
     return "\n".join(lines) + "\n"

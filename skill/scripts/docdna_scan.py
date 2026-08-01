@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 
 SCHEMA = 1
 TOOL = "docdna_scan"
-VERSION = "1.0.1"
+VERSION = "1.1.0"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SIGNALS_PATH = os.path.normpath(os.path.join(HERE, "..", "catalog", "signals.json"))
@@ -68,6 +68,26 @@ LANG_EXT = {".c": "c", ".cpp": "cpp", ".cs": "cs", ".ex": "elixir", ".go": "go",
             ".py": "py", ".rb": "rb", ".rs": "rs", ".scala": "scala", ".sh": "sh", ".sql": "sql",
             ".svelte": "svelte", ".swift": "swift", ".ts": "ts", ".tsx": "ts", ".vue": "vue"}
 
+# Paths a repository ignores on purpose are not broken references. A document that names
+# apps/web/.env.local or node_modules is telling the reader to create or install it, so the absence
+# of the path from the index is the point rather than a defect. git check-ignore is the authority
+# when git is present, and the names below are the stand-in when it is not.
+#
+# The stand-in has to stay narrow, because it suppresses findings without being able to justify
+# them. GENERATED_NAMES are directory names a tool creates and a human never types: no repository
+# keeps documentation in node_modules or __pycache__, so they mean "generated" at any depth.
+# GENERATED_ROOTS are ordinary English words. build, dist, out and target only mean "generated" as
+# the top of a project; docs/build/ is a documentation directory, and matching the word anywhere in
+# a path silences real drift in it.
+GENERATED_NAMES = {"node_modules", "__pycache__", ".venv", ".next", ".nuxt", ".svelte-kit",
+                   ".terraform", ".mypy_cache", ".pytest_cache", ".gradle", ".turbo",
+                   ".parcel-cache"}
+GENERATED_ROOTS = {"build", "dist", "out", "target", "coverage", "venv"}
+# .env, .env.production and prod.env are the environment file. .envoy and .environment are not, and
+# a prefix match cannot tell them apart, so the shape of the whole basename is matched instead.
+ENV_BASENAME = re.compile(r"^(?:[A-Za-z0-9_][A-Za-z0-9_.-]*\.env|\.env(?:\.[A-Za-z0-9_.-]+)?)$")
+MAX_IGNORE_CHECKS = 500
+
 SECRET_PATH_GLOBS = ["**/.env", "**/.env.*", "**/*.pem", "**/*.key", "**/*.p12", "**/*.pfx",
                      "**/*.jks", "**/*.keystore", "**/*.kdbx", "**/id_rsa*", "**/id_ed25519*",
                      "**/*credential*", "**/*secret*", "**/secrets/**", "**/.npmrc", "**/.pypirc",
@@ -108,13 +128,67 @@ SPDX_RULES = [
 SHELL_LANGS = {"", "sh", "bash", "shell", "zsh", "console", "shell-session", "shellsession"}
 PM_BUILTINS = {"install", "i", "ci", "add", "remove", "publish", "init", "exec", "x", "create",
                "link", "audit", "outdated", "update", "upgrade", "version", "pack", "why",
-               "dlx", "list", "ls", "run"}
-NPM_RUN = re.compile(r"^(npm|pnpm|yarn|bun)\s+(?:run\s+)?([A-Za-z0-9:_.@-]+)")
-MAKE_RUN = re.compile(r"^make\s+(?:-[A-Za-z]\s+)?([A-Za-z0-9:_.-]+)")
-MAKE_TARGET = re.compile(r"^([A-Za-z0-9][A-Za-z0-9:_.\-/]*)\s*:(?!=)")
-PIP_INSTALL = re.compile(r"^(?:python[\d.]*\s+-m\s+)?pip[\d.]*\s+install\b")
-PIP_EDITABLE = re.compile(r"(?:^|\s)(?:-e|--editable)[=\s]+[\"']?\.(?:\[[^\]\s]*\])?[\"']?(?:\s|$)")
-BUILD_SYSTEM = re.compile(r"(?m)^\s*\[build-system\]")
+               "dlx", "list", "ls", "run", "pm"}
+NPM_RUN = re.compile(r"^(npm|pnpm|yarn|bun)\s+(?:run\s+)?(\S+)")
+SCRIPT_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9:_.@-]*$")
+# A name absent from `scripts` is only a missing script when the command reads that `scripts` table
+# at all. Measured on npm 10.9.8, pnpm 11.15.1, yarn 1.22.22 and bun 1.3.11 against a package.json
+# holding `build` and `test` and a node_modules/.bin/mytool:
+#   npm run mytool                 exit 1, Missing script
+#   pnpm run mytool                exit 1, Missing script
+#   yarn mytool / yarn run mytool  exit 0, ran node_modules/.bin/mytool
+#   bun run mytool / bun mytool    exit 0, ran node_modules/.bin/mytool, and a PATH binary too
+#   npm run mytool --if-present    exit 0
+#   npm run build --workspaces     exit 0 at a root with no `build`, ran the workspace's script
+# So the scripts table settles nothing for a delegating or optional invocation, and it settles the
+# manifest but not the outcome for yarn and bun.
+PM_DELEGATE = re.compile(r"(?:^|\s)(?:--workspaces?|-w|--recursive|-r|--if-present|"
+                         r"--filter(?:=\S*)?|--filter-prod(?:=\S*)?|workspaces?)(?:\s|=|$)")
+PM_BIN_FALLBACK = ("yarn", "bun")
+BIN_FALLBACK_NOTE = ("yarn and bun run a name absent from `scripts` as a binary from "
+                     "node_modules/.bin, which is not committed and was not read")
+# setup.py builds its entry points when it runs, so a regex reading of the file is a reading of the
+# source, not the list an install puts on the path. That used to be carried as a lower confidence.
+# It is a fact about how the name was resolved, so it is now said in the row.
+SETUP_PY_NOTE = ("setup.py declares its entry points in code that runs at build time; what was "
+                 "read here is the file, not the list an install produces")
+# Every command finding reports at "low", exactly as every path finding does. Hand adjudication of
+# all 31 command findings across 51 repositories put this check at 1 true positive, and all 27 rows
+# that reported "high" were wrong, so the confidence field was anti-correlated with correctness and
+# worse than no field at all. 28 of the 30 false positives were documents making no claim about the
+# repository they sit in: comparison tables with metasyntactic placeholders, task templates, case
+# studies about other repositories, one hypothetical drift example inside an instruction about
+# detecting drift. No string-against-manifest test separates those from a command that has gone
+# stale, and the recall this pass buys is near zero: across 77 documented commands in 5 maintained
+# repositories, none named a script that was missing. So the row still says exactly what it read,
+# and it no longer says the reader should believe it. Detection is unchanged; only standing is.
+COMMAND_CONFIDENCE = "low"
+COMMAND_PRECISION_NOTE = "documents name commands for many reasons; verify before acting"
+# `make -C sidecar test` runs in another directory, `make -f build.mk test` reads another makefile
+# and `make -j 4 build` puts a flag argument where a target would be, so the first word after
+# `make` is not the target. Options are dropped, the ones that carry a separate word take it with
+# them, and -C is kept because it says which makefile answers.
+MAKE_DIR_OPTS = ("-C", "--directory")
+MAKE_FILE_OPTS = ("-f", "--file", "--makefile")
+MAKE_ARG_OPTS = ("-I", "--include-dir", "-o", "--old-file", "--assume-old", "-W", "--what-if",
+                 "--new-file", "--assume-new", "-j", "--jobs", "-l", "--load-average")
+MAKE_NUMBER_OPTS = ("-j", "--jobs", "-l", "--load-average")
+MAKE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9:_.+/%-]*$")
+MAKE_ASSIGN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*[+:?!]?=")
+# One rule line can declare several targets (`build test:`), a target can be a pattern (`%.pdf:`)
+# or computed (`$(BIN):`), and a double-colon rule is still a rule. The left side is read whole and
+# split, rather than up to the first space, because `build test:` declares two targets and reading
+# one word declares neither.
+MAKE_TARGET = re.compile(r"^([^\s:=#][^:=#\n]*?)\s*::?(?!=)")
+MAKE_INCLUDE = re.compile(r"^ *[-s]?include\s+(.+?)\s*$")
+MAKE_GLOB = ("$", "*", "?", "[")
+# GNU make's default .SUFFIXES. `make foo.o` builds foo.o from foo.c with no rule of its own, so a
+# name carrying one of these is buildable by a rule the makefile does not contain. Verified with
+# GNU Make 3.81: an empty rule set plus foo.c, `make foo.o` exits 0 and compiles it.
+MAKE_BUILTIN_SUFFIXES = (".out", ".a", ".ln", ".o", ".c", ".cc", ".C", ".cpp", ".p", ".f", ".F",
+                         ".m", ".r", ".y", ".l", ".ym", ".yl", ".s", ".S", ".mod", ".sym", ".def",
+                         ".h", ".info", ".dvi", ".tex", ".texinfo", ".texi", ".txinfo", ".w",
+                         ".ch", ".web", ".sh", ".elc", ".el")
 MANAGE_RUN = re.compile(r"^python[\d.]*\s+manage\.py\s+([A-Za-z0-9_.-]+)")
 CARGO_BIN = re.compile(r"^cargo\s+run\b.*?--bin[=\s]+([A-Za-z0-9_.-]+)")
 GO_RUN = re.compile(r"^go\s+run\s+(\S+)")
@@ -130,6 +204,78 @@ COUNT_CLAIM = re.compile(r"\b(\d{1,4})\s+(?:api\s+)?(endpoints?|routes?)\b", re.
 LINK_TARGET = re.compile(r"\[[^\]\n]*\]\(([^)\s]+)\)")
 CODE_SPAN = re.compile(r"`([^`\n]{2,160})`")
 FENCE = re.compile(r"^(?:```+|~~~+)\s*([A-Za-z0-9_+#-]*)")
+
+# A documentation reference names a location. A location is not an expression, so a token carrying
+# call syntax, an argument list, an assignment or a quote is code being quoted, not a path.
+EXPRESSION_CHARS = ("(", ")", "=", ",", ";", "'", "\"", "`", "&")
+# Every language resolves a module specifier by searching extensions, and every documentation site
+# routes a page by its slug, so lib/drift-detector and docs/guide are written without one on
+# purpose. The reference is to the file the search finds.
+MODULE_EXT = (".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".py", ".rb", ".go", ".rs", ".java",
+              ".kt", ".php", ".vue", ".svelte", ".md", ".mdx")
+MODULE_INDEX = ("index", "__init__", "mod")
+KNOWN_EXT = TEXT_EXT | DOC_EXT | OPAQUE_EXT
+# A reference is a claim that the path is there now. Prose that names a path in order to deny that
+# claim is not drifting from the repository, it is describing the repository correctly, and the
+# shapes below are the ways a document says so. Each needs structure, not a keyword: a relation
+# with a successor on the far side, a negation governing the token, a predicate of absence
+# asserted about the token after it has been named, or a verb of removal governing it before it is
+# named.
+RELOCATION = re.compile(r"(?i)\b(?:renamed?|renaming|moved?|moving|relocated?|replaced?|"
+                        r"supersed(?:ed|es)|split|merged|consolidated|extracted)\b")
+RELATION = re.compile(r"(?:\s(?:to|into)\s|\s*(?:->|=>|→)\s*)")
+PATHISH = re.compile(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_./-]+|[A-Za-z0-9_-]+\.[A-Za-z0-9]{1,6}\b")
+NEGATED = re.compile(r"(?i)\bnot\s*[(\[\"'`]*$")
+# Only predicates of absence. "legacy", "deprecated" and "formerly" speak to a path's age or
+# standing, not to whether it is there, and a deprecated file that is missing is still drift.
+ABSENT_CLAIM = re.compile(r"(?i)\bno longer (?:exists?|present|there|available|shipped|included)\b"
+                          r"|\b(?:has|have|had|was|were|are|is) been (?:removed|deleted|dropped)\b"
+                          r"|\b(?:was|were|are|is|and) (?:removed|deleted|dropped|stale)\b"
+                          r"|\bas historical\b|\b(?:is|are|were|was) historical\b"
+                          r"|\bdoes not exist\b|\bdo not exist\b|\bno such (?:file|path|directory)\b")
+# The same denial pointed forwards. A path a document says is coming is a path the document has
+# already told the reader is not there, so it is the aspirational half of ABSENT_CLAIM rather than
+# a second kind of claim. "planned" needs a copula in front of it, because "the planned migration
+# is described in `docs/x.md`" is a live reference to a document about a plan.
+PENDING_CLAIM = re.compile(r"(?i)\bdoes not yet exist\b|\bdo not yet exist\b"
+                           r"|\bnot yet (?:created|written|added|implemented|generated|present|"
+                           r"available|exists?|in place)\b"
+                           r"|\bwill be (?:created|added|written|generated|introduced|provided)\b"
+                           r"|\bto be (?:created|added|written|generated|introduced|provided)\b"
+                           r"|\b(?:is|are|was|were) (?:still )?planned\b")
+# A verb of removal governs the token from in front of it: "Deleted the orphan `x.ts` module."
+# The verb only governs when nothing stands between it and the token except the noun phrase it
+# heads, which is what keeps "the deleted-items log lives in `docs/x.md`" reportable: the hyphen
+# makes "deleted" part of a name rather than a verb, and "lives in" is a second predicate that
+# takes the token away from the first. A copula does the same thing, so "the removed helper is
+# `src/legacy.js`" names a path that should be there and is not.
+REMOVAL_LEAD = re.compile(r"(?i)\b(?:deprecated\s+and\s+(?:removed|deleted)|deleted|removed|"
+                          r"dropped|retired|purged|not\s+yet\s+(?:created|added|written))(?![\w-])")
+GOVERNED_GAP = re.compile(r"^[\s:'\"`\w-]*$")
+NON_GOVERNING = {"is", "are", "was", "were", "be", "been", "being", "remains", "stays", "sits",
+                 "lives", "live", "lived", "located", "in", "into", "from", "to", "under", "at",
+                 "on", "for", "by", "via", "see", "because", "when", "while", "which", "that",
+                 "favor", "favour", "but", "so", "and"}
+MAX_GOVERNED_WORDS = 6
+# A sentence is the unit that carries the claim, and a wrapped paragraph puts the claim and the
+# token on different lines: "... and `schema/agent-manifest.v1.json` does" / "not exist yet." is
+# one sentence and two lines. Reading a line at a time reports a path the same line denies.
+BLOCK_QUOTE = re.compile(r"^\s*(?:>\s?)+")
+LIST_ITEM = re.compile(r"^\s*(?:[-*+]\s|\d+[.)]\s)")
+BLOCK_BREAK = re.compile(r"^\s*(?:#{1,6}\s|```|~~~|\||[-=*_]{3,}\s*$)")
+SENTENCE_END = re.compile(r"[.!?][\"')\]`]*(?=\s)")
+# A wrapped sentence spans two or three lines. Nothing legitimate spans forty, and a document with
+# one enormous paragraph should not cost more to read than a document with many.
+MAX_BLOCK_LINES = 40
+PATH_PRECISION_NOTE = "documents name paths for many reasons; verify before acting"
+# What the number counted, said in the row. The OpenAPI reading counts declared paths. The fallback
+# counts the lines a route pattern matched, which is a count of matches: two decorators on one
+# handler are two lines and one route, so calling it a route count would assert a reading of the
+# code that was never done.
+OPENAPI_COUNT = "paths declared"
+PATTERN_COUNT = "lines matched by the iface.http route pattern"
+DRIFT_FILTER_NOTE = ("path findings are a filtered view: the recall gates below drop candidates "
+                     "before anything is reported")
 
 GLOB_CACHE = {}
 PATTERN_CACHE = {}
@@ -262,6 +408,72 @@ def run_git(root, args, timeout=60):
     if proc.returncode != 0:
         return None
     return proc.stdout.decode("utf-8", "replace")
+
+
+def git_ignores(root, rel):
+    command = ["git", "-C", root, "check-ignore", "-q", "--", rel]
+    try:
+        proc = subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                              timeout=20)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if proc.returncode == 0:
+        return True
+    if proc.returncode == 1:
+        return False
+    return None
+
+
+def builtin_ignored(rel):
+    parts = [part for part in rel.split("/") if part and part != "."]
+    if not parts:
+        return False
+    if ENV_BASENAME.match(parts[-1]):
+        return True
+    if parts[0] in GENERATED_ROOTS:
+        return True
+    for part in parts:
+        if part in GENERATED_NAMES:
+            return True
+    return False
+
+
+# git check-ignore is the only authority on what a repository ignores. When it is missing, broken
+# or exhausted the scanner is guessing, and a guess that silences findings has to be declared,
+# because a reader cannot tell a suppressed finding from an absent one.
+def note_fallback(scan, reason):
+    scan["ignore_unchecked"] += 1
+    if scan["ignore_fallback"] is None:
+        scan["ignore_fallback"] = reason
+
+
+def ignore_source(scan):
+    if not scan["ignore_unchecked"]:
+        return "git" if scan["ignore_checks"] else "none"
+    return "git+builtin" if scan["ignore_answered"] else "builtin"
+
+
+def ignored_path(ctx, rel):
+    cache = ctx["ignored"]
+    if rel in cache:
+        return cache[rel]
+    scan = ctx["scan"]
+    verdict = None
+    if not ctx["git"]["available"]:
+        note_fallback(scan, "no git repository")
+    elif scan["ignore_checks"] >= MAX_IGNORE_CHECKS:
+        note_fallback(scan, "over %d paths needed an ignore check" % MAX_IGNORE_CHECKS)
+    else:
+        scan["ignore_checks"] += 1
+        verdict = git_ignores(ctx["root"], rel)
+        if verdict is None:
+            note_fallback(scan, "git check-ignore failed")
+        else:
+            scan["ignore_answered"] += 1
+    if verdict is None:
+        verdict = builtin_ignored(rel)
+    cache[rel] = verdict
+    return verdict
 
 
 def collect_git(root):
@@ -1126,20 +1338,83 @@ def doc_links(ctx, rel, text):
         cleaned = target.split("#")[0].split("?")[0].strip()
         if not cleaned or "://" in cleaned or cleaned.startswith(("mailto:", "#", "/")):
             continue
-        if resolve_path(ctx, base, cleaned) is None:
+        if path_missing(ctx, base, cleaned):
             broken += 1
     return total, broken
 
 
+def path_variants(base, token):
+    out = []
+    for candidate in (token, os.path.join(base, token) if base else None):
+        if candidate is None:
+            continue
+        cleaned = os.path.normpath(candidate).replace(os.sep, "/").rstrip("/")
+        if cleaned and cleaned not in out:
+            out.append(cleaned)
+    return out
+
+
 def resolve_path(ctx, base, token):
-    candidates = [token]
-    if base:
-        candidates.append(os.path.normpath(os.path.join(base, token)).replace(os.sep, "/"))
-    for candidate in candidates:
-        candidate = candidate.rstrip("/")
+    for candidate in path_variants(base, token):
         if candidate in ctx["pathset"] or candidate in ctx["dirs"]:
             return candidate
     return None
+
+
+def contained(root, rel):
+    prefix = os.path.abspath(root)
+    target = os.path.abspath(os.path.join(prefix, rel))
+    return target == prefix or target.startswith(prefix + os.sep)
+
+
+def disk_listing(ctx, folder):
+    names = ctx["listings"].get(folder)
+    if names is None:
+        try:
+            names = set(os.listdir(folder))
+        except OSError:
+            names = set()
+        ctx["listings"][folder] = names
+    return names
+
+
+# os.path.exists asks the filesystem, and on macOS and Windows the filesystem answers without
+# regard to case, so src/handler.py "exists" in a repository that only holds src/Handler.py. A
+# reference is only correct if it spells the entry the way the entry is spelled, and it has to be
+# wrong in the same way everywhere, so every component is compared against the real listing.
+def disk_entry(ctx, rel):
+    folder = ctx["root"]
+    for part in rel.split("/"):
+        if not part or part == ".":
+            continue
+        if part not in disk_listing(ctx, folder):
+            return False
+        folder = os.path.join(folder, part)
+    return True
+
+
+# The index decides what docdna reads. The filesystem decides what exists. A gitignored file is
+# absent from `git ls-files` and present on disk, and a document that names it is right.
+def resolve_disk(ctx, base, token):
+    for candidate in path_variants(base, token):
+        if not contained(ctx["root"], candidate):
+            continue
+        if disk_entry(ctx, candidate):
+            return candidate
+    return None
+
+
+def ignored_variant(ctx, base, token):
+    for candidate in path_variants(base, token):
+        if ignored_path(ctx, candidate):
+            return candidate
+    return None
+
+
+def path_missing(ctx, base, token):
+    if reference_resolves(ctx, base, token):
+        return False
+    return ignored_variant(ctx, base, token) is None
 
 
 def normalize_excludes(values):
@@ -1263,38 +1538,104 @@ def python_manifest(surface, rel):
     folder = os.path.dirname(rel)
     entry = surface["python"].get(folder)
     if entry is None:
-        entry = {"dir": folder, "path": rel, "build_system": False, "packaged": False,
+        entry = {"dir": folder, "path": rel, "packaged": False,
                  "names": set(), "entries": set()}
         surface["python"][folder] = entry
     return entry
 
 
+def node_manifest(surface, rel):
+    folder = os.path.dirname(rel)
+    entry = surface["node"].get(folder)
+    if entry is None:
+        entry = {"dir": folder, "path": rel, "scripts": {}}
+        surface["node"][folder] = entry
+    return entry
+
+
+def make_manifest(surface, rel):
+    folder = os.path.dirname(rel)
+    entry = surface["make"].get(folder)
+    if entry is None:
+        entry = {"dir": folder, "path": rel, "targets": set(), "patterns": [],
+                 "computed": False, "opaque": False}
+        surface["make"][folder] = entry
+    return entry
+
+
+# An included makefile carries targets the including one never names, so a makefile that includes
+# is only fully read once the includes are read with it. `include $(wildcard *.mk)` and an include
+# of a file that is not in the tree cannot be read, and a target absent from what was read is then
+# absent from a partial reading, not from the makefile, so the entry is marked opaque and reports
+# nothing. Verified with GNU Make 3.81: a Makefile whose only content is `include extra.mk`, with
+# `server:` in extra.mk, runs `make server`.
+def include_target(ctx, rel, token):
+    for char in MAKE_GLOB:
+        if char in token:
+            return None
+    candidate = os.path.normpath(os.path.join(os.path.dirname(rel), token)).replace(os.sep, "/")
+    return candidate if candidate in ctx["pathset"] else None
+
+
+def read_makefile(ctx, rel, entry, seen):
+    text = read_text(ctx, rel)
+    if text is None:
+        entry["opaque"] = True
+        return
+    for line in text.splitlines():
+        match = MAKE_INCLUDE.match(line)
+        if match:
+            for token in match.group(1).split():
+                target = include_target(ctx, rel, token)
+                if target is None:
+                    entry["opaque"] = True
+                elif target not in seen:
+                    seen.add(target)
+                    read_makefile(ctx, target, entry, seen)
+            continue
+        collect_targets(line, entry)
+
+
+def collect_targets(line, entry):
+    match = MAKE_TARGET.match(line)
+    if not match:
+        return
+    for name in match.group(1).split():
+        if "$" in name:
+            entry["computed"] = True
+        elif "%" in name:
+            head, _, tail = name.partition("%")
+            entry["patterns"].append((head, tail))
+        elif not name.startswith("."):
+            entry["targets"].add(name)
+
+
+def pattern_covers(patterns, name):
+    for head, tail in patterns:
+        if len(name) >= len(head) + len(tail) and name.startswith(head) and name.endswith(tail):
+            return True
+    return False
+
+
 def command_surface(ctx):
-    surface = {"scripts": {}, "scripts_path": None, "targets": set(), "makefile": None,
-               "ci": "", "python": {}, "cargo_path": None, "cargo_bins": set(), "go_mod": None,
-               "process_path": None, "process_cmd": None}
+    surface = {"node": {}, "make": {}, "ci": "", "python": {}, "cargo_path": None,
+               "cargo_bins": set(), "go_mod": None, "process_path": None, "process_cmd": None}
     for rel in ctx["paths"]:
         base = os.path.basename(rel)
-        if base == "package.json" and surface["scripts_path"] is None:
+        if base == "package.json":
             text = read_text(ctx, rel)
             flat = manifest_flat(rel, text or "")
             scripts = flat.get("scripts")
+            entry = node_manifest(surface, rel)
             if isinstance(scripts, dict):
-                surface["scripts"] = dict(scripts)
-                surface["scripts_path"] = rel
-        elif base in ("Makefile", "makefile", "GNUmakefile") and surface["makefile"] is None:
-            text = read_text(ctx, rel) or ""
-            surface["makefile"] = rel
-            for line in text.splitlines():
-                match = MAKE_TARGET.match(line)
-                if match and match.group(1) not in (".PHONY", ".DEFAULT"):
-                    surface["targets"].update(match.group(1).split())
+                entry["scripts"].update(scripts)
+        elif base in ("Makefile", "makefile", "GNUmakefile"):
+            read_makefile(ctx, rel, make_manifest(surface, rel), set([rel]))
         elif base == "pyproject.toml":
             text = read_text(ctx, rel) or ""
             flat = flatten_toml(text)
             entry = python_manifest(surface, rel)
             entry["path"] = rel
-            entry["build_system"] = BUILD_SYSTEM.search(text) is not None
             for key in ("project.name", "tool.poetry.name"):
                 if isinstance(flat.get(key), str):
                     entry["names"].add(dep_name(flat[key]))
@@ -1338,20 +1679,40 @@ def command_surface(ctx):
     return surface
 
 
-def nearest_manifest(entries, doc):
-    if not entries:
-        return None
-    base = os.path.dirname(doc)
-    best = None
-    for entry in entries:
-        folder = entry["dir"]
-        if folder and not (base == folder or base.startswith(folder + "/")):
-            continue
-        if best is None or len(folder) > len(best["dir"]):
-            best = entry
-    if best is None and len(entries) == 1:
-        best = entries[0]
-    return best
+def all_manifests(byfolder):
+    return [byfolder[folder] for folder in sorted(byfolder)]
+
+
+# A monorepo has one manifest per workspace and one at the root, and which of them answers for a
+# command depends on where the document sits. Walk up from the document's own directory, nearest
+# first, and finish at the repository root, because a command in a root README is normally run from
+# the root. Only the nearest manifest answers: a reader following apps/web/README.md runs the
+# command in apps/web, where the root package.json is not consulted at all, so a script declared
+# only at the root does not make the documented command work. Anything found further up, or off the
+# chain entirely, is a weaker claim, not a silence.
+def manifest_chain(byfolder, doc):
+    if not byfolder:
+        return []
+    chain = []
+    folder = os.path.dirname(doc)
+    while True:
+        entry = byfolder.get(folder)
+        if entry is not None:
+            chain.append(entry)
+        if not folder:
+            break
+        folder = os.path.dirname(folder)
+    if not chain and len(byfolder) == 1:
+        chain = all_manifests(byfolder)
+    return chain
+
+
+def elsewhere_row(ctx, doc, number, command, name, where, other, field):
+    return drift_row(
+        doc, "command-not-found", command, other["path"] + ":" + field,
+        "`%s` is declared in %s, not in %s, the manifest nearest this document"
+        % (name, other["path"], where["path"]), COMMAND_CONFIDENCE, number,
+        (commit_day(ctx, doc), commit_day(ctx, where["path"])))
 
 
 def drift_row(doc, kind, claim, checked_against, detail, confidence, line=None, dates=None):
@@ -1373,43 +1734,134 @@ def commit_day(ctx, rel):
 
 def node_drift(ctx, doc, number, command, surface):
     match = NPM_RUN.match(command)
-    if not match or not surface["scripts_path"]:
+    if not match:
         return None
     name = match.group(2)
     if match.group(1) == "npm" and "run" not in command.split()[:2]:
         return None
-    if name.startswith("-") or name in PM_BUILTINS or name in surface["scripts"]:
+    # `bun scripts/seed.mjs` executes a file. Only a bare name can be a script in a manifest, so a
+    # token carrying a path separator or a file extension is the runtime being handed a program.
+    if not SCRIPT_NAME.match(name) or os.path.splitext(name)[1].lower() in KNOWN_EXT:
+        return None
+    if name in PM_BUILTINS:
+        return None
+    # A delegating or optional invocation does not read this manifest's scripts, so this manifest
+    # cannot answer for it. `yarn workspace web build` lands here as the name `workspace`, which is
+    # the same case seen from the other end.
+    if PM_DELEGATE.search(command):
         return None
     if name in surface["ci"] or command in surface["ci"]:
         return None
-    known = ", ".join(sorted(surface["scripts"])[:6]) or "none"
-    return drift_row(doc, "command-not-found", command, surface["scripts_path"] + ":scripts",
-                     "no `%s` script; scripts are %s" % (name, known), "high", number,
-                     (commit_day(ctx, doc), commit_day(ctx, surface["scripts_path"])))
+    chain = manifest_chain(surface["node"], doc)
+    if not chain:
+        return None
+    where = chain[0]
+    if name in where["scripts"]:
+        return None
+    for other in all_manifests(surface["node"]):
+        if name in other["scripts"]:
+            return elsewhere_row(ctx, doc, number, command, name, where, other, "scripts")
+    known = ", ".join(sorted(where["scripts"])[:6]) or "none"
+    row = drift_row(doc, "command-not-found", command, where["path"] + ":scripts",
+                    "no `%s` script in %s; scripts are %s" % (name, where["path"], known),
+                    COMMAND_CONFIDENCE, number,
+                    (commit_day(ctx, doc), commit_day(ctx, where["path"])))
+    if match.group(1) in PM_BIN_FALLBACK:
+        row["resolution_note"] = BIN_FALLBACK_NOTE
+    return row
+
+
+def make_invocation(command):
+    tokens = command.split()
+    if not tokens or tokens[0] != "make":
+        return None
+    directory = None
+    index = 1
+    while index < len(tokens):
+        token = tokens[index]
+        if not token.startswith("-"):
+            if MAKE_ASSIGN.match(token):
+                index += 1
+                continue
+            return (token, directory) if MAKE_NAME.match(token) else None
+        head, sep, value = token.partition("=")
+        if head in MAKE_FILE_OPTS:
+            return None
+        if head in MAKE_DIR_OPTS:
+            if sep:
+                directory = value
+            elif index + 1 < len(tokens):
+                index += 1
+                directory = tokens[index]
+            index += 1
+            continue
+        if head in MAKE_ARG_OPTS and not sep:
+            following = tokens[index + 1] if index + 1 < len(tokens) else ""
+            index += 1 if head in MAKE_NUMBER_OPTS and not following.isdigit() else 2
+            continue
+        index += 1
+    return None
+
+
+# `make -C sidecar test` is a claim about sidecar/Makefile, and the makefile nearest the document
+# has no say in it. A reader runs the command from the document's directory or from the root, so
+# both readings are tried and the first one that has a makefile answers. Neither having one is a
+# silence: there is nothing to check the target against.
+def make_target_chain(surface, doc, directory):
+    if directory is None:
+        return manifest_chain(surface["make"], doc)
+    bases = [os.path.dirname(doc), ""]
+    for base in bases:
+        folder = os.path.normpath(os.path.join(base, directory)).replace(os.sep, "/")
+        folder = "" if folder == "." else folder
+        entry = surface["make"].get(folder)
+        if entry is not None:
+            return [entry]
+    return []
+
+
+# A target is absent only when the whole rule set was read and nothing in it can produce the name.
+# An unread include, a computed target name, a pattern rule that covers the name, a name make can
+# build from a built-in suffix rule, and a name that is already a file in the tree are each a way
+# for the name to work without appearing in `targets`. Verified with GNU Make 3.81: `make
+# README.md` with README.md on disk and no rule for it exits 0 with "Nothing to be done".
+def make_unprovable(ctx, where, name):
+    if where["opaque"] or where["computed"]:
+        return True
+    if pattern_covers(where["patterns"], name):
+        return True
+    if name.endswith(MAKE_BUILTIN_SUFFIXES):
+        return True
+    plain = name.rstrip("/")
+    return plain in ctx["pathset"] or plain in ctx["dirs"]
 
 
 def make_drift(ctx, doc, number, command, surface):
-    match = MAKE_RUN.match(command)
-    if not match or not surface["makefile"]:
+    invocation = make_invocation(command)
+    if invocation is None:
         return None
-    name = match.group(1)
-    if name in surface["targets"] or name in surface["ci"]:
+    name, directory = invocation
+    if name in surface["ci"]:
         return None
-    known = ", ".join(sorted(surface["targets"])[:6]) or "none"
-    return drift_row(doc, "command-not-found", command, surface["makefile"] + ":targets",
-                     "no `%s` target; targets are %s" % (name, known), "high", number,
-                     (commit_day(ctx, doc), commit_day(ctx, surface["makefile"])))
-
-
-def editable_drift(ctx, doc, number, command, entry):
-    if entry is None or entry["build_system"] or entry["packaged"]:
+    chain = make_target_chain(surface, doc, directory)
+    if not chain:
         return None
-    where = entry["path"]
-    return drift_row(
-        doc, "command-not-found", command, where + ":build-system",
-        "%s has no [build-system] table and there is no setup.py or setup.cfg, so an editable "
-        "install fails on a clean machine" % where, "high", number,
-        (commit_day(ctx, doc), commit_day(ctx, where)))
+    where = chain[0]
+    if name in where["targets"]:
+        return None
+    if make_unprovable(ctx, where, name):
+        return None
+    # Only for a command with no -C. With one, the makefile that answers is the one named on the
+    # command line, and "the manifest nearest this document" would be the wrong sentence.
+    if directory is None:
+        for other in all_manifests(surface["make"]):
+            if name in other["targets"]:
+                return elsewhere_row(ctx, doc, number, command, name, where, other, "targets")
+    known = ", ".join(sorted(where["targets"])[:6]) or "none"
+    return drift_row(doc, "command-not-found", command, where["path"] + ":targets",
+                     "no `%s` target in %s; targets are %s" % (name, where["path"], known),
+                     COMMAND_CONFIDENCE, number,
+                     (commit_day(ctx, doc), commit_day(ctx, where["path"])))
 
 
 def manage_drift(ctx, doc, number, command, surface, name):
@@ -1417,35 +1869,45 @@ def manage_drift(ctx, doc, number, command, surface, name):
         return None
     return drift_row(
         doc, "command-not-found", command, surface["process_path"] + ":process command",
-        "%s runs %s, not `manage.py %s`" % (surface["process_path"], surface["process_cmd"], name),
-        "high", number, (commit_day(ctx, doc), commit_day(ctx, surface["process_path"])))
+        "%s runs `%s`; this document runs `manage.py %s`"
+        % (surface["process_path"], surface["process_cmd"], name),
+        COMMAND_CONFIDENCE, number,
+        (commit_day(ctx, doc), commit_day(ctx, surface["process_path"])))
 
 
-def script_drift(ctx, doc, number, command, entry):
-    if entry is None or not entry["names"]:
-        return None
+def declares_entry(entry, wanted):
+    return wanted in set(dep_name(item) for item in entry["entries"])
+
+
+def script_drift(ctx, doc, number, command, chain, surface):
     name = command.split()[0]
-    if dep_name(name) not in entry["names"]:
+    wanted = dep_name(name)
+    claimed = [entry for entry in chain if wanted in entry["names"]]
+    if not claimed:
         return None
-    if dep_name(name) in set(dep_name(item) for item in entry["entries"]):
+    where = claimed[0]
+    if declares_entry(where, wanted):
         return None
-    where = entry["path"]
-    known = ", ".join(sorted(entry["entries"])[:6]) or "none"
-    confidence = "medium" if entry["packaged"] else "high"
-    return drift_row(
-        doc, "command-not-found", command, where + ":project.scripts",
-        "no console script named `%s` is declared; declared scripts are %s" % (name, known),
-        confidence, number, (commit_day(ctx, doc), commit_day(ctx, where)))
+    for other in all_manifests(surface["python"]):
+        if declares_entry(other, wanted):
+            return elsewhere_row(ctx, doc, number, command, name, where, other, "project.scripts")
+    known = ", ".join(sorted(where["entries"])[:6]) or "none"
+    row = drift_row(
+        doc, "command-not-found", command, where["path"] + ":project.scripts",
+        "no console script named `%s` in %s; declared entry points are %s"
+        % (name, where["path"], known),
+        COMMAND_CONFIDENCE, number, (commit_day(ctx, doc), commit_day(ctx, where["path"])))
+    if where["packaged"]:
+        row["resolution_note"] = SETUP_PY_NOTE
+    return row
 
 
 def python_drift(ctx, doc, number, command, surface):
     match = MANAGE_RUN.match(command)
     if match:
         return manage_drift(ctx, doc, number, command, surface, match.group(1))
-    entry = nearest_manifest(sorted(surface["python"].values(), key=lambda item: item["dir"]), doc)
-    if PIP_INSTALL.match(command) and PIP_EDITABLE.search(command):
-        return editable_drift(ctx, doc, number, command, entry)
-    return script_drift(ctx, doc, number, command, entry)
+    return script_drift(ctx, doc, number, command,
+                        manifest_chain(surface["python"], doc), surface)
 
 
 def cargo_drift(ctx, doc, number, command, surface):
@@ -1458,8 +1920,10 @@ def cargo_drift(ctx, doc, number, command, surface):
     known = ", ".join(sorted(surface["cargo_bins"])[:6])
     return drift_row(
         doc, "command-not-found", command, surface["cargo_path"] + ":bin",
-        "no crate named `%s` in any Cargo.toml; declared names start %s" % (name, known),
-        "high", number, (commit_day(ctx, doc), commit_day(ctx, surface["cargo_path"])))
+        "no `%s` among the `name` entries in the Cargo.toml files; the names read are %s"
+        % (name, known),
+        COMMAND_CONFIDENCE, number,
+        (commit_day(ctx, doc), commit_day(ctx, surface["cargo_path"])))
 
 
 def go_drift(ctx, doc, number, command, surface):
@@ -1474,7 +1938,7 @@ def go_drift(ctx, doc, number, command, surface):
         return None
     return drift_row(
         doc, "command-not-found", command, surface["go_mod"] + ":module",
-        "no `%s` package in the repository" % target, "high", number,
+        "no `%s` file or directory in the repository" % target, COMMAND_CONFIDENCE, number,
         (commit_day(ctx, doc), commit_day(ctx, surface["go_mod"])))
 
 
@@ -1489,6 +1953,9 @@ def check_commands(ctx, doc, text, surface):
                cargo_drift(ctx, doc, number, command, surface) or
                go_drift(ctx, doc, number, command, surface))
         if row:
+            # Stamped here rather than at six call sites, so no runtime can be added that emits a
+            # command row without the caveat that the measurement says every command row carries.
+            row["precision_note"] = COMMAND_PRECISION_NOTE
             rows.append(row)
     return rows
 
@@ -1504,28 +1971,188 @@ def path_tokens(text):
 
 
 def path_candidate(token):
-    text = token.strip().strip(",.;:")
+    text = token.strip()
+    # A fragment addresses a symbol or a heading inside a file, so lib/profiles.js#listPacks names
+    # lib/profiles.js. The fragment is never part of the filename.
+    text = text.split("#", 1)[0].split("?", 1)[0]
+    # Trailing punctuation belongs to the sentence, so it comes off. A leading dot belongs to the
+    # name: .github and .env.example are the paths they look like, and stripping the dot invents a
+    # different path that was never referenced and reports it missing.
+    text = text.rstrip(",.;:!?")
     if ")" in text and "(" not in text:
         text = text.rstrip(")")
     text = re.sub(r":[\d,\-]+$", "", text)
-    if not text or " " in text or len(text) > 120:
+    if not text or len(text) > 120:
+        return None
+    if text.split() != [text]:
         return None
     if text.startswith(("http", "mailto:", "#", "@", "-", "<", "$", "/", "~", "!")):
         return None
-    for bad in ("://", "*", "?", "<", ">", "{", "}", "$", "|", "..", "\\"):
+    for bad in ("://", "*", "?", "<", ">", "{", "}", "$", "|", "..", "\\") + EXPRESSION_CHARS:
         if bad in text:
             return None
     if text.startswith("./"):
         text = text[2:]
+    # A trailing slash is the writer stating that the reference is a directory, which is evidence
+    # of a path on its own; without one, a bare word with no extension is just a word.
+    folder = text.endswith("/")
     text = text.rstrip("/")
     if not text:
         return None
     extension = os.path.splitext(text)[1].lower()
-    if "/" not in text and extension not in TEXT_EXT | DOC_EXT:
-        return None
-    if "/" not in text and not extension:
+    if "/" not in text and not folder and extension not in TEXT_EXT | DOC_EXT:
         return None
     return text
+
+
+def resolve_any(ctx, base, candidate):
+    if resolve_path(ctx, base, candidate) is not None:
+        return True
+    return resolve_disk(ctx, base, candidate) is not None
+
+
+def module_resolves(ctx, base, candidate):
+    for ext in MODULE_EXT:
+        if resolve_any(ctx, base, candidate + ext):
+            return True
+    for stem in MODULE_INDEX:
+        for ext in MODULE_EXT:
+            if resolve_any(ctx, base, candidate + "/" + stem + ext):
+                return True
+    return False
+
+
+# lib/pillars.init(projectRoot) is a call and is rejected before it gets here. lib/pillars.init is
+# the same expression with the argument list left off, and it is recognisable by what it resolves
+# to: a module, plus a tail that is not any file extension. That tail selects something inside the
+# module, exactly as a fragment does, so the module is the reference.
+def member_access(ctx, base, candidate):
+    stem, extension = os.path.splitext(candidate)
+    if not extension or "/" not in stem or extension.lower() in KNOWN_EXT:
+        return False
+    return resolve_any(ctx, base, stem) or module_resolves(ctx, base, stem)
+
+
+def reference_resolves(ctx, base, candidate):
+    if resolve_any(ctx, base, candidate):
+        return True
+    if module_resolves(ctx, base, candidate):
+        return True
+    return member_access(ctx, base, candidate)
+
+
+# The construction is a verb of relocation, then this token, then a relation, then a second path.
+# All three are required: a line that merely contains "moved" is not naming a history, and a token
+# with nothing on the far side of the arrow has no successor to have been renamed to.
+def relocated_from(head, tail):
+    if not RELOCATION.search(head + tail):
+        return False
+    match = RELATION.search(tail)
+    if match is None:
+        return False
+    return PATHISH.search(tail[match.end():]) is not None
+
+
+# A predicate of absence asserted about the token comes after it: "`config/` was removed". A verb
+# of removal that takes the token as its object comes before it: "Deleted `config/`". Both are the
+# document saying the path is gone. What separates them from "the legacy layout lives in
+# `config/`", where the adjective in front is not a claim about presence at all, is that the verb
+# has to reach the token: only the noun phrase it heads may stand between them, and a copula, a
+# preposition or a second predicate ends its reach.
+def governed_removal(head):
+    lead = None
+    for match in REMOVAL_LEAD.finditer(head):
+        lead = match
+    if lead is None:
+        return False
+    gap = head[lead.end():]
+    if GOVERNED_GAP.match(gap) is None:
+        return False
+    words = gap.replace("-", " ").split()
+    if len(words) > MAX_GOVERNED_WORDS:
+        return False
+    return not any(word.strip("'\"`").lower() in NON_GOVERNING for word in words)
+
+
+def denied_presence(head, tail):
+    if NEGATED.search(head) is not None or governed_removal(head):
+        return True
+    return ABSENT_CLAIM.search(tail) is not None or PENDING_CLAIM.search(tail) is not None
+
+
+def historical_mention(sentence, token):
+    start = sentence.find(token)
+    if start < 0:
+        return False
+    head, tail = sentence[:start], sentence[start + len(token):]
+    return relocated_from(head, tail) or denied_presence(head, tail)
+
+
+# The sentence is the unit that carries the claim, and it is not always wider than the line: a line
+# holding two sentences denies the token in one of them and not the other. Narrowing to the
+# sentence alone would start reporting paths the previous release was silent about, so both scopes
+# are asked and either one suppresses. For a check whose whole failure mode is over-reporting, the
+# wider answer is the safe one, and a denial that only the line can see stays a denial.
+def denied_reference(lines, index, token):
+    line = lines[index] if 0 <= index < len(lines) else ""
+    if historical_mention(line, token):
+        return True
+    scope = sentence_scope(lines, index, token)
+    return scope != line and historical_mention(scope, token)
+
+
+def block_body(line):
+    return LIST_ITEM.sub("", BLOCK_QUOTE.sub("", line), count=1)
+
+
+def block_break(line):
+    return not line.strip() or BLOCK_BREAK.match(BLOCK_QUOTE.sub("", line)) is not None
+
+
+# The block is the paragraph, list item or block quote the line sits in. A list item starts one and
+# a heading, a fence, a table row or a blank line ends one, so joining the rest reconstructs the
+# wrapped sentence without merging two bullets that happen to be adjacent.
+def block_bounds(lines, index):
+    floor = max(0, index - MAX_BLOCK_LINES)
+    ceiling = min(len(lines) - 1, index + MAX_BLOCK_LINES)
+    start = index
+    while start > floor and LIST_ITEM.match(BLOCK_QUOTE.sub("", lines[start])) is None:
+        if block_break(lines[start - 1]):
+            break
+        start -= 1
+    end = index
+    while end < ceiling:
+        following = lines[end + 1]
+        if block_break(following) or LIST_ITEM.match(BLOCK_QUOTE.sub("", following)) is not None:
+            break
+        end += 1
+    return start, end
+
+
+def sentence_scope(lines, index, token):
+    if index < 0 or index >= len(lines):
+        return ""
+    start, end = block_bounds(lines, index)
+    pieces = [block_body(line) for line in lines[start:end + 1]]
+    text = " ".join(pieces)
+    offset = len(" ".join(pieces[:index - start]))
+    if index > start:
+        offset += 1
+    at = text.find(token, offset)
+    if at < 0:
+        at = text.find(token)
+    if at < 0:
+        return lines[index]
+    opening = 0
+    for match in SENTENCE_END.finditer(text):
+        if match.end() > at:
+            break
+        opening = match.end()
+    closing = len(text)
+    for match in SENTENCE_END.finditer(text, at + len(token)):
+        closing = match.end()
+        break
+    return text[opening:closing]
 
 
 def output_path(candidate):
@@ -1535,35 +2162,57 @@ def output_path(candidate):
     return False
 
 
+def note_discard(ctx, reason):
+    counts = ctx["scan"]["drift"]["discarded"]
+    counts[reason] = counts.get(reason, 0) + 1
+
+
+# The gates below decide what is reported, and the strings they drop are never seen again, so each
+# one is counted. Two of them trade recall for precision rather than judging a reference: a bare
+# filename outside a link is not treated as a path at all, and a candidate whose first component is
+# not a directory in this repository is dropped whether or not it is a real reference. In a large
+# repository that second gate discards three orders of magnitude more candidates than the report
+# ends up carrying, which is the difference between a filtered view and a complete one.
 def check_paths(ctx, doc, text):
     rows = []
     base = os.path.dirname(doc)
+    lines = text.splitlines()
     seen = set()
     for number, token, source in path_tokens(text):
         candidate = path_candidate(token)
         if candidate is None or candidate in seen:
             continue
+        if denied_reference(lines, number - 1, token):
+            continue
         seen.add(candidate)
-        if resolve_path(ctx, base, candidate) is not None:
+        ctx["scan"]["drift"]["candidates"] += 1
+        if reference_resolves(ctx, base, candidate):
             continue
         if output_path(candidate):
             continue
         if os.path.basename(candidate) in ctx["basenames"]:
+            note_discard(ctx, "basename_found_elsewhere")
             continue
         parent = os.path.dirname(candidate)
         first = candidate.split("/")[0]
         if not parent:
             if source != "link":
+                note_discard(ctx, "bare_name_outside_a_link")
                 continue
-            confidence = "high"
-        elif parent in ctx["dirs"]:
-            confidence = "high"
-        elif first in ctx["dirs"]:
-            confidence = "medium"
-        else:
+        elif parent not in ctx["dirs"] and first not in ctx["dirs"]:
+            note_discard(ctx, "first_component_not_a_directory")
             continue
-        rows.append(drift_row(doc, "path-not-found", candidate, "file index",
-                              "no such file or directory in the repository", confidence, number))
+        if ignored_variant(ctx, base, candidate) is not None:
+            continue
+        # A path-not-found finding is a string that is not on disk, and a document names a path for
+        # many reasons other than asserting it is there now: an install target, a changelog entry,
+        # a cross-repository reference, a hypothetical, a recommendation. Hand-adjudicating every
+        # finding on five repositories put the precision of this check at 11 percent, so it reports
+        # at "low" and says why in the row. The gates above are unchanged; only the claim is.
+        row = drift_row(doc, "path-not-found", candidate, "working tree",
+                        "no such file or directory in the repository", "low", number)
+        row["precision_note"] = PATH_PRECISION_NOTE
+        rows.append(row)
     return rows
 
 
@@ -1589,7 +2238,7 @@ def openapi_routes(ctx):
     return 0, None
 
 
-def check_counts(ctx, doc, text, routes, routes_path):
+def check_counts(ctx, doc, text, routes, routes_path, source):
     rows = []
     if not routes:
         return rows
@@ -1600,7 +2249,7 @@ def check_counts(ctx, doc, text, routes, routes_path):
                 continue
             rows.append(drift_row(
                 doc, "count-mismatch", "%s %s" % (match.group(1), match.group(2)), routes_path,
-                "%d routes detected" % routes, "medium", number,
+                "%d %s in %s" % (routes, source, routes_path), "medium", number,
                 (commit_day(ctx, doc), commit_day(ctx, routes_path))))
     return rows
 
@@ -1641,14 +2290,23 @@ def doc_references(ctx, docs):
     return lag
 
 
+def drift_stats():
+    return {"candidates": 0, "found": 0, "emitted": 0, "limit": MAX_DRIFT, "truncated": False,
+            "discarded": {"basename_found_elsewhere": 0, "bare_name_outside_a_link": 0,
+                          "first_component_not_a_directory": 0},
+            "note": DRIFT_FILTER_NOTE}
+
+
 def build_drift(ctx, docs):
     surface = command_surface(ctx)
     routes, routes_path = openapi_routes(ctx)
+    source = OPENAPI_COUNT
     if not routes:
         http = ctx["results"].get("iface.http") or {}
         if http.get("state") == "present":
             routes = http["hits"]
             routes_path = (http["evidence"][0]["path"] if http.get("evidence") else "iface.http")
+            source = PATTERN_COUNT
     rows = []
     for doc in docs:
         rel = doc["path"]
@@ -1661,7 +2319,7 @@ def build_drift(ctx, docs):
             continue
         rows.extend(check_commands(ctx, rel, text, surface))
         rows.extend(check_paths(ctx, rel, text))
-        rows.extend(check_counts(ctx, rel, text, routes, routes_path))
+        rows.extend(check_counts(ctx, rel, text, routes, routes_path, source))
         lag = ctx["doc_lag"].get(rel)
         if lag and lag["days"] > LAG_DAYS:
             rows.append(drift_row(
@@ -1670,9 +2328,16 @@ def build_drift(ctx, docs):
                 "high" if lag["days"] > STALE_DAYS else "medium", None,
                 (lag["doc_date"], lag["code_date"])))
     rows.sort(key=lambda row: (row["doc"], row.get("line") or 0, row["kind"]))
+    # The count before the cut, not just the fact of one. A report that swallowed 900 findings and
+    # a report that swallowed 3 both hit the limit, and a reader cannot act on the same sentence.
+    stats = ctx["scan"]["drift"]
+    stats["found"] = len(rows)
     if len(rows) > MAX_DRIFT:
         ctx["scan"]["truncated"] = True
-    return rows[:MAX_DRIFT]
+        stats["truncated"] = True
+    kept = rows[:MAX_DRIFT]
+    stats["emitted"] = len(kept)
+    return kept
 
 
 def build_ownership(ctx):
@@ -1731,12 +2396,14 @@ def scan(root, families, deep, max_evidence, excludes=None):
     ctx = {"root": root, "paths": index["paths"], "pathset": index["pathset"],
            "dirs": index["dirs"], "entries": index["entries"], "basenames": index["basenames"],
            "cache": {}, "results": {}, "docs": [], "doc_lag": {}, "deep": deep,
-           "excludes": excludes, "git": collect_git(root),
+           "excludes": excludes, "git": collect_git(root), "ignored": {}, "listings": {},
            "scan": {"files_total": len(index["paths"]), "files_read": 0, "files_skipped_large": 0,
                     "files_denied": len(denied), "files_capped": 0, "read_errors": 0,
                     "dirs_pruned": index["pruned"], "dirs_excluded": sorted(excludes),
-                    "index_source": index["source"],
-                    "max_file_bytes": MAX_FILE_BYTES, "truncated": False}}
+                    "index_source": index["source"], "ignore_checks": 0, "ignore_answered": 0,
+                    "ignore_unchecked": 0, "ignore_fallback": None, "ignore_source": "none",
+                    "max_file_bytes": MAX_FILE_BYTES, "truncated": False,
+                    "drift": drift_stats()}}
     signals = load_signals()
     generator_globs = []
     for sig in signals:
@@ -1749,6 +2416,7 @@ def scan(root, families, deep, max_evidence, excludes=None):
     ctx["doc_lag"] = doc_references(ctx, inventory["docs"])
     results = run_signals(ctx, signals, families, max_evidence)
     drift = build_drift(ctx, inventory["docs"])
+    ctx["scan"]["ignore_source"] = ignore_source(ctx["scan"])
     emitted = [results[sig["id"]] for sig in sorted(signals, key=lambda item: item["id"])
                if sig["id"] in results and (not families or sig["family"] in families)]
     for doc in inventory["docs"]:
@@ -1780,6 +2448,16 @@ def print_text(report):
     print("  %-9s: %d over %d days, %d broken links"
           % ("stale", inventory["stale_over_365d"], STALE_DAYS, inventory["broken_links"]))
     print("  %-9s: %d findings" % ("drift", len(report["drift"])))
+    drift_stat = scan_stats["drift"]
+    dropped = sum(drift_stat["discarded"].values())
+    if drift_stat["found"] > drift_stat["emitted"] or dropped:
+        print("  %-9s: %d of %d findings shown, %d of %d path candidates dropped by the gates"
+              % ("filtered", drift_stat["emitted"], drift_stat["found"], dropped,
+                 drift_stat["candidates"]))
+    if scan_stats["ignore_unchecked"]:
+        print("  %-9s: %s, %d paths guessed at because %s"
+              % ("ignored", scan_stats["ignore_source"], scan_stats["ignore_unchecked"],
+                 scan_stats["ignore_fallback"]))
 
     present = [item["id"] for item in report["signals"] if item["state"] == "present"]
     hints = [item["id"] for item in report["signals"] if item["state"] == "hint"]

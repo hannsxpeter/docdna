@@ -6,7 +6,7 @@ import json
 import re
 from pathlib import Path
 
-VERSION = "1.0.1"
+VERSION = "1.1.0"
 
 START = "<!-- docdna:start -->"
 END = "<!-- docdna:end -->"

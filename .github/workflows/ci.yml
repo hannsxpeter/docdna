@@ -96,6 +96,14 @@ jobs:
           python skill/scripts/docdna_llms.py . > /dev/null
           diff /tmp/docdna-llms-committed.txt llms.txt
 
+      # Every sample of tool output in README.md and skill/SKILL.md, regenerated from the command
+      # its marker names and compared byte for byte. It runs in the suite too; it gets its own step
+      # because seven review rounds in a row shipped a hand-edited sample, the last one a real
+      # capture with two of its eight rows deleted, and a fabricated sample has to fail the build
+      # rather than wait for the eighth person to notice.
+      - name: Documented samples are real stdout
+        run: python -m unittest discover -s tests -p test_readme_samples.py -v
+
       - name: Install ShellCheck
         run: |
           sudo apt-get update

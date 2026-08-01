@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 
 SCHEMA = 1
 TOOL = "docdna_llms"
-VERSION = "1.0.1"
+VERSION = "1.1.0"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SELECT_SCRIPT = os.path.join(HERE, "docdna_select.py")
@@ -40,7 +40,12 @@ STAGE_TITLES = {
 }
 
 PRESENT_STATES = ("present-fresh", "present-drifted", "present-stub")
-STATE_NOTES = {"present-drifted": "Stale: at least one claim in it is contradicted by the code.",
+# present-drifted is earned by a single low-confidence lead, so the note may not say the code
+# contradicts the document. Adjudication put the two passes behind that state at 3.2 and 10.9
+# percent precision, which means most rows carrying this note are a document naming a path or a
+# command for a reason other than asserting it is here right now. Describe the lead, not a verdict.
+STATE_NOTES = {"present-drifted": ("Lead: at least one path or command in it did not resolve "
+                                   "against the code, at low confidence and for a human to read."),
                "present-stub": "Stub: under 400 bytes, so treat it as a placeholder."}
 
 PROSE_EXT = (".md", ".markdown", ".rst", ".adoc", ".txt")

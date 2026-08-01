@@ -1,0 +1,9 @@
+{
+  "name": "@monorepo/web",
+  "private": true,
+  "scripts": {
+    "build": "vite build",
+    "check": "svelte-check",
+    "dev": "vite"
+  }
+}

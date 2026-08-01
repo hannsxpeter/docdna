@@ -508,5 +508,94 @@ class ManifestTests(unittest.TestCase):
             self.assertTrue(payload["documents"])
 
 
+# The report says what docdna decided, then what it assumed, then what a human still has to read.
+# Drift sits last because 51 hand-adjudicated repositories put both passes in the single digits of
+# precision. These tests hold that order and hold the vocabulary that goes with it.
+class ReportShapeTests(unittest.TestCase):
+    ORDER = ["MISSING AND LOAD-BEARING", "NOT APPLICABLE", "NOTE", "ASSUMED",
+             SELECT.STALE_TITLE, "NEXT"]
+
+    def report_for(self, tmp, name):
+        root = copy_fixture(name, tmp)
+        path = scan_file(name, root, tmp)
+        manifest, report = SELECT.select(str(root), str(path), None, False)
+        return manifest, report
+
+    # internal_service carries a command row and a count row, solo_cli a command row alone, and
+    # documented_repo none. Every one of those used to be able to print WRONG NOW.
+    def test_no_report_prints_a_wrong_now_section_or_calls_a_document_wrong(self):
+        for name in ("internal_service", "solo_cli", "documented_repo"):
+            with tempfile.TemporaryDirectory() as tmp:
+                _, report = self.report_for(tmp, name)
+
+                self.assertNotIn("WRONG NOW", report, name)
+                self.assertNotIn("contradict", report, name)
+
+    def test_both_former_wrong_now_kinds_render_as_leads(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest, report = self.report_for(tmp, "internal_service")
+            kinds = set(row["kind"] for row in manifest["drift"])
+
+            self.assertEqual(kinds, {"command-not-found", "count-mismatch"})
+            self.assertIn("%s  (%d)" % (SELECT.STALE_TITLE, len(manifest["drift"])), report)
+            self.assertIn(SELECT.STALE_READ_NOTE, report.replace("\n" + " " * 16, " "))
+            for row in manifest["drift"]:
+                self.assertIn(row["doc"], report, row["kind"])
+
+    def test_the_report_leads_with_the_document_set_and_ends_with_the_leads(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            _, report = self.report_for(tmp, "internal_service")
+            found = [report.find(title) for title in self.ORDER]
+
+            for title, index in zip(self.ORDER, found):
+                self.assertNotEqual(index, -1, title)
+            self.assertEqual(found, sorted(found))
+
+    def test_the_headline_counts_leads_and_never_counts_documents(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest, report = self.report_for(tmp, "internal_service")
+            headline = report.splitlines()[2]
+
+            self.assertIn("Documentation  ", headline)
+            self.assertIn("%s  2 possible stale references" % SELECT.LEAD_LABEL, headline)
+            self.assertEqual(len(manifest["drift"]), 2)
+
+    def test_a_repository_with_no_drift_says_so_and_prints_no_stale_section(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest, report = self.report_for(tmp, "documented_repo")
+
+            self.assertEqual(manifest["drift"], [])
+            self.assertNotIn(SELECT.STALE_TITLE, report)
+            self.assertIn("%s  none across your" % SELECT.LEAD_LABEL, report.splitlines()[2])
+
+    # A count and three examples. A reader who wants the fourth is told where the ledger is, in the
+    # same breath as being told the rows are leads rather than findings.
+    def test_the_stale_section_shows_a_count_three_examples_and_the_ledger(self):
+        rows = [{"doc": "docs/%d.md" % index, "kind": "path-not-found",
+                 "claim": "docs/gone-%d.md" % index, "detail": "no such file"}
+                for index in range(5)]
+        lines = []
+        SELECT.render_stale({"drift": rows}, {"scan": {"drift": {"discarded": 7}}}, lines)
+        text = "\n".join(lines)
+
+        self.assertIn("%s  (5, showing 3)" % SELECT.STALE_TITLE, text)
+        self.assertEqual(sum(1 for row in rows if row["doc"] in text), 3)
+        self.assertIn(SELECT.STALE_PATH_NOTE, text.replace("\n" + " " * 16, " "))
+        self.assertIn(SELECT.STALE_READ_NOTE, text.replace("\n" + " " * 16, " "))
+        self.assertIn(SELECT.MANIFEST_REL, text)
+
+    def test_the_stale_note_names_only_the_kinds_actually_present(self):
+        scan = {"scan": {"drift": {"discarded": 0}}}
+        path_only = SELECT.stale_note([{"kind": "path-not-found"}], scan)
+        command_only = SELECT.stale_note([{"kind": "command-not-found"}], scan)
+
+        self.assertIn(SELECT.STALE_PATH_NOTE, path_only)
+        self.assertNotIn(SELECT.STALE_COMMAND_NOTE, path_only)
+        self.assertIn(SELECT.STALE_COMMAND_NOTE, command_only)
+        self.assertNotIn(SELECT.STALE_PATH_NOTE, command_only)
+        self.assertIn(SELECT.STALE_READ_NOTE, path_only)
+        self.assertIn(SELECT.STALE_READ_NOTE, command_only)
+
+
 if __name__ == "__main__":
     unittest.main()

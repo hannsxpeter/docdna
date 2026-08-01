@@ -1,0 +1,10 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "monorepo-tools"
+version = "0.1.0"
+
+[project.scripts]
+monotool = "monorepo_tools.cli:main"

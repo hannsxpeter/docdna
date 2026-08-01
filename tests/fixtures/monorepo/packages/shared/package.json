@@ -1,0 +1,7 @@
+{
+  "name": "@monorepo/shared",
+  "private": true,
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  }
+}

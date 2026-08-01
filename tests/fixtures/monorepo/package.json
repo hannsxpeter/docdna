@@ -1,0 +1,11 @@
+{
+  "name": "monorepo",
+  "private": true,
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "build": "turbo build",
+    "dev": "turbo dev",
+    "test:llm-output": "bun test tests/llm",
+    "release:package": "bun run scripts/package.ts"
+  }
+}
