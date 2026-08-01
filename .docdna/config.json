@@ -1,0 +1,11 @@
+{
+  "exclude_dirs": [
+    "docs/design",
+    "skill/references",
+    "skill/templates",
+    "tests/fixtures"
+  ],
+  "assurance_set": [],
+  "regulated": false,
+  "safety_critical": false
+}

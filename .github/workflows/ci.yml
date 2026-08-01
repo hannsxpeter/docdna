@@ -1,0 +1,119 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Compile helpers
+        run: |
+          python -m py_compile skill/scripts/docdna_scan.py
+          python -m py_compile skill/scripts/docdna_select.py
+          python -m py_compile skill/scripts/docdna_backfill.py
+          python -m py_compile skill/scripts/docdna_check.py
+          python -m py_compile skill/scripts/docdna_wire.py
+          python -m py_compile skill/scripts/docdna_llms.py
+
+      - name: Validate catalog JSON
+        run: |
+          for f in skill/catalog/*.json; do
+            python -c "import json,sys; json.load(open(sys.argv[1]))" "$f"
+          done
+
+      - name: Run tests
+        run: python -m unittest discover -s tests
+
+      # Every script, end to end, on this repository. The unit tests exercise the functions; this
+      # step is the only thing that catches a script that cannot run at all, which is how
+      # docdna_llms.py once shipped exiting 2 on any repository without a prior manifest.
+      - name: Run the whole pipeline on this repository
+        run: |
+          python skill/scripts/docdna_scan.py --json . > /dev/null
+          python skill/scripts/docdna_select.py . > /dev/null
+          python skill/scripts/docdna_check.py . > /dev/null
+          python skill/scripts/docdna_backfill.py --json . > /dev/null
+          python skill/scripts/docdna_llms.py . > /dev/null
+
+      # The dogfood gate. The step above proves every script runs; this one proves the number rule
+      # is honest about the one repository whose documentation we can actually adjudicate. A single
+      # generated-number or provenance-number finding here is either a real fabrication in docdna's
+      # own docs, which has to be fixed in the doc, or a false accusation against correct prose,
+      # which has to be fixed in the checker. Neither is allowed to ship. This gate is what stops
+      # the number rule being tightened once more into a checker that cries wolf, because docdna's
+      # own documentation is the loudest wolf it has.
+      - name: docdna survives its own number rule
+        run: |
+          python skill/scripts/docdna_check.py --json . > /tmp/docdna-dogfood.json
+          python - <<'PY'
+          import json
+          import sys
+
+          REFUSED = ("generated-number", "provenance-number")
+
+          with open("/tmp/docdna-dogfood.json", encoding="utf-8") as handle:
+              report = json.load(handle)
+          rows = [row for row in report["findings"] if row["kind"] in REFUSED]
+          for row in rows:
+              print("%s:%s %s %s" % (row.get("path"), row.get("line"), row["kind"], row["detail"]))
+          if rows:
+              sys.exit("the dogfood gate found %d number findings against docdna itself" % len(rows))
+          print("dogfood gate clean: %d documents linted for numbers, 0 flagged"
+                % report["numbers"]["linted"])
+          PY
+
+      # Re-running Survey must converge. DOCDNA.md is itself a document in the tree, so a scanner
+      # that reads its own report as evidence grows a new finding on every run. The first two runs
+      # legitimately differ, because run one creates DOCDNA.md and run two reports the coverage
+      # delta against run one. From run three on the bytes must not move.
+      - name: Survey converges
+        run: |
+          for _ in 1 2 3; do
+            python skill/scripts/docdna_select.py . > /dev/null
+          done
+          cp DOCDNA.md /tmp/docdna-settled.md
+          python skill/scripts/docdna_select.py . > /dev/null
+          diff /tmp/docdna-settled.md DOCDNA.md
+
+      # llms.txt is generated and committed, so it drifts the moment a document is added and nothing
+      # notices. It shipped stale once already, indexing neither CHANGELOG.md nor CONTRIBUTING.md
+      # hours after both were added. DOCDNA.md has had a convergence gate since the same bug bit it;
+      # this is that gate for the other generated artifact.
+      - name: The committed llms.txt matches the code
+        run: |
+          cp llms.txt /tmp/docdna-llms-committed.txt
+          python skill/scripts/docdna_llms.py . > /dev/null
+          diff /tmp/docdna-llms-committed.txt llms.txt
+
+      - name: Install ShellCheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+
+      - name: Lint installer
+        run: shellcheck install.sh
+
+      - name: Install the skill and run it from the installed location
+        run: |
+          dest=$(mktemp -d)
+          CLAUDE_SKILLS_DIR="$dest" ./install.sh claude
+          for member in SKILL.md scripts catalog references templates; do
+            test -e "$dest/docdna/$member"
+          done
+          repo=$(mktemp -d)
+          cp -R tests/fixtures/internal_service/. "$repo/"
+          python "$dest/docdna/scripts/docdna_scan.py" --json "$repo" > /dev/null
+          python "$dest/docdna/scripts/docdna_select.py" "$repo" > /dev/null
+          python "$dest/docdna/scripts/docdna_check.py" "$repo" > /dev/null
+          python "$dest/docdna/scripts/docdna_llms.py" "$repo" > /dev/null

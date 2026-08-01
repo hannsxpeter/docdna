@@ -1,0 +1,98 @@
+groups:
+  - name: ledger-service
+    rules:
+      - alert: LedgerApiErrorRateHigh
+        expr: rate(http_requests_total{job="ledger",status=~"5.."}[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: Ledger API is returning 5xx above the error rate threshold
+
+      - alert: LedgerApiLatencyHigh
+        expr: histogram_quantile(0.99, ledger_request_duration_seconds_bucket) > 2
+        for: 10m
+        labels:
+          severity: page
+        annotations:
+          summary: Ledger API p99 latency is above two seconds
+
+      - alert: LedgerPostingQueueBacklog
+        expr: celery_queue_length{queue="postings"} > 5000
+        for: 15m
+        labels:
+          severity: page
+        annotations:
+          summary: The postings queue is backing up
+
+      - alert: LedgerPostingQueueStalled
+        expr: rate(celery_tasks_completed_total{queue="postings"}[10m]) == 0
+        for: 10m
+        labels:
+          severity: page
+        annotations:
+          summary: No postings task has completed in ten minutes
+
+      - alert: LedgerDatabaseConnectionsHigh
+        expr: pg_stat_activity_count{datname="ledger"} > 180
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: PostgreSQL connection count is near the configured limit
+
+      - alert: LedgerDatabaseReplicationLag
+        expr: pg_replication_lag_seconds{datname="ledger"} > 120
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: Read replica lag is above two minutes
+
+      - alert: LedgerDiskSpaceLow
+        expr: node_filesystem_avail_bytes{mountpoint="/data"} / node_filesystem_size_bytes < 0.1
+        for: 15m
+        labels:
+          severity: ticket
+        annotations:
+          summary: Less than ten percent of the data volume remains
+
+      - alert: LedgerUnbalancedJournal
+        expr: increase(ledger_unbalanced_journal_total[1h]) > 0
+        for: 0m
+        labels:
+          severity: page
+        annotations:
+          summary: A journal entry failed the double-entry balance check
+
+      - alert: LedgerReconciliationStale
+        expr: time() - ledger_last_reconciliation_timestamp > 86400
+        for: 30m
+        labels:
+          severity: ticket
+        annotations:
+          summary: No reconciliation run has completed in twenty-four hours
+
+      - alert: LedgerWebhookDeliveryFailing
+        expr: rate(ledger_webhook_failures_total[15m]) > 0.2
+        for: 15m
+        labels:
+          severity: ticket
+        annotations:
+          summary: Outbound webhook deliveries are failing
+
+      - alert: LedgerCertificateExpiringSoon
+        expr: probe_ssl_earliest_cert_expiry{job="ledger"} - time() < 604800
+        for: 1h
+        labels:
+          severity: ticket
+        annotations:
+          summary: The public certificate expires within a week
+
+      - alert: LedgerInstanceDown
+        expr: up{job="ledger"} == 0
+        for: 2m
+        labels:
+          severity: page
+        annotations:
+          summary: A ledger instance has stopped reporting

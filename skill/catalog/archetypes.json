@@ -1,0 +1,560 @@
+{
+  "schema": 1,
+  "floor": 0.45,
+  "counterfactual_margin": 15,
+  "primaries": [
+    {
+      "id": "client-application",
+      "baseline": 16,
+      "weights": [
+        {
+          "when": {
+            "any": [
+              {
+                "signal": "arch.webapp",
+                "is": "present"
+              },
+              {
+                "signal": "arch.mobile",
+                "is": "present"
+              },
+              {
+                "signal": "arch.desktop",
+                "is": "present"
+              },
+              {
+                "signal": "arch.extension",
+                "is": "present"
+              }
+            ]
+          },
+          "points": 55
+        },
+        {
+          "when": {
+            "signal": "users.ui",
+            "is": "present"
+          },
+          "points": 30
+        },
+        {
+          "when": {
+            "signal": "qual.e2e",
+            "is": "present"
+          },
+          "points": 8
+        },
+        {
+          "when": {
+            "signal": "a11y.aria_usage",
+            "is": "present"
+          },
+          "points": 7
+        },
+        {
+          "when": {
+            "signal": "iface.http",
+            "is": "present"
+          },
+          "points": -15
+        },
+        {
+          "when": {
+            "signal": "users.public_signup",
+            "is": "present"
+          },
+          "points": -10
+        }
+      ],
+      "requires_absent": []
+    },
+    {
+      "id": "commercial-saas",
+      "baseline": 31,
+      "weights": [
+        {
+          "when": {
+            "signal": "users.public_signup",
+            "is": "present"
+          },
+          "points": 30
+        },
+        {
+          "when": {
+            "signal": "data.multi_tenant",
+            "is": "present"
+          },
+          "points": 25
+        },
+        {
+          "when": {
+            "signal": "sec.payments",
+            "is": "present"
+          },
+          "points": 20
+        },
+        {
+          "when": {
+            "signal": "deploy.env_count",
+            "gte": 2
+          },
+          "points": 15
+        },
+        {
+          "when": {
+            "signal": "sec.authn",
+            "is": "present"
+          },
+          "points": 10
+        },
+        {
+          "when": {
+            "signal": "users.published_package",
+            "is": "present"
+          },
+          "points": -10
+        }
+      ],
+      "requires_absent": []
+    },
+    {
+      "id": "data-platform",
+      "baseline": 21,
+      "weights": [
+        {
+          "when": {
+            "signal": "arch.data_pipeline",
+            "is": "present"
+          },
+          "points": 35
+        },
+        {
+          "when": {
+            "signal": "data.warehouse",
+            "is": "present"
+          },
+          "points": 30
+        },
+        {
+          "when": {
+            "signal": "deploy.scheduled",
+            "is": "present"
+          },
+          "points": 20
+        },
+        {
+          "when": {
+            "signal": "data.schema",
+            "is": "present"
+          },
+          "points": 15
+        },
+        {
+          "when": {
+            "signal": "users.public_signup",
+            "is": "present"
+          },
+          "points": -10
+        }
+      ],
+      "requires_absent": []
+    },
+    {
+      "id": "embedded-device",
+      "baseline": 23,
+      "weights": [
+        {
+          "when": {
+            "signal": "arch.firmware",
+            "is": "present"
+          },
+          "points": 55
+        },
+        {
+          "when": {
+            "signal": "supply.artifact_published",
+            "is": "present"
+          },
+          "points": 20
+        },
+        {
+          "when": {
+            "signal": "sec.artifact_signing",
+            "is": "present"
+          },
+          "points": 15
+        },
+        {
+          "when": {
+            "not": {
+              "signal": "users.ui",
+              "is": "present"
+            }
+          },
+          "points": 10
+        },
+        {
+          "when": {
+            "signal": "iface.http",
+            "is": "present"
+          },
+          "points": -10
+        },
+        {
+          "when": {
+            "signal": "users.public_signup",
+            "is": "present"
+          },
+          "points": -10
+        }
+      ],
+      "requires_absent": []
+    },
+    {
+      "id": "internal-service",
+      "baseline": 18,
+      "weights": [
+        {
+          "when": {
+            "signal": "deploy.cd",
+            "is": "present"
+          },
+          "points": 30
+        },
+        {
+          "when": {
+            "signal": "iface.http",
+            "is": "present"
+          },
+          "points": 25
+        },
+        {
+          "when": {
+            "signal": "sec.authn",
+            "is": "present"
+          },
+          "points": 20
+        },
+        {
+          "when": {
+            "signal": "arch.service",
+            "is": "present"
+          },
+          "points": 15
+        },
+        {
+          "when": {
+            "signal": "deploy.container",
+            "is": "present"
+          },
+          "points": 10
+        },
+        {
+          "when": {
+            "signal": "data.multi_tenant",
+            "is": "present"
+          },
+          "points": -10
+        },
+        {
+          "when": {
+            "signal": "users.published_package",
+            "is": "present"
+          },
+          "points": -10
+        }
+      ],
+      "requires_absent": [
+        "users.public_signup"
+      ]
+    },
+    {
+      "id": "oss-library",
+      "baseline": 9,
+      "weights": [
+        {
+          "when": {
+            "signal": "users.published_package",
+            "is": "present"
+          },
+          "points": 35
+        },
+        {
+          "when": {
+            "signal": "supply.license_permissive",
+            "is": "present"
+          },
+          "points": 25
+        },
+        {
+          "when": {
+            "signal": "proc.contributing",
+            "is": "present"
+          },
+          "points": 15
+        },
+        {
+          "when": {
+            "signal": "users.is_oss",
+            "is": "present"
+          },
+          "points": 15
+        },
+        {
+          "when": {
+            "signal": "supply.artifact_published",
+            "is": "present"
+          },
+          "points": 10
+        },
+        {
+          "when": {
+            "signal": "users.public_signup",
+            "is": "present"
+          },
+          "points": -20
+        },
+        {
+          "when": {
+            "signal": "arch.firmware",
+            "is": "present"
+          },
+          "points": -10
+        }
+      ],
+      "requires_absent": [
+        "iface.http"
+      ]
+    },
+    {
+      "id": "research-artifact",
+      "baseline": 12,
+      "weights": [
+        {
+          "when": {
+            "signal": "arch.notebook",
+            "is": "present"
+          },
+          "points": 35
+        },
+        {
+          "when": {
+            "signal": "docs.citation",
+            "is": "present"
+          },
+          "points": 30
+        },
+        {
+          "when": {
+            "signal": "ai.training",
+            "is": "present"
+          },
+          "points": 20
+        },
+        {
+          "when": {
+            "not": {
+              "signal": "deploy.ci",
+              "is": "present"
+            }
+          },
+          "points": 15
+        },
+        {
+          "when": {
+            "signal": "users.public_signup",
+            "is": "present"
+          },
+          "points": -15
+        },
+        {
+          "when": {
+            "signal": "sec.authn",
+            "is": "present"
+          },
+          "points": -10
+        }
+      ],
+      "requires_absent": [
+        "deploy.cd",
+        "deploy.kubernetes",
+        "deploy.paas",
+        "deploy.serverless"
+      ]
+    },
+    {
+      "id": "solo-utility",
+      "baseline": 4,
+      "weights": [
+        {
+          "when": {
+            "not": {
+              "signal": "proc.authors_12mo",
+              "gte": 2
+            }
+          },
+          "points": 25
+        },
+        {
+          "when": {
+            "not": {
+              "signal": "deploy.cd",
+              "is": "present"
+            }
+          },
+          "points": 20
+        },
+        {
+          "when": {
+            "not": {
+              "signal": "proc.commits_12mo",
+              "gte": 100
+            }
+          },
+          "points": 15
+        },
+        {
+          "when": {
+            "not": {
+              "signal": "sec.authn",
+              "is": "present"
+            }
+          },
+          "points": 15
+        },
+        {
+          "when": {
+            "not": {
+              "signal": "scale.loc",
+              "gte": 5000
+            }
+          },
+          "points": 10
+        },
+        {
+          "when": {
+            "not": {
+              "signal": "users.published_package",
+              "is": "present"
+            }
+          },
+          "points": 10
+        },
+        {
+          "when": {
+            "signal": "iface.cli",
+            "is": "present"
+          },
+          "points": 5
+        },
+        {
+          "when": {
+            "signal": "proc.codeowners",
+            "is": "present"
+          },
+          "points": -15
+        },
+        {
+          "when": {
+            "signal": "users.public_signup",
+            "is": "present"
+          },
+          "points": -15
+        }
+      ],
+      "requires_absent": []
+    }
+  ],
+  "overlays": [
+    {
+      "id": "agent-skill-package",
+      "when": {
+        "signal": "arch.agent_skill",
+        "is": "present"
+      },
+      "adds": [
+        "build.compat-matrix",
+        "frame.scope"
+      ]
+    },
+    {
+      "id": "ai-system",
+      "when": {
+        "any": [
+          {
+            "signal": "ai.inference",
+            "is": "present"
+          },
+          {
+            "signal": "ai.training",
+            "is": "present"
+          }
+        ]
+      },
+      "adds": []
+    },
+    {
+      "id": "operated-by-others",
+      "when": {
+        "answer": "q2_operator",
+        "in": [
+          "separate-ops-team",
+          "customer-operated"
+        ]
+      },
+      "adds": [
+        "operate.backup-restore",
+        "operate.deployment",
+        "operate.dr-bcp",
+        "operate.incident-mgmt",
+        "operate.oncall",
+        "operate.orr",
+        "operate.postmortem",
+        "operate.runbook",
+        "operate.runbook-index",
+        "operate.slo",
+        "operate.support-model"
+      ]
+    },
+    {
+      "id": "public-ui",
+      "when": {
+        "all": [
+          {
+            "signal": "users.ui",
+            "is": "present"
+          },
+          {
+            "answer": "q1_users",
+            "in": [
+              "customers",
+              "public"
+            ]
+          }
+        ]
+      },
+      "adds": [
+        "assure.acr-inputs"
+      ]
+    },
+    {
+      "id": "shipped-artifact",
+      "when": {
+        "any": [
+          {
+            "signal": "supply.artifact_published",
+            "is": "present"
+          },
+          {
+            "signal": "arch.firmware",
+            "is": "present"
+          }
+        ]
+      },
+      "adds": [
+        "assure.sbom",
+        "assure.vdp"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+service: ledger-service
+escalation_policy: payments-primary
+integration_key_env: PAGERDUTY_ROUTING_KEY
+urgency:
+  page: high
+  ticket: low
+notify:
+  - rotation: payments-primary
+  - rotation: payments-secondary

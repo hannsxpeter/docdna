@@ -1,0 +1,3030 @@
+{
+  "schema": 1,
+  "rules": [
+    {
+      "id": "R-ARCHETYPE-UNKNOWN-INTERVIEW",
+      "layer": "baseline",
+      "when": {
+        "archetype": "unknown"
+      },
+      "effect": "ask",
+      "documents": [
+        "frame.scope",
+        "govern.manifest"
+      ],
+      "because": "No archetype scored above the floor, so docdna will not guess what kind of system this is.",
+      "cite": [
+        "scale.loc",
+        "scale.services",
+        "q1_users",
+        "q2_operator"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-AUTHN-ATTACK-SURFACE",
+      "layer": "signal",
+      "when": {
+        "all": [
+          {
+            "signal": "sec.authn",
+            "is": "present"
+          },
+          {
+            "any": [
+              {
+                "signal": "arch.service",
+                "is": "present"
+              },
+              {
+                "signal": "iface.http",
+                "is": "present"
+              },
+              {
+                "signal": "users.public_signup",
+                "is": "present"
+              }
+            ]
+          }
+        ]
+      },
+      "effect": "require",
+      "documents": [
+        "assure.attack-surface",
+        "assure.threat-model"
+      ],
+      "because": "This system authenticates people, which means it has a boundary worth attacking and nothing describes it.",
+      "cite": [
+        "sec.authn",
+        "sec.authz",
+        "arch.service",
+        "iface.http"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-CD-RELEASE-ENGINEERING",
+      "layer": "signal",
+      "when": {
+        "signal": "deploy.cd",
+        "is": "present"
+      },
+      "effect": "require",
+      "documents": [
+        "build.release-process",
+        "operate.deployment"
+      ],
+      "because": "A pipeline pushes this to a running environment and the path it takes is written only in YAML.",
+      "cite": [
+        "deploy.cd",
+        "deploy.ci",
+        "deploy.env_count"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-CHANGELOG-TAGGED-RELEASES",
+      "layer": "signal",
+      "when": {
+        "all": [
+          {
+            "signal": "proc.tags",
+            "gte": 1
+          },
+          {
+            "signal": "docs.changelog",
+            "is": "absent"
+          }
+        ]
+      },
+      "effect": "require",
+      "documents": [
+        "serve.changelog"
+      ],
+      "because": "This repository has release tags and no file that says what changed between them.",
+      "cite": [
+        "proc.tags",
+        "docs.changelog",
+        "supply.artifact_published"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-CLIENT-APPLICATION-USER-FACING",
+      "layer": "baseline",
+      "when": {
+        "archetype": "client-application"
+      },
+      "effect": "require",
+      "documents": [
+        "assure.acr-inputs",
+        "serve.changelog",
+        "serve.migration-guide"
+      ],
+      "because": "People install this and see it, so what changed and who can use it are the two questions they will ask.",
+      "cite": [
+        "users.ui",
+        "arch.webapp",
+        "arch.mobile",
+        "arch.desktop"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-COMMERCIAL-SAAS-ASSURANCE",
+      "layer": "baseline",
+      "when": {
+        "archetype": "commercial-saas"
+      },
+      "effect": "require",
+      "documents": [
+        "assure.attack-surface",
+        "assure.data-classification",
+        "assure.threat-model",
+        "operate.slo",
+        "operate.support-model"
+      ],
+      "because": "Strangers pay to keep their data in this system and every one of them will eventually ask how it is protected.",
+      "cite": [
+        "data.multi_tenant",
+        "users.public_signup",
+        "sec.payments",
+        "deploy.env_count"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-COMPLIANCE-PROGRAM-EVIDENCE",
+      "layer": "signal",
+      "when": {
+        "signal": "sec.compliance_program",
+        "is": "present"
+      },
+      "effect": "require",
+      "documents": [
+        "assure.control-mapping",
+        "assure.scanning-index",
+        "retire.archive-manifest"
+      ],
+      "because": "A compliance workspace is wired into this repository and it will ask for evidence on a schedule.",
+      "cite": [
+        "sec.compliance_program",
+        "sec.scanners",
+        "q3_authorizer"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-DATA-MODEL-PERSISTENCE",
+      "layer": "signal",
+      "when": {
+        "any": [
+          {
+            "signal": "data.orm",
+            "is": "present"
+          },
+          {
+            "signal": "data.ddl",
+            "is": "present"
+          },
+          {
+            "signal": "data.migrations",
+            "is": "present"
+          }
+        ]
+      },
+      "effect": "require",
+      "documents": [
+        "design.data-model"
+      ],
+      "because": "This code owns a persistent schema and the meaning of its columns lives nowhere but in the columns.",
+      "cite": [
+        "data.orm",
+        "data.ddl",
+        "data.migrations",
+        "data.schema"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-DATA-PLATFORM-CONTRACTS",
+      "layer": "baseline",
+      "when": {
+        "archetype": "data-platform"
+      },
+      "effect": "require",
+      "documents": [
+        "assure.data-classification",
+        "build.migrations",
+        "design.data-model",
+        "operate.runbook-index"
+      ],
+      "because": "Downstream consumers read these tables and a silent schema change breaks work nobody in this repository can see.",
+      "cite": [
+        "arch.data_pipeline",
+        "data.warehouse",
+        "deploy.scheduled",
+        "data.schema"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-DECISION-RECORDS-ACTIVE-REPO",
+      "layer": "signal",
+      "when": {
+        "all": [
+          {
+            "signal": "proc.commits_12mo",
+            "gte": 100
+          },
+          {
+            "signal": "proc.authors_12mo",
+            "gte": 2
+          },
+          {
+            "signal": "docs.adr",
+            "is": "absent"
+          },
+          {
+            "not": {
+              "document": "decide.adr",
+              "state": "present"
+            }
+          }
+        ]
+      },
+      "effect": "require",
+      "documents": [
+        "decide.adr",
+        "decide.adr-index"
+      ],
+      "because": "An actively changed codebase with more than one author and no recorded decisions relitigates the same choices every quarter.",
+      "cite": [
+        "proc.commits_12mo",
+        "proc.authors_12mo",
+        "docs.adr",
+        "scale.languages"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-DOCUMENT-CODE-LAG",
+      "layer": "signal",
+      "when": {
+        "signal": "docs.doc_code_lag",
+        "is": "present"
+      },
+      "effect": "note",
+      "documents": [
+        "govern.manifest"
+      ],
+      "because": "At least one committed document is older than the source file it describes.",
+      "cite": [
+        "docs.doc_code_lag",
+        "docs.doc_last_commit"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-EMBEDDED-DEVICE-FIELD-SUPPORT",
+      "layer": "baseline",
+      "when": {
+        "archetype": "embedded-device"
+      },
+      "effect": "require",
+      "documents": [
+        "assure.sbom",
+        "build.compat-matrix",
+        "build.release-process",
+        "serve.changelog"
+      ],
+      "because": "Firmware in the field can only be fixed by people who know which build is on the device.",
+      "cite": [
+        "arch.firmware",
+        "supply.artifact_published",
+        "sec.artifact_signing"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-EXCLUDE-NO-AGENT-CONTEXT",
+      "layer": "signal",
+      "when": {
+        "all": [
+          {
+            "signal": "docs.agent_files",
+            "is": "absent"
+          },
+          {
+            "signal": "arch.agent_skill",
+            "is": "absent"
+          },
+          {
+            "signal": "docs.llms_txt",
+            "is": "absent"
+          }
+        ]
+      },
+      "effect": "exclude",
+      "documents": [
+        "build.agent-host-rules"
+      ],
+      "because": "No coding-agent context files exist here, so there are no host rules to extend.",
+      "cite": [
+        "docs.agent_files",
+        "arch.agent_skill",
+        "docs.llms_txt"
+      ],
+      "revisit_when": {
+        "any": [
+          {
+            "signal": "docs.agent_files",
+            "is": "present"
+          },
+          {
+            "signal": "arch.agent_skill",
+            "is": "present"
+          },
+          {
+            "signal": "docs.llms_txt",
+            "is": "present"
+          }
+        ]
+      },
+      "force": false
+    },
+    {
+      "id": "R-EXCLUDE-NO-ALERTS",
+      "layer": "signal",
+      "when": {
+        "all": [
+          {
+            "signal": "ops.alerts",
+            "is": "absent"
+          },
+          {
+            "signal": "ops.oncall",
+            "is": "absent"
+          },
+          {
+            "signal": "ops.metrics",
+            "is": "absent"
+          }
+        ]
+      },
+      "effect": "exclude",
+      "documents": [
+        "operate.runbook",
+        "operate.runbook-index"
+      ],
+      "because": "Nothing in this repository defines an alert or an on-call rotation, so there is no page for a runbook to answer.",
+      "cite": [
+        "ops.alerts",
+        "ops.oncall",
+        "ops.metrics"
+      ],
+      "revisit_when": {
+        "any": [
+          {
+            "signal": "ops.alerts",
+            "is": "present"
+          },
+          {
+            "signal": "ops.oncall",
+            "is": "present"
+          },
+          {
+            "signal": "ops.slo",
+            "is": "present"
+          },
+          {
+            "answer": "q2_operator",
+            "in": [
+              "separate-ops-team",
+              "customer-operated"
+            ]
+          }
+        ]
+      },
+      "force": false
+    },
+    {
+      "id": "R-EXCLUDE-NO-DATA-STORE",
+      "layer": "signal",
+      "when": {
+        "all": [
+          {
+            "signal": "data.schema",
+            "is": "absent"
+          },
+          {
+            "signal": "data.migrations",
+            "is": "absent"
+          },
+          {
+            "signal": "data.orm",
+            "is": "absent"
+          },
+          {
+            "signal": "data.ddl",
+            "is": "absent"
+          },
+          {
+            "signal": "data.warehouse",
+            "is": "absent"
+          }
+        ]
+      },
+      "effect": "exclude",
+      "documents": [
+        "assure.data-classification",
+        "build.migrations",
+        "design.data-model",
+        "operate.backup-restore"
+      ],
+      "because": "Nothing here declares, migrates, or maps a data store, so there is no data to classify or restore.",
+      "cite": [
+        "data.schema",
+        "data.migrations",
+        "data.orm",
+        "data.ddl",
+        "data.warehouse"
+      ],
+      "revisit_when": {
+        "any": [
+          {
+            "signal": "data.schema",
+            "is": "present"
+          },
+          {
+            "signal": "data.migrations",
+            "is": "present"
+          },
+          {
+            "signal": "data.orm",
+            "is": "present"
+          },
+          {
+            "signal": "data.ddl",
+            "is": "present"
+          },
+          {
+            "signal": "data.warehouse",
+            "is": "present"
+          },
+          {
+            "signal": "data.pii",
+            "gte": 1
+          }
+        ]
+      },
+      "force": false
+    },
+    {
+      "id": "R-EXCLUDE-NO-DEPENDENCIES",
+      "layer": "signal",
+      "when": {
+        "all": [
+          {
+            "signal": "supply.has_deps",
+            "is": "absent"
+          },
+          {
+            "signal": "supply.lockfile",
+            "is": "absent"
+          }
+        ]
+      },
+      "effect": "exclude",
+      "documents": [
+        "assure.sbom",
+        "decide.waivers"
+      ],
+      "because": "This repository declares no third-party dependencies, so a bill of materials would list nothing.",
+      "cite": [
+        "supply.has_deps",
+        "supply.lockfile",
+        "supply.sbom"
+      ],
+      "revisit_when": {
+        "any": [
+          {
+            "signal": "supply.has_deps",
+            "is": "present"
+          },
+          {
+            "signal": "supply.lockfile",
+            "is": "present"
+          },
+          {
+            "signal": "supply.artifact_published",
+            "is": "present"
+          },
+          {
+            "signal": "arch.firmware",
+            "is": "present"
+          }
+        ]
+      },
+      "force": false
+    },
+    {
+      "id": "R-EXCLUDE-NO-DEPLOYMENT",
+      "layer": "signal",
+      "when": {
+        "all": [
+          {
+            "all": [
+              {
+                "signal": "arch.service",
+                "is": "absent"
+              },
+              {
+                "signal": "deploy.kubernetes",
+                "is": "absent"
+              },
+              {
+                "signal": "deploy.paas",
+                "is": "absent"
+              },
+              {
+                "signal": "deploy.serverless",
+                "is": "absent"
+              },
+              {
+                "signal": "deploy.container",
+                "is": "absent"
+              },
+              {
+                "signal": "deploy.iac",
+                "is": "absent"
+              }
+            ]
+          },
+          {
+            "signal": "ops.alerts",
+            "is": "absent"
+          },
+          {
+            "signal": "ops.oncall",
+            "is": "absent"
+          },
+          {
+            "answer": "q2_operator",
+            "in": [
+              "not-deployed"
+            ]
+          }
+        ]
+      },
+      "effect": "exclude",
+      "documents": [
+        "operate.backup-restore",
+        "operate.deployment",
+        "operate.dr-bcp",
+        "operate.incident-mgmt",
+        "operate.oncall",
+        "operate.orr",
+        "operate.postmortem",
+        "operate.runbook",
+        "operate.runbook-index",
+        "operate.slo",
+        "operate.support-model"
+      ],
+      "because": "Nothing in this repository deploys anywhere and no operator was named, so there is no production to run.",
+      "cite": [
+        "arch.service",
+        "deploy.iac",
+        "deploy.container",
+        "deploy.kubernetes",
+        "ops.alerts",
+        "q2_operator"
+      ],
+      "revisit_when": {
+        "any": [
+          {
+            "signal": "arch.service",
+            "is": "present"
+          },
+          {
+            "signal": "deploy.container",
+            "is": "present"
+          },
+          {
+            "signal": "deploy.iac",
+            "is": "present"
+          },
+          {
+            "signal": "deploy.kubernetes",
+            "is": "present"
+          },
+          {
+            "signal": "deploy.paas",
+            "is": "present"
+          },
+          {
+            "signal": "deploy.serverless",
+            "is": "present"
+          },
+          {
+            "signal": "ops.alerts",
+            "is": "present"
+          },
+          {
+            "signal": "ops.oncall",
+            "is": "present"
+          },
+          {
+            "answer": "q2_operator",
+            "in": [
+              "the-authors",
+              "separate-ops-team",
+              "customer-operated"
+            ]
+          }
+        ]
+      },
+      "force": false
+    },
+    {
+      "id": "R-EXCLUDE-NO-FEATURE-FLAGS",
+      "layer": "signal",
+      "when": {
+        "all": [
+          {
+            "signal": "ops.flags",
+            "is": "absent"
+          },
+          {
+            "signal": "deploy.env_count",
+            "is": "absent"
+          }
+        ]
+      },
+      "effect": "exclude",
+      "documents": [
+        "build.feature-flags"
+      ],
+      "because": "No feature flag system is configured here, so there is no live flag set to register.",
+      "cite": [
+        "ops.flags",
+        "deploy.env_count"
+      ],
+      "revisit_when": {
+        "any": [
+          {
+            "signal": "ops.flags",
+            "is": "present"
+          },
+          {
+            "signal": "deploy.env_count",
+            "gte": 2
+          }
+        ]
+      },
+      "force": false
+    },
+    {
+      "id": "R-EXCLUDE-NO-NETWORK-INTERFACE",
+      "layer": "signal",
+      "when": {
+        "all": [
+          {
+            "signal": "arch.service",
+            "is": "absent"
+          },
+          {
+            "signal": "iface.graphql",
+            "is": "absent"
+          },
+          {
+            "signal": "iface.grpc",
+            "is": "absent"
+          },
+          {
+            "signal": "iface.openapi",
+            "is": "absent"
+          },
+          {
+            "signal": "iface.mcp_server",
+            "is": "absent"
+          },
+          {
+            "signal": "deploy.kubernetes",
+            "is": "absent"
+          },
+          {
+            "signal": "deploy.paas",
+            "is": "absent"
+          },
+          {
+            "signal": "deploy.serverless",
+            "is": "absent"
+          }
+        ]
+      },
+      "effect": "exclude",
+      "documents": [
+        "design.api-contract",
+        "design.integrations"
+      ],
+      "because": "This code exposes no network interface, so there is no contract for another program to depend on.",
+      "cite": [
+        "arch.service",
+        "iface.graphql",
+        "iface.grpc",
+        "iface.openapi",
+        "iface.mcp_server"
+      ],
+      "revisit_when": {
+        "any": [
+          {
+            "signal": "iface.http",
+            "is": "present"
+          },
+          {
+            "signal": "iface.graphql",
+            "is": "present"
+          },
+          {
+            "signal": "iface.grpc",
+            "is": "present"
+          },
+          {
+            "signal": "iface.openapi",
+            "is": "present"
+          },
+          {
+            "signal": "iface.mcp_server",
+            "is": "present"
+          },
+          {
+            "signal": "arch.service",
+            "is": "present"
+          }
+        ]
+      },
+      "force": false
+    },
+    {
+      "id": "R-EXCLUDE-NO-RELEASE-STREAM",
+      "layer": "signal",
+      "when": {
+        "all": [
+          {
+            "signal": "proc.tags",
+            "is": "absent"
+          },
+          {
+            "signal": "docs.changelog",
+            "is": "absent"
+          },
+          {
+            "signal": "users.published_package",
+            "is": "absent"
+          }
+        ]
+      },
+      "effect": "exclude",
+      "documents": [
+        "build.release-process",
+        "serve.changelog",
+        "serve.migration-guide"
+      ],
+      "because": "Nothing here is tagged, versioned, or published, so there is no release for notes to describe.",
+      "cite": [
+        "proc.tags",
+        "docs.changelog",
+        "users.published_package"
+      ],
+      "revisit_when": {
+        "any": [
+          {
+            "signal": "proc.tags",
+            "gte": 1
+          },
+          {
+            "signal": "users.published_package",
+            "is": "present"
+          },
+          {
+            "signal": "supply.artifact_published",
+            "is": "present"
+          },
+          {
+            "signal": "deploy.cd",
+            "is": "present"
+          }
+        ]
+      },
+      "force": false
+    },
+    {
+      "id": "R-EXCLUDE-NO-SCANNERS",
+      "layer": "signal",
+      "when": {
+        "all": [
+          {
+            "signal": "sec.scanners",
+            "is": "absent"
+          },
+          {
+            "signal": "sec.compliance_program",
+            "is": "absent"
+          },
+          {
+            "signal": "supply.dependabot",
+            "is": "absent"
+          }
+        ]
+      },
+      "effect": "exclude",
+      "documents": [
+        "assure.scanning-index"
+      ],
+      "because": "No scanner runs against this code, so there are no findings for an evidence index to collect.",
+      "cite": [
+        "sec.scanners",
+        "sec.compliance_program",
+        "supply.dependabot"
+      ],
+      "revisit_when": {
+        "any": [
+          {
+            "signal": "sec.scanners",
+            "is": "present"
+          },
+          {
+            "signal": "sec.compliance_program",
+            "is": "present"
+          },
+          {
+            "signal": "supply.dependabot",
+            "is": "present"
+          },
+          {
+            "answer": "q3_authorizer",
+            "in": [
+              "soc2-or-iso-auditor",
+              "government-authorizer",
+              "sector-regulator"
+            ]
+          }
+        ]
+      },
+      "force": false
+    },
+    {
+      "id": "R-EXCLUDE-NO-TRUST-BOUNDARY",
+      "layer": "signal",
+      "when": {
+        "all": [
+          {
+            "signal": "sec.authn",
+            "is": "absent"
+          },
+          {
+            "signal": "sec.payments",
+            "is": "absent"
+          },
+          {
+            "signal": "sec.health",
+            "is": "absent"
+          },
+          {
+            "signal": "arch.service",
+            "is": "absent"
+          },
+          {
+            "all": [
+              {
+                "signal": "data.schema",
+                "is": "absent"
+              },
+              {
+                "signal": "data.migrations",
+                "is": "absent"
+              },
+              {
+                "signal": "data.orm",
+                "is": "absent"
+              },
+              {
+                "signal": "data.ddl",
+                "is": "absent"
+              },
+              {
+                "signal": "data.warehouse",
+                "is": "absent"
+              }
+            ]
+          }
+        ]
+      },
+      "effect": "exclude",
+      "documents": [
+        "assure.attack-surface",
+        "assure.secrets-policy",
+        "assure.threat-model"
+      ],
+      "because": "There is no authentication, no server, and no stored data here, so there is no trust boundary to model.",
+      "cite": [
+        "sec.authn",
+        "sec.payments",
+        "sec.health",
+        "arch.service",
+        "data.schema"
+      ],
+      "revisit_when": {
+        "any": [
+          {
+            "signal": "sec.authn",
+            "is": "present"
+          },
+          {
+            "signal": "arch.service",
+            "is": "present"
+          },
+          {
+            "signal": "iface.http",
+            "is": "present"
+          },
+          {
+            "signal": "data.pii",
+            "gte": 1
+          },
+          {
+            "signal": "sec.payments",
+            "is": "present"
+          },
+          {
+            "signal": "sec.health",
+            "is": "present"
+          },
+          {
+            "signal": "sec.secrets_committed",
+            "is": "present"
+          }
+        ]
+      },
+      "force": false
+    },
+    {
+      "id": "R-EXCLUDE-NO-USER-INTERFACE",
+      "layer": "signal",
+      "when": {
+        "all": [
+          {
+            "signal": "users.ui",
+            "is": "absent"
+          },
+          {
+            "signal": "arch.webapp",
+            "is": "absent"
+          },
+          {
+            "signal": "arch.mobile",
+            "is": "absent"
+          },
+          {
+            "signal": "arch.desktop",
+            "is": "absent"
+          },
+          {
+            "signal": "arch.extension",
+            "is": "absent"
+          }
+        ]
+      },
+      "effect": "exclude",
+      "documents": [
+        "assure.acr-inputs"
+      ],
+      "because": "This system has no human-facing interface, so there is nothing for an accessibility test to exercise.",
+      "cite": [
+        "users.ui",
+        "arch.webapp",
+        "arch.mobile",
+        "arch.desktop",
+        "arch.extension"
+      ],
+      "revisit_when": {
+        "any": [
+          {
+            "signal": "users.ui",
+            "is": "present"
+          },
+          {
+            "signal": "arch.webapp",
+            "is": "present"
+          },
+          {
+            "signal": "arch.mobile",
+            "is": "present"
+          },
+          {
+            "signal": "arch.desktop",
+            "is": "present"
+          },
+          {
+            "signal": "arch.extension",
+            "is": "present"
+          },
+          {
+            "signal": "a11y.tooling",
+            "is": "present"
+          }
+        ]
+      },
+      "force": false
+    },
+    {
+      "id": "R-FEATURE-FLAG-REGISTER",
+      "layer": "signal",
+      "when": {
+        "signal": "ops.flags",
+        "is": "present"
+      },
+      "effect": "require",
+      "documents": [
+        "build.feature-flags"
+      ],
+      "because": "Feature flags change production behaviour and nothing here records which ones are still live.",
+      "cite": [
+        "ops.flags",
+        "deploy.env_count"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-INTERNAL-SERVICE-OPERATIONS",
+      "layer": "baseline",
+      "when": {
+        "archetype": "internal-service"
+      },
+      "effect": "require",
+      "documents": [
+        "build.config-reference",
+        "build.release-process",
+        "operate.deployment",
+        "operate.runbook-index"
+      ],
+      "because": "This deploys to somewhere real, so how it gets there and what to do when it breaks are load-bearing.",
+      "cite": [
+        "deploy.cd",
+        "iface.http",
+        "sec.authn",
+        "arch.service"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-MCP-SERVER-TOOL-CONTRACT",
+      "layer": "signal",
+      "when": {
+        "signal": "iface.mcp_server",
+        "is": "present"
+      },
+      "effect": "require",
+      "documents": [
+        "build.compat-matrix",
+        "design.api-contract"
+      ],
+      "because": "An MCP server is driven by programs, and a tool schema nobody wrote down becomes somebody else's outage.",
+      "cite": [
+        "iface.mcp_server",
+        "iface.openapi",
+        "arch.agent_skill"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-MIGRATIONS-PROCEDURE",
+      "layer": "signal",
+      "when": {
+        "signal": "data.migrations",
+        "is": "present"
+      },
+      "effect": "require",
+      "documents": [
+        "build.migrations",
+        "operate.backup-restore"
+      ],
+      "because": "Schema migrations run against data that has to survive them, forwards and backwards.",
+      "cite": [
+        "data.migrations",
+        "data.orm",
+        "data.schema"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-MULTI-SERVICE-BOUNDARIES",
+      "layer": "signal",
+      "when": {
+        "signal": "scale.services",
+        "gte": 3
+      },
+      "effect": "require",
+      "documents": [
+        "design.diagrams",
+        "design.integrations"
+      ],
+      "because": "Three or more independently deployable units mean the boundaries between them are now the design.",
+      "cite": [
+        "scale.services",
+        "deploy.kubernetes",
+        "iface.grpc",
+        "iface.http"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-NO-MODEL-INFERENCE",
+      "layer": "signal",
+      "when": {
+        "all": [
+          {
+            "signal": "ai.sdk",
+            "is": "absent"
+          },
+          {
+            "signal": "ai.training",
+            "is": "absent"
+          },
+          {
+            "signal": "ai.rag",
+            "is": "absent"
+          },
+          {
+            "signal": "ai.agent_framework",
+            "is": "absent"
+          },
+          {
+            "signal": "ai.prompts",
+            "is": "absent"
+          }
+        ]
+      },
+      "effect": "note",
+      "documents": [
+        "govern.compliance-register"
+      ],
+      "because": "No model SDK, training stack, or prompt file appears in this repository, so the AI obligations did not fire.",
+      "cite": [
+        "ai.sdk",
+        "ai.training",
+        "ai.rag",
+        "ai.agent_framework",
+        "ai.prompts"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-ONCALL-ROTATION-CONFIGURED",
+      "layer": "signal",
+      "when": {
+        "signal": "ops.oncall",
+        "is": "present"
+      },
+      "effect": "require",
+      "documents": [
+        "operate.oncall",
+        "operate.support-model"
+      ],
+      "because": "An on-call rotation is configured and the escalation path it pages into is not written down anywhere.",
+      "cite": [
+        "ops.oncall",
+        "ops.alerts",
+        "ops.slo"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-OSS-LIBRARY-PUBLIC-SURFACE",
+      "layer": "baseline",
+      "when": {
+        "archetype": "oss-library"
+      },
+      "effect": "require",
+      "documents": [
+        "assure.vdp",
+        "build.api-reference",
+        "build.contributing",
+        "serve.changelog"
+      ],
+      "because": "Strangers depend on this package's public surface and have no other way to learn it.",
+      "cite": [
+        "users.published_package",
+        "supply.license_permissive",
+        "proc.contributing",
+        "users.is_oss"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-OVERLAY-AGENT-SKILL-PACKAGE",
+      "layer": "overlay",
+      "when": {
+        "overlay": "agent-skill-package"
+      },
+      "effect": "require",
+      "documents": [
+        "build.compat-matrix",
+        "build.readme",
+        "frame.scope",
+        "verify.test-strategy"
+      ],
+      "because": "A skill is installed into hosts its author does not control and fired by prompts its author did not write.",
+      "cite": [
+        "arch.agent_skill",
+        "docs.agent_files",
+        "iface.mcp_server"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-OVERLAY-AI-SYSTEM-EVALUATION",
+      "layer": "overlay",
+      "when": {
+        "overlay": "ai-system"
+      },
+      "effect": "require",
+      "documents": [
+        "assure.data-classification",
+        "govern.compliance-register",
+        "verify.test-strategy"
+      ],
+      "because": "Model behaviour changes without a code change, so the test strategy has to cover evaluation and not just units.",
+      "cite": [
+        "ai.inference",
+        "ai.training",
+        "ai.evals",
+        "ai.prompts"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-OVERLAY-APP-STORE-DECLARATIONS",
+      "layer": "overlay",
+      "when": {
+        "any": [
+          {
+            "signal": "arch.mobile",
+            "is": "present"
+          },
+          {
+            "signal": "arch.extension",
+            "is": "present"
+          }
+        ]
+      },
+      "effect": "require",
+      "documents": [
+        "assure.data-classification",
+        "build.compat-matrix",
+        "serve.changelog"
+      ],
+      "because": "Store review asks what data leaves the device, and the answer has to exist before the submission does.",
+      "cite": [
+        "arch.mobile",
+        "arch.extension",
+        "users.analytics"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-OVERLAY-HEALTH-DATA",
+      "layer": "overlay",
+      "when": {
+        "signal": "sec.health",
+        "is": "present"
+      },
+      "effect": "require",
+      "documents": [
+        "assure.attack-surface",
+        "assure.data-classification",
+        "assure.threat-model",
+        "operate.backup-restore"
+      ],
+      "because": "A health data standard is a dependency here, and health records have a different retention answer than everything else.",
+      "cite": [
+        "sec.health",
+        "data.special_category",
+        "data.pii"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-OVERLAY-OPERATED-BY-OTHERS",
+      "layer": "overlay",
+      "when": {
+        "overlay": "operated-by-others"
+      },
+      "effect": "require",
+      "documents": [
+        "operate.backup-restore",
+        "operate.deployment",
+        "operate.dr-bcp",
+        "operate.incident-mgmt",
+        "operate.oncall",
+        "operate.orr",
+        "operate.postmortem",
+        "operate.runbook",
+        "operate.runbook-index",
+        "operate.slo",
+        "operate.support-model"
+      ],
+      "because": "The people who run this in production did not write it and cannot read the authors' minds at three in the morning.",
+      "cite": [
+        "ops.oncall",
+        "ops.alerts",
+        "deploy.cd",
+        "q2_operator"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-OVERLAY-PAYMENTS-CARDHOLDER-DATA",
+      "layer": "overlay",
+      "when": {
+        "signal": "sec.payments",
+        "is": "present"
+      },
+      "effect": "require",
+      "documents": [
+        "assure.attack-surface",
+        "assure.data-classification",
+        "assure.threat-model",
+        "design.integrations"
+      ],
+      "because": "Card data crosses this system and the flow has to be drawn before anyone can argue about its scope.",
+      "cite": [
+        "sec.payments",
+        "data.pii",
+        "sec.authn"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-OVERLAY-PUBLIC-UI-ACCESSIBILITY",
+      "layer": "overlay",
+      "when": {
+        "overlay": "public-ui"
+      },
+      "effect": "require",
+      "documents": [
+        "assure.acr-inputs",
+        "serve.changelog",
+        "serve.migration-guide"
+      ],
+      "because": "A public interface has users who cannot ask the authors what changed or why they cannot use it.",
+      "cite": [
+        "users.ui",
+        "a11y.tooling",
+        "a11y.aria_usage",
+        "q1_users"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-OVERLAY-REGULATED-CONTROL-EVIDENCE",
+      "layer": "overlay",
+      "when": {
+        "answer": "q3_authorizer",
+        "in": [
+          "government-authorizer",
+          "sector-regulator"
+        ]
+      },
+      "effect": "require",
+      "documents": [
+        "assure.control-mapping",
+        "assure.scanning-index",
+        "govern.compliance-register",
+        "govern.traceability",
+        "retire.archive-manifest",
+        "verify.rtm"
+      ],
+      "because": "An external authorizer decides whether this ships and they read evidence, not source.",
+      "cite": [
+        "sec.compliance_program",
+        "q3_authorizer",
+        "q5_markets"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-OVERLAY-SAFETY-CRITICAL-REFUSAL",
+      "layer": "overlay",
+      "when": {
+        "signal": "arch.safety_std",
+        "is": "present"
+      },
+      "effect": "note",
+      "documents": [
+        "decide.waivers",
+        "govern.compliance-register"
+      ],
+      "because": "A functional safety standard is referenced here and docdna does not carry the assurance case document set.",
+      "cite": [
+        "arch.safety_std",
+        "arch.firmware",
+        "qual.coverage_tooling"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-OVERLAY-SHIPPED-ARTIFACT-SUPPLY",
+      "layer": "overlay",
+      "when": {
+        "overlay": "shipped-artifact"
+      },
+      "effect": "require",
+      "documents": [
+        "assure.sbom",
+        "assure.vdp",
+        "build.compat-matrix",
+        "build.release-process",
+        "serve.changelog"
+      ],
+      "because": "Something leaves this repository as a binary and lands on a machine the authors will never see.",
+      "cite": [
+        "supply.artifact_published",
+        "arch.firmware",
+        "users.published_package",
+        "sec.artifact_signing"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-OVERRIDE-DEFERRED-TO-OWNING-SKILL",
+      "layer": "override",
+      "when": {
+        "always": true
+      },
+      "effect": "note",
+      "documents": [
+        "build.contributing",
+        "build.readme"
+      ],
+      "because": "Both files are owned by repo-ready, so docdna records a pointer row instead of writing over them.",
+      "cite": [
+        "docs.readme",
+        "proc.contributing",
+        "docs.agent_files"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-OVERRIDE-SNAPSHOT-CAP",
+      "layer": "override",
+      "when": {
+        "answer": "q7_maintenance",
+        "in": [
+          "snapshot"
+        ]
+      },
+      "effect": "optionalize",
+      "documents": [
+        "assure.data-classification",
+        "assure.threat-model",
+        "decide.design-proposal",
+        "design.architecture",
+        "frame.requirements",
+        "govern.raid",
+        "operate.dr-bcp",
+        "verify.test-strategy"
+      ],
+      "because": "A document that goes unmaintained turns into confident fiction, and these are the ones no later run can regenerate.",
+      "cite": [
+        "q7_maintenance",
+        "docs.owner_candidate",
+        "proc.codeowners"
+      ],
+      "force": true
+    },
+    {
+      "id": "R-PERSONAL-DATA-CLASSIFICATION",
+      "layer": "signal",
+      "when": {
+        "signal": "data.pii",
+        "gte": 1
+      },
+      "effect": "require",
+      "documents": [
+        "assure.data-classification",
+        "assure.threat-model",
+        "design.data-model"
+      ],
+      "because": "Personal data sits on an entity this code treats as a person, and how long it is kept is currently undocumented.",
+      "cite": [
+        "data.pii",
+        "data.person_entity",
+        "data.schema"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-PUBLIC-SIGNUP-EXTERNAL-USERS",
+      "layer": "signal",
+      "when": {
+        "signal": "users.public_signup",
+        "is": "present"
+      },
+      "effect": "require",
+      "documents": [
+        "assure.vdp",
+        "operate.support-model",
+        "serve.changelog"
+      ],
+      "because": "Anyone can create an account here, which makes every change a change to somebody else's day.",
+      "cite": [
+        "users.public_signup",
+        "sec.authn",
+        "users.analytics"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-Q1-ASK-PUBLISHED-PACKAGE",
+      "layer": "answer",
+      "when": {
+        "all": [
+          {
+            "signal": "users.published_package",
+            "is": "present"
+          },
+          {
+            "signal": "users.repo_visibility",
+            "is": "unknown"
+          }
+        ]
+      },
+      "effect": "ask",
+      "documents": [
+        "assure.vdp",
+        "build.api-reference",
+        "build.contributing"
+      ],
+      "because": "This repository declares a publishable package and docdna cannot see whether anyone outside the authors installs it.",
+      "cite": [
+        "users.published_package",
+        "users.repo_visibility",
+        "users.external_count",
+        "q1_users"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-Q1-CUSTOMER-AUDIENCE",
+      "layer": "answer",
+      "when": {
+        "answer": "q1_users",
+        "in": [
+          "customers"
+        ]
+      },
+      "effect": "require",
+      "documents": [
+        "frame.requirements",
+        "operate.support-model",
+        "serve.changelog",
+        "serve.migration-guide",
+        "verify.test-strategy"
+      ],
+      "because": "Paying users depend on this working and on being told before it changes under them.",
+      "cite": [
+        "q1_users",
+        "users.public_signup",
+        "sec.payments"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-Q1-INTERNAL-AUDIENCE-EXCLUDE",
+      "layer": "answer",
+      "when": {
+        "all": [
+          {
+            "answer": "q1_users",
+            "in": [
+              "nobody",
+              "my-team"
+            ]
+          },
+          {
+            "signal": "users.is_oss",
+            "is": "absent"
+          },
+          {
+            "signal": "users.published_package",
+            "is": "absent"
+          }
+        ]
+      },
+      "effect": "exclude",
+      "documents": [
+        "build.contributing",
+        "build.llms-txt",
+        "serve.migration-guide"
+      ],
+      "because": "Nobody outside the team that writes this uses it, so these documents have no reader.",
+      "cite": [
+        "q1_users",
+        "users.is_oss",
+        "users.published_package",
+        "users.public_signup"
+      ],
+      "revisit_when": {
+        "any": [
+          {
+            "answer": "q1_users",
+            "in": [
+              "other-teams",
+              "customers",
+              "public"
+            ]
+          },
+          {
+            "signal": "users.public_signup",
+            "is": "present"
+          },
+          {
+            "signal": "users.published_package",
+            "is": "present"
+          },
+          {
+            "signal": "users.is_oss",
+            "is": "present"
+          },
+          {
+            "signal": "supply.artifact_published",
+            "is": "present"
+          }
+        ]
+      },
+      "force": false
+    },
+    {
+      "id": "R-Q1-OTHER-TEAMS-INTEGRATION",
+      "layer": "answer",
+      "when": {
+        "answer": "q1_users",
+        "in": [
+          "other-teams"
+        ]
+      },
+      "effect": "require",
+      "documents": [
+        "build.api-reference",
+        "build.config-reference",
+        "build.contributing",
+        "design.api-contract",
+        "govern.ownership"
+      ],
+      "because": "Another team integrates against this and cannot read the authors' intentions out of the source.",
+      "cite": [
+        "q1_users",
+        "iface.http",
+        "iface.grpc",
+        "proc.codeowners"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-Q1-PUBLIC-AUDIENCE",
+      "layer": "answer",
+      "when": {
+        "answer": "q1_users",
+        "in": [
+          "public"
+        ]
+      },
+      "effect": "require",
+      "documents": [
+        "assure.vdp",
+        "build.api-reference",
+        "build.contributing",
+        "build.readme",
+        "serve.changelog"
+      ],
+      "because": "Anyone can use this, and anyone includes the person who finds the vulnerability.",
+      "cite": [
+        "q1_users",
+        "users.is_oss",
+        "users.published_package",
+        "supply.license"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-Q2-ASK-DEPLOYS-WITHOUT-ONCALL",
+      "layer": "answer",
+      "when": {
+        "all": [
+          {
+            "signal": "deploy.cd",
+            "is": "present"
+          },
+          {
+            "signal": "ops.oncall",
+            "is": "absent"
+          },
+          {
+            "signal": "ops.operator_identity",
+            "is": "unknown"
+          }
+        ]
+      },
+      "effect": "ask",
+      "documents": [
+        "operate.oncall",
+        "operate.orr",
+        "operate.support-model"
+      ],
+      "because": "Something deploys this automatically and nothing in the repository says who answers when it breaks.",
+      "cite": [
+        "deploy.cd",
+        "ops.oncall",
+        "ops.operator_identity",
+        "q2_operator"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-Q2-CUSTOMER-OPERATED",
+      "layer": "answer",
+      "when": {
+        "answer": "q2_operator",
+        "in": [
+          "customer-operated"
+        ]
+      },
+      "effect": "require",
+      "documents": [
+        "build.compat-matrix",
+        "build.config-reference",
+        "operate.backup-restore",
+        "operate.deployment",
+        "serve.migration-guide"
+      ],
+      "because": "The customer installs and runs this themselves, so every operational assumption has to survive leaving the building.",
+      "cite": [
+        "q2_operator",
+        "deploy.container",
+        "supply.artifact_published"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-Q2-SEPARATE-OPS-TEAM",
+      "layer": "answer",
+      "when": {
+        "answer": "q2_operator",
+        "in": [
+          "separate-ops-team",
+          "customer-operated"
+        ]
+      },
+      "effect": "require",
+      "documents": [
+        "operate.backup-restore",
+        "operate.deployment",
+        "operate.dr-bcp",
+        "operate.incident-mgmt",
+        "operate.oncall",
+        "operate.orr",
+        "operate.postmortem",
+        "operate.runbook",
+        "operate.runbook-index",
+        "operate.slo",
+        "operate.support-model"
+      ],
+      "because": "A team that did not write this gets paged for it and has to act without the authors.",
+      "cite": [
+        "q2_operator",
+        "ops.oncall",
+        "ops.alerts",
+        "deploy.cd"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-Q3-ASK-GC-SIGNALS",
+      "layer": "answer",
+      "when": {
+        "any": [
+          {
+            "signal": "jur.gc",
+            "is": "hint"
+          },
+          {
+            "signal": "jur.gc_domain",
+            "is": "hint"
+          },
+          {
+            "signal": "jur.protected_b",
+            "is": "hint"
+          },
+          {
+            "all": [
+              {
+                "signal": "users.gc_design_system",
+                "is": "present"
+              },
+              {
+                "signal": "jur.fr_ca_locale",
+                "is": "hint"
+              }
+            ]
+          }
+        ]
+      },
+      "effect": "ask",
+      "documents": [
+        "assure.control-mapping",
+        "assure.data-classification",
+        "govern.compliance-register"
+      ],
+      "because": "Government of Canada signals appear in this repository and docdna will not decide on its own whether a government buyer is in the loop.",
+      "cite": [
+        "jur.gc",
+        "jur.gc_domain",
+        "jur.protected_b",
+        "users.gc_design_system",
+        "q3_authorizer"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-Q3-ASK-US-FEDERAL-SIGNALS",
+      "layer": "answer",
+      "when": {
+        "signal": "jur.us_federal",
+        "is": "hint"
+      },
+      "effect": "ask",
+      "documents": [
+        "assure.control-mapping",
+        "assure.scanning-index",
+        "govern.compliance-register"
+      ],
+      "because": "United States federal program vocabulary appears here and a hint may open this question but may never answer it.",
+      "cite": [
+        "jur.us_federal",
+        "jur.authorizer",
+        "q3_authorizer"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-Q3-AUDITOR-EVIDENCE",
+      "layer": "answer",
+      "when": {
+        "answer": "q3_authorizer",
+        "in": [
+          "soc2-or-iso-auditor"
+        ]
+      },
+      "effect": "require",
+      "documents": [
+        "assure.control-mapping",
+        "assure.scanning-index",
+        "assure.secrets-policy",
+        "govern.ownership",
+        "operate.incident-mgmt",
+        "retire.archive-manifest",
+        "verify.dod"
+      ],
+      "because": "An auditor samples evidence on a schedule and evidence that was never written is a finding.",
+      "cite": [
+        "q3_authorizer",
+        "sec.compliance_program",
+        "sec.scanners"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-Q3-AUTHORIZER-EVIDENCE",
+      "layer": "answer",
+      "when": {
+        "answer": "q3_authorizer",
+        "in": [
+          "government-authorizer",
+          "sector-regulator"
+        ]
+      },
+      "effect": "require",
+      "documents": [
+        "assure.attack-surface",
+        "assure.control-mapping",
+        "assure.data-classification",
+        "assure.scanning-index",
+        "assure.threat-model",
+        "govern.compliance-register",
+        "govern.traceability",
+        "retire.archive-manifest",
+        "verify.rtm"
+      ],
+      "because": "An external authorizer signs before this ships, and what they sign is evidence rather than working software.",
+      "cite": [
+        "q3_authorizer",
+        "jur.gc",
+        "jur.us_federal",
+        "sec.compliance_program"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-Q3-CUSTOMER-SECURITY-REVIEW",
+      "layer": "answer",
+      "when": {
+        "answer": "q3_authorizer",
+        "in": [
+          "customer-security-review"
+        ]
+      },
+      "effect": "require",
+      "documents": [
+        "assure.attack-surface",
+        "assure.sbom",
+        "assure.secrets-policy",
+        "assure.threat-model",
+        "assure.vdp"
+      ],
+      "because": "A customer security questionnaire asks for these by name and a slow answer costs the deal.",
+      "cite": [
+        "q3_authorizer",
+        "sec.authn",
+        "supply.has_deps"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-Q3-NO-AUTHORIZER-EXCLUDE",
+      "layer": "answer",
+      "when": {
+        "all": [
+          {
+            "answer": "q3_authorizer",
+            "in": [
+              "none"
+            ]
+          },
+          {
+            "signal": "sec.compliance_program",
+            "is": "absent"
+          }
+        ]
+      },
+      "effect": "exclude",
+      "documents": [
+        "assure.control-mapping",
+        "retire.archive-manifest",
+        "verify.rtm"
+      ],
+      "because": "No external body audits, certifies, or authorizes this before it ships, and no compliance workspace exists in the repository.",
+      "cite": [
+        "q3_authorizer",
+        "sec.compliance_program",
+        "jur.authorizer"
+      ],
+      "revisit_when": {
+        "any": [
+          {
+            "answer": "q3_authorizer",
+            "in": [
+              "customer-security-review",
+              "soc2-or-iso-auditor",
+              "government-authorizer",
+              "sector-regulator"
+            ]
+          },
+          {
+            "signal": "sec.compliance_program",
+            "is": "present"
+          },
+          {
+            "signal": "users.gc_design_system",
+            "is": "present"
+          },
+          {
+            "answer": "q5_markets",
+            "in": [
+              "eu-eea",
+              "global"
+            ]
+          }
+        ]
+      },
+      "force": false
+    },
+    {
+      "id": "R-Q4-AFFECTS-PEOPLE",
+      "layer": "answer",
+      "when": {
+        "answer": "q4_decides_about_people",
+        "in": [
+          "affects-money-services-employment-or-legal-status"
+        ]
+      },
+      "effect": "require",
+      "documents": [
+        "assure.data-classification",
+        "assure.threat-model",
+        "design.data-model",
+        "frame.requirements",
+        "govern.compliance-register",
+        "govern.traceability",
+        "verify.rtm",
+        "verify.test-strategy"
+      ],
+      "because": "This system helps decide something that changes a person's money, job, or legal standing, and that person is entitled to know how.",
+      "cite": [
+        "q4_decides_about_people",
+        "data.pii",
+        "ai.inference"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-Q4-ASK-MODEL-OUTPUT-ON-PEOPLE",
+      "layer": "answer",
+      "when": {
+        "all": [
+          {
+            "signal": "ai.inference",
+            "is": "present"
+          },
+          {
+            "signal": "data.pii",
+            "gte": 1
+          }
+        ]
+      },
+      "effect": "ask",
+      "documents": [
+        "assure.data-classification",
+        "govern.compliance-register",
+        "verify.rtm"
+      ],
+      "because": "Model output and personal records meet inside this system, and no signal is allowed to say what that output is used for.",
+      "cite": [
+        "ai.inference",
+        "data.pii",
+        "data.person_entity",
+        "q4_decides_about_people"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-Q4-ASK-PERSON-DATA",
+      "layer": "answer",
+      "when": {
+        "all": [
+          {
+            "signal": "data.person_entity",
+            "is": "present"
+          },
+          {
+            "signal": "data.pii",
+            "gte": 1
+          }
+        ]
+      },
+      "effect": "ask",
+      "documents": [
+        "assure.data-classification",
+        "design.data-model",
+        "govern.compliance-register"
+      ],
+      "because": "This code stores personal data on entities it treats as people, and only a human may say whether it decides anything about them.",
+      "cite": [
+        "data.person_entity",
+        "data.pii",
+        "data.special_category",
+        "q4_decides_about_people"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-Q4-INTERNAL-OPS-DECISIONS",
+      "layer": "answer",
+      "when": {
+        "answer": "q4_decides_about_people",
+        "in": [
+          "internal-ops-only"
+        ]
+      },
+      "effect": "require",
+      "documents": [
+        "assure.data-classification",
+        "design.data-model",
+        "govern.compliance-register"
+      ],
+      "because": "Automated decisions about staff are still decisions about people, and staff can ask how they were made.",
+      "cite": [
+        "q4_decides_about_people",
+        "data.pii",
+        "data.person_entity"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-Q5-ASK-EU-AI-ACT",
+      "layer": "answer",
+      "when": {
+        "all": [
+          {
+            "signal": "jur.eu_ai_act",
+            "is": "hint"
+          },
+          {
+            "signal": "ai.inference",
+            "is": "present"
+          }
+        ]
+      },
+      "effect": "ask",
+      "documents": [
+        "assure.data-classification",
+        "govern.compliance-register",
+        "verify.test-strategy"
+      ],
+      "because": "EU AI Act vocabulary appears alongside real inference calls, and the market answer decides whether any of it applies.",
+      "cite": [
+        "jur.eu_ai_act",
+        "ai.inference",
+        "ai.content_provenance",
+        "q5_markets"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-Q5-ASK-EU-SIGNALS",
+      "layer": "answer",
+      "when": {
+        "any": [
+          {
+            "signal": "jur.eu",
+            "is": "hint"
+          },
+          {
+            "signal": "jur.eu_region",
+            "is": "hint"
+          },
+          {
+            "signal": "jur.gdpr_lexicon",
+            "is": "hint"
+          }
+        ]
+      },
+      "effect": "ask",
+      "documents": [
+        "assure.data-classification",
+        "design.data-model",
+        "govern.compliance-register"
+      ],
+      "because": "European Union signals appear in this repository, and a hint may open this question but may never set a verdict.",
+      "cite": [
+        "jur.eu",
+        "jur.eu_region",
+        "jur.gdpr_lexicon",
+        "data.lawful_basis",
+        "q5_markets"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-Q5-EU-MARKET",
+      "layer": "answer",
+      "when": {
+        "answer": "q5_markets",
+        "in": [
+          "eu-eea",
+          "global"
+        ]
+      },
+      "effect": "require",
+      "documents": [
+        "assure.data-classification",
+        "assure.threat-model",
+        "assure.vdp",
+        "design.data-model",
+        "govern.compliance-register",
+        "retire.archive-manifest"
+      ],
+      "because": "Users sitting in the EU bring obligations that attach to their data on the day it is collected.",
+      "cite": [
+        "q5_markets",
+        "jur.eu",
+        "data.pii",
+        "data.lawful_basis"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-Q5-INTERNAL-MARKET-EXCLUDE",
+      "layer": "answer",
+      "when": {
+        "all": [
+          {
+            "answer": "q5_markets",
+            "in": [
+              "my-org-only"
+            ]
+          },
+          {
+            "answer": "q3_authorizer",
+            "in": [
+              "none"
+            ]
+          },
+          {
+            "signal": "users.is_oss",
+            "is": "absent"
+          }
+        ]
+      },
+      "effect": "exclude",
+      "documents": [
+        "govern.compliance-register"
+      ],
+      "because": "Every user of this system sits inside the organization that builds it and no external body reviews it.",
+      "cite": [
+        "q5_markets",
+        "q3_authorizer",
+        "users.is_oss",
+        "users.public_signup"
+      ],
+      "revisit_when": {
+        "any": [
+          {
+            "answer": "q5_markets",
+            "in": [
+              "canada",
+              "us",
+              "eu-eea",
+              "global"
+            ]
+          },
+          {
+            "answer": "q3_authorizer",
+            "in": [
+              "customer-security-review",
+              "soc2-or-iso-auditor",
+              "government-authorizer",
+              "sector-regulator"
+            ]
+          },
+          {
+            "signal": "users.public_signup",
+            "is": "present"
+          },
+          {
+            "signal": "users.is_oss",
+            "is": "present"
+          }
+        ]
+      },
+      "force": false
+    },
+    {
+      "id": "R-Q5-NORTH-AMERICA-MARKET",
+      "layer": "answer",
+      "when": {
+        "answer": "q5_markets",
+        "in": [
+          "canada",
+          "us",
+          "global"
+        ]
+      },
+      "effect": "require",
+      "documents": [
+        "assure.data-classification",
+        "assure.vdp",
+        "govern.compliance-register"
+      ],
+      "because": "Canadian and United States privacy statutes attach to consumer personal data regardless of how small the company is.",
+      "cite": [
+        "q5_markets",
+        "jur.ca_region",
+        "data.pii",
+        "users.public_signup"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-Q6-LOW-CRITICALITY-EXCLUDE",
+      "layer": "answer",
+      "when": {
+        "all": [
+          {
+            "answer": "q6_downtime",
+            "in": [
+              "nothing",
+              "inconvenience-days"
+            ]
+          },
+          {
+            "signal": "ops.oncall",
+            "is": "absent"
+          },
+          {
+            "signal": "ops.slo",
+            "is": "absent"
+          }
+        ]
+      },
+      "effect": "exclude",
+      "documents": [
+        "operate.dr-bcp",
+        "operate.slo"
+      ],
+      "because": "A day of downtime is an inconvenience here and nobody is paged when it happens.",
+      "cite": [
+        "q6_downtime",
+        "ops.oncall",
+        "ops.slo",
+        "ops.sla_exists"
+      ],
+      "revisit_when": {
+        "any": [
+          {
+            "answer": "q6_downtime",
+            "in": [
+              "business-process-hours",
+              "revenue-or-safety-minutes"
+            ]
+          },
+          {
+            "signal": "ops.oncall",
+            "is": "present"
+          },
+          {
+            "signal": "ops.slo",
+            "is": "present"
+          },
+          {
+            "answer": "q2_operator",
+            "in": [
+              "separate-ops-team",
+              "customer-operated"
+            ]
+          },
+          {
+            "answer": "q1_users",
+            "in": [
+              "customers",
+              "public"
+            ]
+          }
+        ]
+      },
+      "force": false
+    },
+    {
+      "id": "R-Q6-MINUTES-MATTER",
+      "layer": "answer",
+      "when": {
+        "answer": "q6_downtime",
+        "in": [
+          "revenue-or-safety-minutes"
+        ]
+      },
+      "effect": "require",
+      "documents": [
+        "operate.backup-restore",
+        "operate.dr-bcp",
+        "operate.oncall",
+        "operate.runbook-index",
+        "operate.slo"
+      ],
+      "because": "Minutes of downtime cost money or safety here, and the recovery path has to exist before the minute it is needed.",
+      "cite": [
+        "q6_downtime",
+        "ops.rto",
+        "ops.rpo",
+        "ops.sla_exists"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-Q7-SNAPSHOT-SCOPE",
+      "layer": "answer",
+      "when": {
+        "answer": "q7_maintenance",
+        "in": [
+          "snapshot"
+        ]
+      },
+      "effect": "note",
+      "documents": [
+        "assure.threat-model",
+        "design.architecture",
+        "govern.manifest"
+      ],
+      "because": "Nobody will maintain these after today, so docdna writes what a later run can regenerate and refuses the rest.",
+      "cite": [
+        "q7_maintenance",
+        "docs.owner_candidate",
+        "proc.codeowners"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-Q7-TEAM-OWNERSHIP",
+      "layer": "answer",
+      "when": {
+        "answer": "q7_maintenance",
+        "in": [
+          "a-team"
+        ]
+      },
+      "effect": "require",
+      "documents": [
+        "govern.manifest",
+        "govern.ownership"
+      ],
+      "because": "A team has agreed to keep these documents true, so which part of it owns which document has to be written down.",
+      "cite": [
+        "q7_maintenance",
+        "proc.codeowners",
+        "docs.owner_candidate"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-Q8-DOCS-OUTSIDE-REPO",
+      "layer": "answer",
+      "when": {
+        "answer": "q8_doc_location",
+        "in": [
+          "repo-plus-wiki",
+          "mostly-elsewhere"
+        ]
+      },
+      "effect": "note",
+      "documents": [
+        "govern.manifest",
+        "govern.traceability"
+      ],
+      "because": "The documentation of record lives outside this repository, so these rows are tracked as present elsewhere rather than missing.",
+      "cite": [
+        "q8_doc_location",
+        "docs.system_of_record",
+        "docs.docs_dir"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-Q8-REPO-ONLY-VISIBILITY",
+      "layer": "answer",
+      "when": {
+        "always": true
+      },
+      "effect": "note",
+      "documents": [
+        "govern.manifest"
+      ],
+      "because": "I only see documentation committed to this repository.",
+      "cite": [
+        "docs.system_of_record",
+        "q8_doc_location"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-RESEARCH-ARTIFACT-NO-OPERATIONS",
+      "layer": "baseline",
+      "when": {
+        "all": [
+          {
+            "archetype": "research-artifact"
+          },
+          {
+            "all": [
+              {
+                "signal": "arch.service",
+                "is": "absent"
+              },
+              {
+                "signal": "deploy.kubernetes",
+                "is": "absent"
+              },
+              {
+                "signal": "deploy.paas",
+                "is": "absent"
+              },
+              {
+                "signal": "deploy.serverless",
+                "is": "absent"
+              },
+              {
+                "signal": "deploy.container",
+                "is": "absent"
+              },
+              {
+                "signal": "deploy.iac",
+                "is": "absent"
+              }
+            ]
+          }
+        ]
+      },
+      "effect": "exclude",
+      "documents": [
+        "operate.deployment",
+        "operate.dr-bcp",
+        "operate.incident-mgmt",
+        "operate.orr",
+        "operate.slo",
+        "operate.support-model"
+      ],
+      "because": "This artifact is run to reproduce a result, not operated as a service, and no deployment target exists in the tree.",
+      "cite": [
+        "arch.notebook",
+        "docs.citation",
+        "deploy.iac",
+        "arch.service"
+      ],
+      "revisit_when": {
+        "any": [
+          {
+            "signal": "arch.service",
+            "is": "present"
+          },
+          {
+            "signal": "deploy.container",
+            "is": "present"
+          },
+          {
+            "signal": "deploy.iac",
+            "is": "present"
+          },
+          {
+            "signal": "deploy.paas",
+            "is": "present"
+          },
+          {
+            "signal": "deploy.serverless",
+            "is": "present"
+          },
+          {
+            "signal": "deploy.kubernetes",
+            "is": "present"
+          },
+          {
+            "answer": "q2_operator",
+            "in": [
+              "the-authors",
+              "separate-ops-team",
+              "customer-operated"
+            ]
+          }
+        ]
+      },
+      "force": false
+    },
+    {
+      "id": "R-RESEARCH-ARTIFACT-REPRODUCIBILITY",
+      "layer": "baseline",
+      "when": {
+        "archetype": "research-artifact"
+      },
+      "effect": "require",
+      "documents": [
+        "build.dev-setup",
+        "frame.glossary",
+        "frame.scope"
+      ],
+      "because": "A result nobody else can re-run is a claim, not a finding.",
+      "cite": [
+        "arch.notebook",
+        "docs.citation",
+        "qual.tests"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-RUNBOOK-COVERAGE-ALERTS",
+      "layer": "signal",
+      "when": {
+        "all": [
+          {
+            "signal": "ops.alerts",
+            "is": "present"
+          },
+          {
+            "signal": "ops.runbook",
+            "is": "absent"
+          }
+        ]
+      },
+      "effect": "require",
+      "documents": [
+        "operate.runbook",
+        "operate.runbook-index"
+      ],
+      "because": "Alert rules fire into a repository that documents no response to any of them.",
+      "cite": [
+        "ops.alerts",
+        "ops.runbook",
+        "ops.oncall"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-SBOM-SHIPPED-DEPENDENCIES",
+      "layer": "signal",
+      "when": {
+        "all": [
+          {
+            "signal": "supply.artifact_published",
+            "is": "present"
+          },
+          {
+            "signal": "supply.has_deps",
+            "is": "present"
+          },
+          {
+            "signal": "supply.sbom",
+            "is": "absent"
+          }
+        ]
+      },
+      "effect": "require",
+      "documents": [
+        "assure.sbom"
+      ],
+      "because": "This pipeline ships a build made mostly of other people's code and nothing records what went into it.",
+      "cite": [
+        "supply.artifact_published",
+        "supply.has_deps",
+        "supply.sbom",
+        "supply.lockfile"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-SECRETS-COMMITTED-POLICY",
+      "layer": "signal",
+      "when": {
+        "signal": "sec.secrets_committed",
+        "is": "present"
+      },
+      "effect": "require",
+      "documents": [
+        "assure.secrets-policy",
+        "assure.threat-model"
+      ],
+      "because": "A credential-shaped literal is sitting in a tracked file in this repository.",
+      "cite": [
+        "sec.secrets_committed",
+        "sec.secrets_management"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-SOLO-UTILITY-NO-DECISION-RECORDS",
+      "layer": "baseline",
+      "when": {
+        "archetype": "solo-utility"
+      },
+      "effect": "exclude",
+      "documents": [
+        "decide.adr",
+        "decide.adr-index",
+        "govern.traceability"
+      ],
+      "because": "One author and a small commit history: the decisions in this repository still fit in one person's head.",
+      "cite": [
+        "proc.authors_12mo",
+        "proc.commits_12mo",
+        "docs.adr",
+        "scale.loc"
+      ],
+      "revisit_when": {
+        "any": [
+          {
+            "signal": "proc.authors_12mo",
+            "gte": 2
+          },
+          {
+            "signal": "proc.commits_12mo",
+            "gte": 100
+          },
+          {
+            "signal": "scale.services",
+            "gte": 2
+          },
+          {
+            "signal": "docs.adr",
+            "is": "present"
+          }
+        ]
+      },
+      "force": false
+    },
+    {
+      "id": "R-SOLO-UTILITY-NO-GOVERNANCE",
+      "layer": "baseline",
+      "when": {
+        "archetype": "solo-utility"
+      },
+      "effect": "exclude",
+      "documents": [
+        "build.coding-standard",
+        "decide.waivers",
+        "govern.compliance-register",
+        "govern.raid",
+        "govern.tech-debt",
+        "verify.defect-process",
+        "verify.dod",
+        "verify.rtm",
+        "verify.test-strategy"
+      ],
+      "because": "Nothing external governs this repository and there is no second person for a process document to align.",
+      "cite": [
+        "proc.authors_12mo",
+        "proc.codeowners",
+        "sec.compliance_program",
+        "q3_authorizer"
+      ],
+      "revisit_when": {
+        "any": [
+          {
+            "signal": "proc.authors_12mo",
+            "gte": 2
+          },
+          {
+            "signal": "proc.codeowners",
+            "is": "present"
+          },
+          {
+            "signal": "sec.compliance_program",
+            "is": "present"
+          },
+          {
+            "answer": "q3_authorizer",
+            "in": [
+              "customer-security-review",
+              "soc2-or-iso-auditor",
+              "government-authorizer",
+              "sector-regulator"
+            ]
+          }
+        ]
+      },
+      "force": false
+    },
+    {
+      "id": "R-SOLO-UTILITY-NO-ONBOARDING",
+      "layer": "baseline",
+      "when": {
+        "archetype": "solo-utility"
+      },
+      "effect": "exclude",
+      "documents": [
+        "build.agents-md",
+        "build.codebase-map",
+        "build.contributing",
+        "build.dev-setup",
+        "build.release-process",
+        "frame.stakeholders",
+        "govern.ownership"
+      ],
+      "because": "One author has committed here in the last year, so there is nobody to onboard and no release ritual to hand over.",
+      "cite": [
+        "proc.authors_12mo",
+        "proc.codeowners",
+        "proc.contributing",
+        "q1_users"
+      ],
+      "revisit_when": {
+        "any": [
+          {
+            "signal": "proc.authors_12mo",
+            "gte": 2
+          },
+          {
+            "signal": "proc.codeowners",
+            "is": "present"
+          },
+          {
+            "signal": "users.is_oss",
+            "is": "present"
+          },
+          {
+            "answer": "q1_users",
+            "in": [
+              "my-team",
+              "other-teams",
+              "customers",
+              "public"
+            ]
+          }
+        ]
+      },
+      "force": false
+    },
+    {
+      "id": "R-SOLO-UTILITY-NO-PLANNING",
+      "layer": "baseline",
+      "when": {
+        "archetype": "solo-utility"
+      },
+      "effect": "exclude",
+      "documents": [
+        "decide.design-proposal",
+        "design.architecture",
+        "design.diagrams",
+        "frame.requirements",
+        "frame.scope"
+      ],
+      "because": "A single-author utility this small is specified by its own source, and a parallel spec would rot before anyone read it.",
+      "cite": [
+        "proc.authors_12mo",
+        "scale.loc",
+        "scale.services",
+        "deploy.cd"
+      ],
+      "revisit_when": {
+        "any": [
+          {
+            "signal": "proc.authors_12mo",
+            "gte": 2
+          },
+          {
+            "signal": "scale.services",
+            "gte": 2
+          },
+          {
+            "signal": "scale.loc",
+            "gte": 20000
+          },
+          {
+            "signal": "deploy.cd",
+            "is": "present"
+          },
+          {
+            "answer": "q1_users",
+            "in": [
+              "other-teams",
+              "customers",
+              "public"
+            ]
+          }
+        ]
+      },
+      "force": false
+    },
+    {
+      "id": "R-SOLO-UTILITY-NO-REFERENCE-SURFACE",
+      "layer": "baseline",
+      "when": {
+        "archetype": "solo-utility"
+      },
+      "effect": "exclude",
+      "documents": [
+        "build.api-reference",
+        "build.compat-matrix",
+        "build.config-reference",
+        "build.llms-txt",
+        "frame.glossary",
+        "serve.migration-guide"
+      ],
+      "because": "This tool has one user who is also its author, so its interface needs no reference page.",
+      "cite": [
+        "proc.authors_12mo",
+        "users.published_package",
+        "users.is_oss",
+        "q1_users"
+      ],
+      "revisit_when": {
+        "any": [
+          {
+            "signal": "proc.authors_12mo",
+            "gte": 2
+          },
+          {
+            "signal": "users.public_signup",
+            "is": "present"
+          },
+          {
+            "signal": "users.is_oss",
+            "is": "present"
+          },
+          {
+            "answer": "q1_users",
+            "in": [
+              "other-teams",
+              "customers",
+              "public"
+            ]
+          }
+        ]
+      },
+      "force": false
+    },
+    {
+      "id": "R-STALE-DOCUMENTS",
+      "layer": "signal",
+      "when": {
+        "signal": "docs.stale",
+        "is": "present"
+      },
+      "effect": "note",
+      "documents": [
+        "govern.manifest",
+        "govern.ownership"
+      ],
+      "because": "Documents in this repository have not been touched since the code they describe moved on.",
+      "cite": [
+        "docs.stale",
+        "docs.doc_last_commit",
+        "scale.doc_churn"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-VDP-PUBLISHED",
+      "layer": "signal",
+      "when": {
+        "all": [
+          {
+            "signal": "users.published_package",
+            "is": "present"
+          },
+          {
+            "not": {
+              "document": "assure.vdp",
+              "state": "present"
+            }
+          }
+        ]
+      },
+      "effect": "require",
+      "documents": [
+        "assure.vdp"
+      ],
+      "because": "Published artifact with no private disclosure route.",
+      "cite": [
+        "users.published_package",
+        "sec.security_md",
+        "supply.artifact_published"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-WAREHOUSE-DATA-CLASSIFICATION",
+      "layer": "signal",
+      "when": {
+        "any": [
+          {
+            "signal": "data.warehouse",
+            "is": "present"
+          },
+          {
+            "signal": "arch.data_pipeline",
+            "is": "present"
+          }
+        ]
+      },
+      "effect": "require",
+      "documents": [
+        "assure.data-classification",
+        "design.data-model"
+      ],
+      "because": "Data lands in an analytical store here and nothing states what it is or when it gets deleted.",
+      "cite": [
+        "data.warehouse",
+        "arch.data_pipeline",
+        "deploy.scheduled"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-WEAK-CRYPTO-THREAT-MODEL",
+      "layer": "signal",
+      "when": {
+        "signal": "sec.weak_crypto",
+        "is": "present"
+      },
+      "effect": "require",
+      "documents": [
+        "assure.attack-surface",
+        "assure.threat-model"
+      ],
+      "because": "A weak hash is called in application code and nothing records whether that choice was deliberate.",
+      "cite": [
+        "sec.weak_crypto",
+        "sec.crypto",
+        "sec.authn"
+      ],
+      "force": false
+    }
+  ]
+}

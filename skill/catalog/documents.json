@@ -1,0 +1,3060 @@
+{
+  "schema": 1,
+  "documents": [
+    {
+      "id": "assure.acr-inputs",
+      "title": "Accessibility automated test results",
+      "stage": "assure",
+      "durability": "evidence",
+      "scope": "product",
+      "producible": "Y",
+      "backfillability": "P",
+      "cadence": "P365D",
+      "sensitivity": "internal",
+      "path": "docs/assure/inputs/wcag-automated-results.md",
+      "selects_on": {
+        "all": [
+          {
+            "signal": "users.ui",
+            "is": "present"
+          },
+          {
+            "signal": "a11y.tooling",
+            "is": "present"
+          }
+        ]
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [],
+      "audiences": [
+        "design",
+        "engineering",
+        "compliance"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/assure/inputs/wcag-automated-results.md",
+        "docs/accessibility/automated-results.md",
+        "docs/a11y/results/",
+        "reports/axe/"
+      ],
+      "system_of_record": "ask"
+    },
+    {
+      "id": "assure.attack-surface",
+      "title": "Attack surface inventory",
+      "stage": "assure",
+      "durability": "durable",
+      "scope": "product",
+      "producible": "Y",
+      "backfillability": "H",
+      "cadence": "P180D",
+      "sensitivity": "internal",
+      "path": "docs/assure/inputs/attack-surface.md",
+      "selects_on": {
+        "any": [
+          {
+            "signal": "sec.authn",
+            "is": "present"
+          },
+          {
+            "signal": "data.pii",
+            "gte": 1
+          },
+          {
+            "signal": "arch.service",
+            "is": "present"
+          }
+        ]
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [
+        "ssdf:PW.1.1",
+        "iso27001:A.8.27"
+      ],
+      "audiences": [
+        "engineering",
+        "security"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/assure/inputs/attack-surface.md",
+        "docs/security/attack-surface.md"
+      ],
+      "system_of_record": "ask"
+    },
+    {
+      "id": "assure.control-mapping",
+      "title": "Control framework mapping register",
+      "stage": "assure",
+      "durability": "durable",
+      "scope": "product",
+      "producible": "Y",
+      "backfillability": "P",
+      "cadence": "P180D",
+      "sensitivity": "internal",
+      "path": "docs/assure/inputs/control-evidence-index.md",
+      "selects_on": {
+        "answer": "q3_authorizer",
+        "in": [
+          "customer-security-review",
+          "soc2-or-iso-auditor",
+          "government-authorizer",
+          "sector-regulator"
+        ]
+      },
+      "baseline_verdict": "required",
+      "satisfies": [
+        "ssdf",
+        "iso27001",
+        "iso42001",
+        "soc2",
+        "itsg33:annex3a"
+      ],
+      "audiences": [
+        "compliance",
+        "security",
+        "leadership"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/assure/inputs/control-evidence-index.md",
+        "docs/compliance/control-mapping.md",
+        "docs/security/controls.md",
+        "compliance/controls/"
+      ],
+      "system_of_record": "ask"
+    },
+    {
+      "id": "assure.data-classification",
+      "title": "Data classification and retention register",
+      "stage": "assure",
+      "durability": "durable",
+      "scope": "product",
+      "producible": "M",
+      "backfillability": "P",
+      "cadence": "P365D",
+      "sensitivity": "internal",
+      "path": "docs/assure/data-classification.md",
+      "selects_on": {
+        "any": [
+          {
+            "signal": "data.pii",
+            "gte": 1
+          },
+          {
+            "any": [
+              {
+                "signal": "arch.data_pipeline",
+                "is": "present"
+              },
+              {
+                "signal": "data.warehouse",
+                "is": "present"
+              }
+            ]
+          },
+          {
+            "answer": "q3_authorizer",
+            "in": [
+              "government-authorizer"
+            ]
+          }
+        ]
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [
+        "iso27001:5.33",
+        "nist80053:SI-12"
+      ],
+      "audiences": [
+        "compliance",
+        "security",
+        "data"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/assure/data-classification.md",
+        "docs/data/classification.md",
+        "docs/privacy/data-inventory.md",
+        "docs/security/data-classification.md"
+      ],
+      "system_of_record": "ask"
+    },
+    {
+      "id": "assure.sbom",
+      "title": "Software bill of materials",
+      "stage": "assure",
+      "durability": "evidence",
+      "scope": "repo",
+      "producible": "Y",
+      "backfillability": "H",
+      "cadence": "on-release",
+      "sensitivity": "internal",
+      "path": "sbom/",
+      "selects_on": {
+        "signal": "supply.has_deps",
+        "is": "present"
+      },
+      "baseline_verdict": "optional",
+      "satisfies": [
+        "cisa-sbom:2026",
+        "cra:annexVII.2b"
+      ],
+      "audiences": [
+        "security",
+        "compliance",
+        "operations"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "sbom/",
+        "sbom.cdx.json",
+        "sbom.spdx.json",
+        "bom.json",
+        "docs/assure/sbom/",
+        ".sbom/"
+      ],
+      "system_of_record": "repo"
+    },
+    {
+      "id": "assure.scanning-index",
+      "title": "SAST and SCA evidence index",
+      "stage": "assure",
+      "durability": "evidence",
+      "scope": "repo",
+      "producible": "Y",
+      "backfillability": "H",
+      "cadence": "on-release",
+      "sensitivity": "restricted",
+      "path": "docs/assure/inputs/scanning-index.md",
+      "selects_on": {
+        "any": [
+          {
+            "signal": "sec.scanners",
+            "is": "present"
+          },
+          {
+            "any": [
+              {
+                "answer": "q3_authorizer",
+                "in": [
+                  "soc2-or-iso-auditor",
+                  "government-authorizer",
+                  "sector-regulator"
+                ]
+              },
+              {
+                "signal": "sec.compliance_program",
+                "is": "present"
+              }
+            ]
+          }
+        ]
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [
+        "ssdf:PW.7",
+        "ssdf:PW.4.4"
+      ],
+      "audiences": [
+        "security",
+        "compliance"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/assure/inputs/scanning-index.md",
+        "docs/security/scanning.md",
+        "docs/assure/inputs/sast-sca-index.md",
+        "security/scan-results/"
+      ],
+      "system_of_record": "repo"
+    },
+    {
+      "id": "assure.secrets-policy",
+      "title": "Secrets management policy",
+      "stage": "assure",
+      "durability": "durable",
+      "scope": "org",
+      "producible": "M",
+      "backfillability": "P",
+      "cadence": "P365D",
+      "sensitivity": "restricted",
+      "path": "docs/assure/secrets-policy.md",
+      "selects_on": {
+        "any": [
+          {
+            "any": [
+              {
+                "signal": "arch.service",
+                "is": "present"
+              },
+              {
+                "signal": "iface.http",
+                "is": "present"
+              },
+              {
+                "signal": "iface.grpc",
+                "is": "present"
+              },
+              {
+                "signal": "iface.graphql",
+                "is": "present"
+              },
+              {
+                "signal": "deploy.kubernetes",
+                "is": "present"
+              },
+              {
+                "signal": "deploy.paas",
+                "is": "present"
+              },
+              {
+                "signal": "deploy.serverless",
+                "is": "present"
+              }
+            ]
+          },
+          {
+            "signal": "sec.authn",
+            "is": "present"
+          }
+        ]
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [
+        "ssdf:PS.1",
+        "iso27001:A.8.24"
+      ],
+      "audiences": [
+        "security",
+        "engineering",
+        "operations"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/assure/secrets-policy.md",
+        "docs/security/secrets.md",
+        "docs/security/secrets-management.md",
+        "SECRETS.md"
+      ],
+      "system_of_record": "ask"
+    },
+    {
+      "id": "assure.threat-model",
+      "title": "Threat model",
+      "stage": "assure",
+      "durability": "durable",
+      "scope": "product",
+      "producible": "M",
+      "backfillability": "P",
+      "cadence": "P180D",
+      "sensitivity": "restricted",
+      "path": "docs/assure/threat-model.md",
+      "selects_on": {
+        "any": [
+          {
+            "signal": "sec.authn",
+            "is": "present"
+          },
+          {
+            "signal": "data.pii",
+            "gte": 1
+          },
+          {
+            "signal": "arch.service",
+            "is": "present"
+          }
+        ]
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [
+        "ssdf:PW.1.1",
+        "iso27001:A.8.27",
+        "cra:annexI.I",
+        "itsg33:TRA"
+      ],
+      "audiences": [
+        "security",
+        "engineering"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/assure/threat-model.md",
+        "docs/security/threat-model.md",
+        "threat-model.md",
+        "docs/security/threats.md",
+        "docs/design/threat-model.md"
+      ],
+      "system_of_record": "ask"
+    },
+    {
+      "id": "assure.vdp",
+      "title": "Vulnerability disclosure policy",
+      "stage": "assure",
+      "durability": "durable",
+      "scope": "org",
+      "producible": "M",
+      "backfillability": "H",
+      "cadence": "P365D",
+      "sensitivity": "public",
+      "path": "SECURITY.md",
+      "selects_on": {
+        "any": [
+          {
+            "any": [
+              {
+                "signal": "users.is_oss",
+                "is": "present"
+              },
+              {
+                "answer": "q1_users",
+                "in": [
+                  "public"
+                ]
+              }
+            ]
+          },
+          {
+            "any": [
+              {
+                "signal": "supply.artifact_published",
+                "is": "present"
+              },
+              {
+                "signal": "users.published_package",
+                "is": "present"
+              },
+              {
+                "signal": "arch.firmware",
+                "is": "present"
+              }
+            ]
+          },
+          {
+            "answer": "q5_markets",
+            "in": [
+              "eu-eea",
+              "us",
+              "global"
+            ]
+          }
+        ]
+      },
+      "baseline_verdict": "required",
+      "satisfies": [
+        "ssdf:RV.1.3",
+        "cra:art13.8",
+        "iso29147"
+      ],
+      "audiences": [
+        "security",
+        "users"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "SECURITY.md",
+        ".github/SECURITY.md",
+        "docs/security/disclosure.md",
+        ".well-known/security.txt"
+      ],
+      "system_of_record": "ask"
+    },
+    {
+      "id": "build.agent-host-rules",
+      "title": "Host-specific agent rules",
+      "stage": "build",
+      "durability": "durable",
+      "scope": "repo",
+      "producible": "Y",
+      "backfillability": "H",
+      "cadence": "on-change",
+      "sensitivity": "public",
+      "path": "CLAUDE.md",
+      "selects_on": {
+        "signal": "docs.agent_files",
+        "is": "present"
+      },
+      "baseline_verdict": "optional",
+      "satisfies": [],
+      "audiences": [
+        "agents",
+        "engineering"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "CLAUDE.md",
+        ".claude/CLAUDE.md",
+        ".cursor/rules/",
+        ".cursorrules",
+        ".windsurfrules",
+        ".github/copilot-instructions.md"
+      ],
+      "system_of_record": "repo"
+    },
+    {
+      "id": "build.agents-md",
+      "title": "AGENTS.md",
+      "stage": "build",
+      "durability": "durable",
+      "scope": "repo",
+      "producible": "Y",
+      "backfillability": "P",
+      "cadence": "on-change",
+      "sensitivity": "public",
+      "path": "AGENTS.md",
+      "selects_on": {
+        "always": true
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [
+        "agentsmd"
+      ],
+      "audiences": [
+        "agents",
+        "engineering"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "AGENTS.md",
+        ".github/AGENTS.md",
+        "docs/AGENTS.md"
+      ],
+      "system_of_record": "repo"
+    },
+    {
+      "id": "build.api-reference",
+      "title": "API reference (generated)",
+      "stage": "build",
+      "durability": "durable",
+      "scope": "repo",
+      "producible": "Y",
+      "backfillability": "H",
+      "cadence": "on-change",
+      "sensitivity": "public",
+      "path": "docs/build/api-reference.md",
+      "selects_on": {
+        "any": [
+          {
+            "any": [
+              {
+                "signal": "iface.cli",
+                "is": "present"
+              },
+              {
+                "signal": "iface.graphql",
+                "is": "present"
+              },
+              {
+                "signal": "iface.grpc",
+                "is": "present"
+              },
+              {
+                "signal": "iface.http",
+                "is": "present"
+              },
+              {
+                "signal": "iface.mcp_server",
+                "is": "present"
+              },
+              {
+                "signal": "iface.openapi",
+                "is": "present"
+              }
+            ]
+          },
+          {
+            "any": [
+              {
+                "signal": "users.is_oss",
+                "is": "present"
+              },
+              {
+                "answer": "q1_users",
+                "in": [
+                  "public"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [
+        "diataxis:reference"
+      ],
+      "audiences": [
+        "engineering",
+        "users"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/api/",
+        "docs/reference/",
+        "docs/api-reference.md",
+        "docs/build/api-reference.md",
+        "api-docs/"
+      ],
+      "system_of_record": "repo"
+    },
+    {
+      "id": "build.codebase-map",
+      "title": "Codebase map",
+      "stage": "build",
+      "durability": "durable",
+      "scope": "repo",
+      "producible": "Y",
+      "backfillability": "H",
+      "cadence": "on-change",
+      "sensitivity": "internal",
+      "path": "docs/build/codebase-map.md",
+      "selects_on": {
+        "any": [
+          {
+            "answer": "q1_users",
+            "in": [
+              "my-team",
+              "other-teams",
+              "customers",
+              "public"
+            ]
+          },
+          {
+            "signal": "proc.authors_12mo",
+            "gte": 2
+          },
+          {
+            "signal": "deploy.ci",
+            "is": "present"
+          }
+        ]
+      },
+      "baseline_verdict": "optional",
+      "satisfies": [],
+      "audiences": [
+        "engineering",
+        "agents"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/build/codebase-map.md",
+        "docs/codebase-map.md",
+        "docs/architecture/codebase.md",
+        ".planning/codebase/",
+        "docs/repo-structure.md"
+      ],
+      "system_of_record": "repo"
+    },
+    {
+      "id": "build.coding-standard",
+      "title": "Coding standard (incl. secure coding)",
+      "stage": "build",
+      "durability": "durable",
+      "scope": "org",
+      "producible": "Y",
+      "backfillability": "H",
+      "cadence": "P365D",
+      "sensitivity": "internal",
+      "path": "docs/build/coding-standard.md",
+      "selects_on": {
+        "always": true
+      },
+      "baseline_verdict": "optional",
+      "satisfies": [
+        "ssdf:PW.5.1",
+        "iso27001:A.8.28",
+        "soc2:CC8.1"
+      ],
+      "audiences": [
+        "engineering",
+        "security",
+        "agents"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/build/coding-standard.md",
+        "docs/coding-standards.md",
+        "docs/style-guide.md",
+        "CODING_STANDARDS.md",
+        "docs/engineering/standards.md",
+        "CODEDNA.md"
+      ],
+      "system_of_record": "ask"
+    },
+    {
+      "id": "build.compat-matrix",
+      "title": "Host and platform compatibility matrix",
+      "stage": "build",
+      "durability": "durable",
+      "scope": "repo",
+      "producible": "Y",
+      "backfillability": "H",
+      "cadence": "on-release",
+      "sensitivity": "public",
+      "path": "docs/build/compat-matrix.md",
+      "selects_on": {
+        "any": [
+          {
+            "signal": "arch.agent_skill",
+            "is": "present"
+          },
+          {
+            "any": [
+              {
+                "signal": "supply.artifact_published",
+                "is": "present"
+              },
+              {
+                "signal": "users.published_package",
+                "is": "present"
+              },
+              {
+                "signal": "arch.firmware",
+                "is": "present"
+              }
+            ]
+          }
+        ]
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [],
+      "audiences": [
+        "engineering",
+        "users",
+        "operations"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/build/compat-matrix.md",
+        "docs/compatibility.md",
+        "docs/support-matrix.md",
+        "COMPATIBILITY.md"
+      ],
+      "system_of_record": "repo"
+    },
+    {
+      "id": "build.config-reference",
+      "title": "Configuration reference",
+      "stage": "build",
+      "durability": "durable",
+      "scope": "repo",
+      "producible": "Y",
+      "backfillability": "H",
+      "cadence": "on-change",
+      "sensitivity": "internal",
+      "path": "docs/build/config-reference.md",
+      "selects_on": {
+        "any": [
+          {
+            "signal": "arch.service",
+            "is": "present"
+          },
+          {
+            "signal": "iface.http",
+            "is": "present"
+          },
+          {
+            "signal": "iface.grpc",
+            "is": "present"
+          },
+          {
+            "signal": "iface.graphql",
+            "is": "present"
+          },
+          {
+            "signal": "deploy.kubernetes",
+            "is": "present"
+          },
+          {
+            "signal": "deploy.paas",
+            "is": "present"
+          },
+          {
+            "signal": "deploy.serverless",
+            "is": "present"
+          }
+        ]
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [
+        "diataxis:reference"
+      ],
+      "audiences": [
+        "engineering",
+        "operations"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/build/config-reference.md",
+        "docs/configuration.md",
+        "docs/config.md",
+        "docs/reference/configuration.md",
+        ".env.example"
+      ],
+      "system_of_record": "repo"
+    },
+    {
+      "id": "build.contributing",
+      "title": "Contributing guide",
+      "stage": "build",
+      "durability": "durable",
+      "scope": "repo",
+      "producible": "M",
+      "backfillability": "H",
+      "cadence": "P180D",
+      "sensitivity": "public",
+      "path": "CONTRIBUTING.md",
+      "selects_on": {
+        "any": [
+          {
+            "any": [
+              {
+                "signal": "users.is_oss",
+                "is": "present"
+              },
+              {
+                "answer": "q1_users",
+                "in": [
+                  "public"
+                ]
+              }
+            ]
+          },
+          {
+            "any": [
+              {
+                "signal": "proc.codeowners",
+                "is": "present"
+              },
+              {
+                "signal": "proc.authors_12mo",
+                "gte": 8
+              },
+              {
+                "answer": "q1_users",
+                "in": [
+                  "other-teams"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [],
+      "audiences": [
+        "engineering"
+      ],
+      "defers_to": "repo-ready",
+      "detect_paths": [
+        "CONTRIBUTING.md",
+        ".github/CONTRIBUTING.md",
+        "docs/CONTRIBUTING.md",
+        "docs/contributing.md"
+      ],
+      "system_of_record": "repo"
+    },
+    {
+      "id": "build.dev-setup",
+      "title": "Development setup",
+      "stage": "build",
+      "durability": "durable",
+      "scope": "repo",
+      "producible": "Y",
+      "backfillability": "H",
+      "cadence": "on-change",
+      "sensitivity": "public",
+      "path": "docs/build/dev-setup.md",
+      "selects_on": {
+        "always": true
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [
+        "diataxis:how-to"
+      ],
+      "audiences": [
+        "engineering",
+        "agents"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/build/dev-setup.md",
+        "docs/development.md",
+        "docs/setup.md",
+        "DEVELOPMENT.md",
+        "docs/getting-started.md",
+        "CONTRIBUTING.md"
+      ],
+      "system_of_record": "repo"
+    },
+    {
+      "id": "build.feature-flags",
+      "title": "Feature flag register",
+      "stage": "build",
+      "durability": "durable",
+      "scope": "repo",
+      "producible": "Y",
+      "backfillability": "H",
+      "cadence": "P30D",
+      "sensitivity": "internal",
+      "path": "docs/build/feature-flags.md",
+      "selects_on": {
+        "signal": "ops.flags",
+        "is": "present"
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [],
+      "audiences": [
+        "engineering",
+        "operations",
+        "product"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/build/feature-flags.md",
+        "docs/feature-flags.md",
+        "docs/flags.md",
+        "config/flags.yml"
+      ],
+      "system_of_record": "repo"
+    },
+    {
+      "id": "build.llms-txt",
+      "title": "Agent documentation index",
+      "stage": "build",
+      "durability": "durable",
+      "scope": "repo",
+      "producible": "Y",
+      "backfillability": "H",
+      "cadence": "on-change",
+      "sensitivity": "public",
+      "path": "llms.txt",
+      "selects_on": {
+        "any": [
+          {
+            "any": [
+              {
+                "signal": "users.is_oss",
+                "is": "present"
+              },
+              {
+                "answer": "q1_users",
+                "in": [
+                  "public"
+                ]
+              }
+            ]
+          },
+          {
+            "any": [
+              {
+                "answer": "q1_users",
+                "in": [
+                  "other-teams",
+                  "customers",
+                  "public"
+                ]
+              },
+              {
+                "signal": "users.public_signup",
+                "is": "present"
+              }
+            ]
+          }
+        ]
+      },
+      "baseline_verdict": "optional",
+      "satisfies": [
+        "llmstxt"
+      ],
+      "audiences": [
+        "agents",
+        "users"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "llms.txt",
+        "public/llms.txt",
+        "docs/llms.txt",
+        "static/llms.txt"
+      ],
+      "system_of_record": "repo"
+    },
+    {
+      "id": "build.migrations",
+      "title": "Schema migration procedure",
+      "stage": "build",
+      "durability": "durable",
+      "scope": "repo",
+      "producible": "Y",
+      "backfillability": "H",
+      "cadence": "on-change",
+      "sensitivity": "internal",
+      "path": "docs/build/migrations.md",
+      "selects_on": {
+        "signal": "data.migrations",
+        "is": "present"
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [],
+      "audiences": [
+        "engineering",
+        "data",
+        "operations"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/build/migrations.md",
+        "docs/migrations.md",
+        "migrations/README.md",
+        "db/migrations/README.md",
+        "docs/database/migrations.md"
+      ],
+      "system_of_record": "repo"
+    },
+    {
+      "id": "build.readme",
+      "title": "README",
+      "stage": "build",
+      "durability": "durable",
+      "scope": "repo",
+      "producible": "M",
+      "backfillability": "H",
+      "cadence": "on-change",
+      "sensitivity": "public",
+      "path": "README.md",
+      "selects_on": {
+        "always": true
+      },
+      "baseline_verdict": "required",
+      "satisfies": [],
+      "audiences": [
+        "engineering",
+        "users",
+        "agents"
+      ],
+      "defers_to": "repo-ready",
+      "detect_paths": [
+        "README.md",
+        "README.rst",
+        "readme.md",
+        "docs/README.md"
+      ],
+      "system_of_record": "repo"
+    },
+    {
+      "id": "build.release-process",
+      "title": "Build and release engineering",
+      "stage": "build",
+      "durability": "durable",
+      "scope": "repo",
+      "producible": "Y",
+      "backfillability": "H",
+      "cadence": "on-change",
+      "sensitivity": "internal",
+      "path": "docs/build/release-process.md",
+      "selects_on": {
+        "any": [
+          {
+            "signal": "supply.artifact_published",
+            "is": "present"
+          },
+          {
+            "signal": "proc.tags",
+            "gte": 1
+          },
+          {
+            "signal": "deploy.cd",
+            "is": "present"
+          }
+        ]
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [
+        "ssdf:PS.2",
+        "ssdf:PS.3"
+      ],
+      "audiences": [
+        "engineering",
+        "operations"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/build/release-process.md",
+        "RELEASING.md",
+        "docs/releasing.md",
+        "docs/release-process.md",
+        "docs/development/release.md"
+      ],
+      "system_of_record": "repo"
+    },
+    {
+      "id": "decide.adr",
+      "title": "Architecture decision record",
+      "stage": "decide",
+      "durability": "durable",
+      "scope": "repo",
+      "producible": "Y",
+      "backfillability": "P",
+      "cadence": "none",
+      "sensitivity": "internal",
+      "path": "docs/adr/",
+      "selects_on": {
+        "always": true
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [
+        "arc42:9"
+      ],
+      "audiences": [
+        "engineering",
+        "agents"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/adr/",
+        "docs/decisions/",
+        "docs/architecture/decisions/",
+        "adr/",
+        "doc/adr/",
+        "docs/adrs/",
+        ".architecture-ready/adr/"
+      ],
+      "system_of_record": "repo"
+    },
+    {
+      "id": "decide.adr-index",
+      "title": "Decision index",
+      "stage": "decide",
+      "durability": "durable",
+      "scope": "repo",
+      "producible": "Y",
+      "backfillability": "H",
+      "cadence": "on-change",
+      "sensitivity": "internal",
+      "path": "docs/adr/README.md",
+      "selects_on": {
+        "document": "decide.adr",
+        "state": "present"
+      },
+      "baseline_verdict": "required",
+      "satisfies": [
+        "arc42:9"
+      ],
+      "audiences": [
+        "engineering",
+        "agents"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/adr/README.md",
+        "docs/adr/index.md",
+        "docs/decisions/README.md",
+        "docs/decisions/index.md",
+        "docs/adr/0000-index.md"
+      ],
+      "system_of_record": "repo"
+    },
+    {
+      "id": "decide.design-proposal",
+      "title": "Design proposal",
+      "stage": "decide",
+      "durability": "transient",
+      "scope": "repo",
+      "producible": "M",
+      "backfillability": "N",
+      "cadence": "none",
+      "sensitivity": "internal",
+      "path": "docs/decide/proposals/",
+      "selects_on": {
+        "any": [
+          {
+            "any": [
+              {
+                "signal": "proc.codeowners",
+                "is": "present"
+              },
+              {
+                "signal": "proc.authors_12mo",
+                "gte": 8
+              },
+              {
+                "answer": "q1_users",
+                "in": [
+                  "other-teams"
+                ]
+              }
+            ]
+          },
+          {
+            "any": [
+              {
+                "answer": "q1_users",
+                "in": [
+                  "customers",
+                  "public"
+                ]
+              },
+              {
+                "answer": "q2_operator",
+                "in": [
+                  "separate-ops-team",
+                  "customer-operated"
+                ]
+              },
+              {
+                "signal": "proc.authors_12mo",
+                "gte": 5
+              },
+              {
+                "signal": "scale.services",
+                "gte": 3
+              }
+            ]
+          }
+        ]
+      },
+      "baseline_verdict": "optional",
+      "satisfies": [],
+      "audiences": [
+        "engineering"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/proposals/",
+        "docs/design/proposals/",
+        "rfcs/",
+        "docs/rfcs/",
+        "designs/"
+      ],
+      "system_of_record": "repo"
+    },
+    {
+      "id": "decide.waivers",
+      "title": "Exception and risk acceptance register",
+      "stage": "decide",
+      "durability": "durable",
+      "scope": "repo",
+      "producible": "Y",
+      "backfillability": "P",
+      "cadence": "P90D",
+      "sensitivity": "restricted",
+      "path": "docs/decide/waivers.md",
+      "selects_on": {
+        "signal": "supply.has_deps",
+        "is": "present"
+      },
+      "baseline_verdict": "optional",
+      "satisfies": [],
+      "audiences": [
+        "security",
+        "compliance",
+        "leadership"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/decide/waivers.md",
+        "docs/waivers.md",
+        "docs/security/exceptions.md",
+        "docs/governance/risk-acceptance.md"
+      ],
+      "system_of_record": "repo"
+    },
+    {
+      "id": "design.api-contract",
+      "title": "API contract (OpenAPI/proto/SDL)",
+      "stage": "design",
+      "durability": "durable",
+      "scope": "repo",
+      "producible": "Y",
+      "backfillability": "H",
+      "cadence": "on-change",
+      "sensitivity": "internal",
+      "path": "docs/design/api-contract.md",
+      "selects_on": {
+        "any": [
+          {
+            "signal": "iface.http",
+            "is": "present"
+          },
+          {
+            "signal": "iface.grpc",
+            "is": "present"
+          },
+          {
+            "signal": "iface.graphql",
+            "is": "present"
+          }
+        ]
+      },
+      "baseline_verdict": "required",
+      "satisfies": [],
+      "audiences": [
+        "engineering",
+        "users"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "openapi.yaml",
+        "openapi.json",
+        "docs/api/openapi.yaml",
+        "api/openapi.yaml",
+        "schema.graphql",
+        "proto/",
+        "docs/design/api-contract.md"
+      ],
+      "system_of_record": "repo"
+    },
+    {
+      "id": "design.architecture",
+      "title": "Architecture description (arc42)",
+      "stage": "design",
+      "durability": "durable",
+      "scope": "product",
+      "producible": "Y",
+      "backfillability": "P",
+      "cadence": "P180D",
+      "sensitivity": "internal",
+      "path": "docs/design/architecture.md",
+      "selects_on": {
+        "always": true
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [
+        "arc42",
+        "iso42010"
+      ],
+      "audiences": [
+        "engineering",
+        "leadership",
+        "agents"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/design/architecture.md",
+        "docs/architecture.md",
+        "ARCHITECTURE.md",
+        "docs/architecture/README.md",
+        ".architecture-ready/ARCH.md",
+        "docs/arc42/"
+      ],
+      "system_of_record": "ask"
+    },
+    {
+      "id": "design.data-model",
+      "title": "Data model and dictionary",
+      "stage": "design",
+      "durability": "durable",
+      "scope": "repo",
+      "producible": "Y",
+      "backfillability": "H",
+      "cadence": "on-change",
+      "sensitivity": "internal",
+      "path": "docs/design/data-model.md",
+      "selects_on": {
+        "signal": "data.schema",
+        "is": "present"
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [],
+      "audiences": [
+        "engineering",
+        "data"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/design/data-model.md",
+        "docs/data-model.md",
+        "docs/database/schema.md",
+        "docs/data/dictionary.md",
+        "docs/db/schema.md"
+      ],
+      "system_of_record": "repo"
+    },
+    {
+      "id": "design.diagrams",
+      "title": "C4 context and container diagrams",
+      "stage": "design",
+      "durability": "durable",
+      "scope": "product",
+      "producible": "Y",
+      "backfillability": "H",
+      "cadence": "P180D",
+      "sensitivity": "internal",
+      "path": "docs/design/diagrams.md",
+      "selects_on": {
+        "any": [
+          {
+            "any": [
+              {
+                "signal": "arch.service",
+                "is": "present"
+              },
+              {
+                "signal": "iface.http",
+                "is": "present"
+              },
+              {
+                "signal": "iface.grpc",
+                "is": "present"
+              },
+              {
+                "signal": "iface.graphql",
+                "is": "present"
+              },
+              {
+                "signal": "deploy.kubernetes",
+                "is": "present"
+              },
+              {
+                "signal": "deploy.paas",
+                "is": "present"
+              },
+              {
+                "signal": "deploy.serverless",
+                "is": "present"
+              }
+            ]
+          },
+          {
+            "any": [
+              {
+                "signal": "proc.codeowners",
+                "is": "present"
+              },
+              {
+                "signal": "proc.authors_12mo",
+                "gte": 8
+              },
+              {
+                "answer": "q1_users",
+                "in": [
+                  "other-teams"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [
+        "c4"
+      ],
+      "audiences": [
+        "engineering",
+        "leadership"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/design/diagrams.md",
+        "docs/architecture/diagrams/",
+        "docs/diagrams/",
+        "docs/design/c4/",
+        "docs/architecture/c4/"
+      ],
+      "system_of_record": "ask"
+    },
+    {
+      "id": "design.integrations",
+      "title": "Integration and interface catalogue",
+      "stage": "design",
+      "durability": "durable",
+      "scope": "product",
+      "producible": "Y",
+      "backfillability": "H",
+      "cadence": "P90D",
+      "sensitivity": "internal",
+      "path": "docs/design/integrations.md",
+      "selects_on": {
+        "any": [
+          {
+            "signal": "arch.service",
+            "is": "present"
+          },
+          {
+            "signal": "iface.http",
+            "is": "present"
+          },
+          {
+            "signal": "iface.grpc",
+            "is": "present"
+          },
+          {
+            "signal": "iface.graphql",
+            "is": "present"
+          },
+          {
+            "signal": "deploy.kubernetes",
+            "is": "present"
+          },
+          {
+            "signal": "deploy.paas",
+            "is": "present"
+          },
+          {
+            "signal": "deploy.serverless",
+            "is": "present"
+          }
+        ]
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [],
+      "audiences": [
+        "engineering",
+        "operations"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/design/integrations.md",
+        "docs/integrations.md",
+        "docs/architecture/integrations.md",
+        "docs/design/interfaces.md"
+      ],
+      "system_of_record": "ask"
+    },
+    {
+      "id": "frame.glossary",
+      "title": "Glossary",
+      "stage": "frame",
+      "durability": "durable",
+      "scope": "repo",
+      "producible": "Y",
+      "backfillability": "H",
+      "cadence": "P180D",
+      "sensitivity": "public",
+      "path": "docs/frame/glossary.md",
+      "selects_on": {
+        "always": true
+      },
+      "baseline_verdict": "optional",
+      "satisfies": [
+        "arc42:12"
+      ],
+      "audiences": [
+        "engineering",
+        "product",
+        "agents"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/frame/glossary.md",
+        "docs/glossary.md",
+        "GLOSSARY.md",
+        "docs/reference/glossary.md"
+      ],
+      "system_of_record": "repo"
+    },
+    {
+      "id": "frame.requirements",
+      "title": "Requirements specification (PRD/SRS)",
+      "stage": "frame",
+      "durability": "durable",
+      "scope": "product",
+      "producible": "Y",
+      "backfillability": "P",
+      "cadence": "P180D",
+      "sensitivity": "internal",
+      "path": "docs/frame/requirements.md",
+      "selects_on": {
+        "always": true
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [
+        "iso29148"
+      ],
+      "audiences": [
+        "product",
+        "engineering",
+        "leadership"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/frame/requirements.md",
+        "docs/requirements.md",
+        "docs/PRD.md",
+        "PRD.md",
+        ".prd-ready/PRD.md",
+        "docs/product/prd.md",
+        "docs/srs.md"
+      ],
+      "system_of_record": "ask"
+    },
+    {
+      "id": "frame.scope",
+      "title": "Scope and boundaries",
+      "stage": "frame",
+      "durability": "durable",
+      "scope": "product",
+      "producible": "Y",
+      "backfillability": "P",
+      "cadence": "P180D",
+      "sensitivity": "internal",
+      "path": "docs/frame/scope.md",
+      "selects_on": {
+        "always": true
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [
+        "arc42:3"
+      ],
+      "audiences": [
+        "product",
+        "engineering",
+        "leadership"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/frame/scope.md",
+        "docs/scope.md",
+        "docs/product/scope.md",
+        "NON-GOALS.md",
+        "docs/frame/non-goals.md"
+      ],
+      "system_of_record": "ask"
+    },
+    {
+      "id": "frame.stakeholders",
+      "title": "Stakeholder register",
+      "stage": "frame",
+      "durability": "durable",
+      "scope": "product",
+      "producible": "Y",
+      "backfillability": "P",
+      "cadence": "P180D",
+      "sensitivity": "internal",
+      "path": "docs/frame/stakeholders.md",
+      "selects_on": {
+        "any": [
+          {
+            "answer": "q1_users",
+            "in": [
+              "my-team",
+              "other-teams",
+              "customers",
+              "public"
+            ]
+          },
+          {
+            "signal": "proc.authors_12mo",
+            "gte": 2
+          },
+          {
+            "signal": "deploy.ci",
+            "is": "present"
+          }
+        ]
+      },
+      "baseline_verdict": "optional",
+      "satisfies": [
+        "arc42:1"
+      ],
+      "audiences": [
+        "product",
+        "leadership"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/frame/stakeholders.md",
+        "docs/stakeholders.md",
+        "docs/product/stakeholders.md",
+        "docs/governance/stakeholder-register.md"
+      ],
+      "system_of_record": "ask"
+    },
+    {
+      "id": "govern.compliance-register",
+      "title": "Regime applicability register",
+      "stage": "govern",
+      "durability": "durable",
+      "scope": "product",
+      "producible": "Y",
+      "backfillability": "P",
+      "cadence": "P90D",
+      "sensitivity": "internal",
+      "path": "docs/govern/compliance-register.md",
+      "selects_on": {
+        "always": true
+      },
+      "baseline_verdict": "optional",
+      "satisfies": [],
+      "audiences": [
+        "compliance",
+        "leadership",
+        "security"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/govern/compliance-register.md",
+        "docs/compliance/register.md",
+        "docs/compliance/applicability.md"
+      ],
+      "system_of_record": "ask"
+    },
+    {
+      "id": "govern.manifest",
+      "title": "Documentation manifest",
+      "stage": "govern",
+      "durability": "durable",
+      "scope": "repo",
+      "producible": "Y",
+      "backfillability": "H",
+      "cadence": "P90D",
+      "sensitivity": "internal",
+      "path": "DOCDNA.md",
+      "selects_on": {
+        "always": true
+      },
+      "baseline_verdict": "required",
+      "satisfies": [],
+      "audiences": [
+        "engineering",
+        "leadership",
+        "compliance"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "DOCDNA.md",
+        ".docdna/manifest.json"
+      ],
+      "system_of_record": "repo"
+    },
+    {
+      "id": "govern.ownership",
+      "title": "Ownership map",
+      "stage": "govern",
+      "durability": "durable",
+      "scope": "repo",
+      "producible": "Y",
+      "backfillability": "H",
+      "cadence": "P90D",
+      "sensitivity": "internal",
+      "path": "docs/govern/ownership.md",
+      "selects_on": {
+        "any": [
+          {
+            "signal": "proc.codeowners",
+            "is": "present"
+          },
+          {
+            "signal": "proc.authors_12mo",
+            "gte": 8
+          },
+          {
+            "answer": "q1_users",
+            "in": [
+              "other-teams"
+            ]
+          }
+        ]
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [],
+      "audiences": [
+        "engineering",
+        "operations",
+        "leadership"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/govern/ownership.md",
+        "CODEOWNERS",
+        ".github/CODEOWNERS",
+        "docs/ownership.md",
+        "catalog-info.yaml"
+      ],
+      "system_of_record": "repo"
+    },
+    {
+      "id": "govern.raid",
+      "title": "RAID log",
+      "stage": "govern",
+      "durability": "durable",
+      "scope": "product",
+      "producible": "M",
+      "backfillability": "P",
+      "cadence": "P30D",
+      "sensitivity": "internal",
+      "path": "docs/govern/raid.md",
+      "selects_on": {
+        "any": [
+          {
+            "answer": "q1_users",
+            "in": [
+              "customers",
+              "public"
+            ]
+          },
+          {
+            "answer": "q2_operator",
+            "in": [
+              "separate-ops-team",
+              "customer-operated"
+            ]
+          },
+          {
+            "signal": "proc.authors_12mo",
+            "gte": 5
+          },
+          {
+            "signal": "scale.services",
+            "gte": 3
+          }
+        ]
+      },
+      "baseline_verdict": "optional",
+      "satisfies": [],
+      "audiences": [
+        "leadership",
+        "product"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/govern/raid.md",
+        "docs/raid-log.md",
+        "docs/risks.md",
+        "docs/governance/risk-register.md"
+      ],
+      "system_of_record": "ask"
+    },
+    {
+      "id": "govern.tech-debt",
+      "title": "Technical debt register",
+      "stage": "govern",
+      "durability": "durable",
+      "scope": "repo",
+      "producible": "Y",
+      "backfillability": "H",
+      "cadence": "P90D",
+      "sensitivity": "internal",
+      "path": "docs/govern/tech-debt.md",
+      "selects_on": {
+        "any": [
+          {
+            "answer": "q1_users",
+            "in": [
+              "my-team",
+              "other-teams",
+              "customers",
+              "public"
+            ]
+          },
+          {
+            "signal": "proc.authors_12mo",
+            "gte": 2
+          },
+          {
+            "signal": "deploy.ci",
+            "is": "present"
+          }
+        ]
+      },
+      "baseline_verdict": "optional",
+      "satisfies": [
+        "iso25010"
+      ],
+      "audiences": [
+        "engineering",
+        "leadership"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/govern/tech-debt.md",
+        "docs/tech-debt.md",
+        "TECH_DEBT.md",
+        "docs/engineering/debt.md"
+      ],
+      "system_of_record": "repo"
+    },
+    {
+      "id": "govern.traceability",
+      "title": "Traceability index",
+      "stage": "govern",
+      "durability": "durable",
+      "scope": "product",
+      "producible": "Y",
+      "backfillability": "H",
+      "cadence": "on-change",
+      "sensitivity": "internal",
+      "path": "docs/govern/traceability.md",
+      "selects_on": {
+        "any": [
+          {
+            "document": "verify.rtm",
+            "state": "present"
+          },
+          {
+            "document": "decide.adr",
+            "state": "present"
+          }
+        ]
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [],
+      "audiences": [
+        "compliance",
+        "quality",
+        "engineering"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/govern/traceability.md",
+        "docs/traceability.md",
+        "docs/govern/spine.md"
+      ],
+      "system_of_record": "ask"
+    },
+    {
+      "id": "operate.backup-restore",
+      "title": "Backup and restore procedure",
+      "stage": "operate",
+      "durability": "durable",
+      "scope": "product",
+      "producible": "M",
+      "backfillability": "H",
+      "cadence": "P90D",
+      "sensitivity": "restricted",
+      "path": "docs/operate/backup-restore.md",
+      "selects_on": {
+        "any": [
+          {
+            "signal": "data.schema",
+            "is": "present"
+          },
+          {
+            "any": [
+              {
+                "signal": "arch.service",
+                "is": "present"
+              },
+              {
+                "signal": "iface.http",
+                "is": "present"
+              },
+              {
+                "signal": "iface.grpc",
+                "is": "present"
+              },
+              {
+                "signal": "iface.graphql",
+                "is": "present"
+              },
+              {
+                "signal": "deploy.kubernetes",
+                "is": "present"
+              },
+              {
+                "signal": "deploy.paas",
+                "is": "present"
+              },
+              {
+                "signal": "deploy.serverless",
+                "is": "present"
+              }
+            ]
+          }
+        ]
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [
+        "iso27001:A.8.13"
+      ],
+      "audiences": [
+        "operations",
+        "engineering"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/operate/backup-restore.md",
+        "docs/ops/backup.md",
+        "docs/operations/restore.md",
+        "docs/runbooks/restore.md"
+      ],
+      "system_of_record": "ask"
+    },
+    {
+      "id": "operate.deployment",
+      "title": "Release and deployment plan",
+      "stage": "operate",
+      "durability": "durable",
+      "scope": "product",
+      "producible": "M",
+      "backfillability": "H",
+      "cadence": "on-release",
+      "sensitivity": "internal",
+      "path": "docs/operate/deployment.md",
+      "selects_on": {
+        "any": [
+          {
+            "signal": "arch.service",
+            "is": "present"
+          },
+          {
+            "signal": "iface.http",
+            "is": "present"
+          },
+          {
+            "signal": "iface.grpc",
+            "is": "present"
+          },
+          {
+            "signal": "iface.graphql",
+            "is": "present"
+          },
+          {
+            "signal": "deploy.kubernetes",
+            "is": "present"
+          },
+          {
+            "signal": "deploy.paas",
+            "is": "present"
+          },
+          {
+            "signal": "deploy.serverless",
+            "is": "present"
+          }
+        ]
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [
+        "itil:release",
+        "ssdf:PS.4"
+      ],
+      "audiences": [
+        "operations",
+        "engineering"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/operate/deployment.md",
+        "docs/deployment.md",
+        "DEPLOYMENT.md",
+        "docs/deploy.md",
+        "docs/ops/deploy.md"
+      ],
+      "system_of_record": "ask"
+    },
+    {
+      "id": "operate.dr-bcp",
+      "title": "Disaster recovery and continuity",
+      "stage": "operate",
+      "durability": "durable",
+      "scope": "product",
+      "producible": "M",
+      "backfillability": "P",
+      "cadence": "P365D",
+      "sensitivity": "restricted",
+      "path": "docs/operate/dr-bcp.md",
+      "selects_on": {
+        "all": [
+          {
+            "any": [
+              {
+                "signal": "arch.service",
+                "is": "present"
+              },
+              {
+                "signal": "iface.http",
+                "is": "present"
+              },
+              {
+                "signal": "iface.grpc",
+                "is": "present"
+              },
+              {
+                "signal": "iface.graphql",
+                "is": "present"
+              },
+              {
+                "signal": "deploy.kubernetes",
+                "is": "present"
+              },
+              {
+                "signal": "deploy.paas",
+                "is": "present"
+              },
+              {
+                "signal": "deploy.serverless",
+                "is": "present"
+              }
+            ]
+          },
+          {
+            "any": [
+              {
+                "answer": "q1_users",
+                "in": [
+                  "customers",
+                  "public"
+                ]
+              },
+              {
+                "answer": "q2_operator",
+                "in": [
+                  "separate-ops-team",
+                  "customer-operated"
+                ]
+              },
+              {
+                "signal": "proc.authors_12mo",
+                "gte": 5
+              },
+              {
+                "signal": "scale.services",
+                "gte": 3
+              }
+            ]
+          }
+        ]
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [
+        "iso27001:A.5.29",
+        "itil:continuity"
+      ],
+      "audiences": [
+        "operations",
+        "leadership",
+        "compliance"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/operate/dr-bcp.md",
+        "docs/ops/disaster-recovery.md",
+        "docs/operations/continuity.md",
+        "DR.md"
+      ],
+      "system_of_record": "ask"
+    },
+    {
+      "id": "operate.incident-mgmt",
+      "title": "Incident management process",
+      "stage": "operate",
+      "durability": "durable",
+      "scope": "org",
+      "producible": "M",
+      "backfillability": "P",
+      "cadence": "P365D",
+      "sensitivity": "internal",
+      "path": "docs/operate/incident-management.md",
+      "selects_on": {
+        "all": [
+          {
+            "any": [
+              {
+                "signal": "arch.service",
+                "is": "present"
+              },
+              {
+                "signal": "iface.http",
+                "is": "present"
+              },
+              {
+                "signal": "iface.grpc",
+                "is": "present"
+              },
+              {
+                "signal": "iface.graphql",
+                "is": "present"
+              },
+              {
+                "signal": "deploy.kubernetes",
+                "is": "present"
+              },
+              {
+                "signal": "deploy.paas",
+                "is": "present"
+              },
+              {
+                "signal": "deploy.serverless",
+                "is": "present"
+              }
+            ]
+          },
+          {
+            "any": [
+              {
+                "answer": "q1_users",
+                "in": [
+                  "customers",
+                  "public"
+                ]
+              },
+              {
+                "answer": "q2_operator",
+                "in": [
+                  "separate-ops-team",
+                  "customer-operated"
+                ]
+              },
+              {
+                "signal": "proc.authors_12mo",
+                "gte": 5
+              },
+              {
+                "signal": "scale.services",
+                "gte": 3
+              }
+            ]
+          }
+        ]
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [
+        "itil:incident"
+      ],
+      "audiences": [
+        "operations",
+        "security",
+        "leadership"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/operate/incident-management.md",
+        "docs/ops/incidents.md",
+        "docs/incident-response.md",
+        "docs/operations/incident-process.md"
+      ],
+      "system_of_record": "ask"
+    },
+    {
+      "id": "operate.oncall",
+      "title": "On-call policy",
+      "stage": "operate",
+      "durability": "durable",
+      "scope": "org",
+      "producible": "M",
+      "backfillability": "P",
+      "cadence": "P90D",
+      "sensitivity": "restricted",
+      "path": "docs/operate/oncall.md",
+      "selects_on": {
+        "signal": "ops.oncall",
+        "is": "present"
+      },
+      "baseline_verdict": "required",
+      "satisfies": [],
+      "audiences": [
+        "operations",
+        "engineering"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/operate/oncall.md",
+        "docs/ops/on-call.md",
+        "docs/oncall.md",
+        ".pagerduty.yml"
+      ],
+      "system_of_record": "ask"
+    },
+    {
+      "id": "operate.orr",
+      "title": "Operational readiness review scorecard",
+      "stage": "operate",
+      "durability": "evidence",
+      "scope": "product",
+      "producible": "Y",
+      "backfillability": "H",
+      "cadence": "on-release",
+      "sensitivity": "internal",
+      "path": "docs/assure/inputs/orr-scorecard.md",
+      "selects_on": {
+        "all": [
+          {
+            "any": [
+              {
+                "signal": "arch.service",
+                "is": "present"
+              },
+              {
+                "signal": "iface.http",
+                "is": "present"
+              },
+              {
+                "signal": "iface.grpc",
+                "is": "present"
+              },
+              {
+                "signal": "iface.graphql",
+                "is": "present"
+              },
+              {
+                "signal": "deploy.kubernetes",
+                "is": "present"
+              },
+              {
+                "signal": "deploy.paas",
+                "is": "present"
+              },
+              {
+                "signal": "deploy.serverless",
+                "is": "present"
+              }
+            ]
+          },
+          {
+            "answer": "q2_operator",
+            "in": [
+              "separate-ops-team",
+              "customer-operated"
+            ]
+          }
+        ]
+      },
+      "baseline_verdict": "required",
+      "satisfies": [
+        "itil:svt"
+      ],
+      "audiences": [
+        "operations",
+        "engineering",
+        "leadership"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/assure/inputs/orr-scorecard.md",
+        "docs/operate/orr.md",
+        "docs/operations/readiness-review.md",
+        "docs/ops/go-no-go.md"
+      ],
+      "system_of_record": "ask"
+    },
+    {
+      "id": "operate.postmortem",
+      "title": "Incident post-mortem",
+      "stage": "operate",
+      "durability": "evidence",
+      "scope": "product",
+      "producible": "M",
+      "backfillability": "P",
+      "cadence": "none",
+      "sensitivity": "internal",
+      "path": "docs/operate/postmortems/",
+      "selects_on": {
+        "all": [
+          {
+            "any": [
+              {
+                "signal": "arch.service",
+                "is": "present"
+              },
+              {
+                "signal": "iface.http",
+                "is": "present"
+              },
+              {
+                "signal": "iface.grpc",
+                "is": "present"
+              },
+              {
+                "signal": "iface.graphql",
+                "is": "present"
+              },
+              {
+                "signal": "deploy.kubernetes",
+                "is": "present"
+              },
+              {
+                "signal": "deploy.paas",
+                "is": "present"
+              },
+              {
+                "signal": "deploy.serverless",
+                "is": "present"
+              }
+            ]
+          },
+          {
+            "any": [
+              {
+                "answer": "q1_users",
+                "in": [
+                  "customers",
+                  "public"
+                ]
+              },
+              {
+                "answer": "q2_operator",
+                "in": [
+                  "separate-ops-team",
+                  "customer-operated"
+                ]
+              },
+              {
+                "signal": "proc.authors_12mo",
+                "gte": 5
+              },
+              {
+                "signal": "scale.services",
+                "gte": 3
+              }
+            ]
+          }
+        ]
+      },
+      "baseline_verdict": "optional",
+      "satisfies": [
+        "ssdf:RV.3"
+      ],
+      "audiences": [
+        "operations",
+        "engineering",
+        "leadership"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/operate/postmortems/",
+        "docs/postmortems/",
+        "postmortems/",
+        "docs/incidents/"
+      ],
+      "system_of_record": "ask"
+    },
+    {
+      "id": "operate.runbook",
+      "title": "Runbook (per scenario)",
+      "stage": "operate",
+      "durability": "durable",
+      "scope": "product",
+      "producible": "M",
+      "backfillability": "N",
+      "cadence": "P90D",
+      "sensitivity": "internal",
+      "path": "docs/runbooks/",
+      "selects_on": {
+        "signal": "ops.alerts",
+        "is": "present"
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [
+        "diataxis:how-to"
+      ],
+      "audiences": [
+        "operations"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/runbooks/",
+        "runbooks/",
+        "docs/operate/runbooks/",
+        "docs/ops/runbooks/"
+      ],
+      "system_of_record": "ask"
+    },
+    {
+      "id": "operate.runbook-index",
+      "title": "Runbook index and alert coverage",
+      "stage": "operate",
+      "durability": "durable",
+      "scope": "product",
+      "producible": "Y",
+      "backfillability": "H",
+      "cadence": "P90D",
+      "sensitivity": "internal",
+      "path": "docs/operate/runbook-index.md",
+      "selects_on": {
+        "signal": "ops.alerts",
+        "is": "present"
+      },
+      "baseline_verdict": "required",
+      "satisfies": [],
+      "audiences": [
+        "operations",
+        "engineering"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/operate/runbook-index.md",
+        "docs/runbooks/README.md",
+        "runbooks/README.md",
+        "docs/ops/runbooks/index.md"
+      ],
+      "system_of_record": "ask"
+    },
+    {
+      "id": "operate.slo",
+      "title": "Service level objectives",
+      "stage": "operate",
+      "durability": "durable",
+      "scope": "product",
+      "producible": "M",
+      "backfillability": "P",
+      "cadence": "P90D",
+      "sensitivity": "internal",
+      "path": "docs/operate/slo.md",
+      "selects_on": {
+        "all": [
+          {
+            "any": [
+              {
+                "signal": "arch.service",
+                "is": "present"
+              },
+              {
+                "signal": "iface.http",
+                "is": "present"
+              },
+              {
+                "signal": "iface.grpc",
+                "is": "present"
+              },
+              {
+                "signal": "iface.graphql",
+                "is": "present"
+              },
+              {
+                "signal": "deploy.kubernetes",
+                "is": "present"
+              },
+              {
+                "signal": "deploy.paas",
+                "is": "present"
+              },
+              {
+                "signal": "deploy.serverless",
+                "is": "present"
+              }
+            ]
+          },
+          {
+            "any": [
+              {
+                "answer": "q1_users",
+                "in": [
+                  "customers",
+                  "public"
+                ]
+              },
+              {
+                "answer": "q2_operator",
+                "in": [
+                  "separate-ops-team",
+                  "customer-operated"
+                ]
+              },
+              {
+                "signal": "proc.authors_12mo",
+                "gte": 5
+              },
+              {
+                "signal": "scale.services",
+                "gte": 3
+              }
+            ]
+          }
+        ]
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [],
+      "audiences": [
+        "operations",
+        "product",
+        "users"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/operate/slo.md",
+        "docs/ops/slo.md",
+        "slo.yaml",
+        "docs/operations/service-levels.md"
+      ],
+      "system_of_record": "ask"
+    },
+    {
+      "id": "operate.support-model",
+      "title": "Support model and escalation matrix",
+      "stage": "operate",
+      "durability": "durable",
+      "scope": "org",
+      "producible": "M",
+      "backfillability": "P",
+      "cadence": "P180D",
+      "sensitivity": "internal",
+      "path": "docs/operate/support-model.md",
+      "selects_on": {
+        "all": [
+          {
+            "any": [
+              {
+                "signal": "arch.service",
+                "is": "present"
+              },
+              {
+                "signal": "iface.http",
+                "is": "present"
+              },
+              {
+                "signal": "iface.grpc",
+                "is": "present"
+              },
+              {
+                "signal": "iface.graphql",
+                "is": "present"
+              },
+              {
+                "signal": "deploy.kubernetes",
+                "is": "present"
+              },
+              {
+                "signal": "deploy.paas",
+                "is": "present"
+              },
+              {
+                "signal": "deploy.serverless",
+                "is": "present"
+              }
+            ]
+          },
+          {
+            "any": [
+              {
+                "answer": "q1_users",
+                "in": [
+                  "customers",
+                  "public"
+                ]
+              },
+              {
+                "answer": "q2_operator",
+                "in": [
+                  "separate-ops-team",
+                  "customer-operated"
+                ]
+              },
+              {
+                "signal": "proc.authors_12mo",
+                "gte": 5
+              },
+              {
+                "signal": "scale.services",
+                "gte": 3
+              }
+            ]
+          }
+        ]
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [
+        "itil:service-desk"
+      ],
+      "audiences": [
+        "operations",
+        "users",
+        "leadership"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/operate/support-model.md",
+        "SUPPORT.md",
+        ".github/SUPPORT.md",
+        "docs/support.md",
+        "docs/ops/escalation.md"
+      ],
+      "system_of_record": "ask"
+    },
+    {
+      "id": "retire.archive-manifest",
+      "title": "Archive and retention manifest",
+      "stage": "retire",
+      "durability": "evidence",
+      "scope": "product",
+      "producible": "Y",
+      "backfillability": "H",
+      "cadence": "P365D",
+      "sensitivity": "internal",
+      "path": "docs/retire/archive-manifest.md",
+      "selects_on": {
+        "any": [
+          {
+            "answer": "q3_authorizer",
+            "in": [
+              "soc2-or-iso-auditor",
+              "government-authorizer",
+              "sector-regulator"
+            ]
+          },
+          {
+            "signal": "sec.compliance_program",
+            "is": "present"
+          }
+        ]
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [],
+      "audiences": [
+        "compliance",
+        "operations",
+        "leadership"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/retire/archive-manifest.md",
+        "docs/retire/retention.md",
+        "docs/records/archive-manifest.md"
+      ],
+      "system_of_record": "ask"
+    },
+    {
+      "id": "serve.changelog",
+      "title": "Changelog",
+      "stage": "serve",
+      "durability": "durable",
+      "scope": "repo",
+      "producible": "M",
+      "backfillability": "P",
+      "cadence": "on-release",
+      "sensitivity": "public",
+      "path": "CHANGELOG.md",
+      "selects_on": {
+        "any": [
+          {
+            "signal": "supply.artifact_published",
+            "is": "present"
+          },
+          {
+            "signal": "proc.tags",
+            "gte": 1
+          },
+          {
+            "signal": "deploy.cd",
+            "is": "present"
+          }
+        ]
+      },
+      "baseline_verdict": "required",
+      "satisfies": [
+        "keepachangelog:1.1.0"
+      ],
+      "audiences": [
+        "users",
+        "engineering"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "CHANGELOG.md",
+        "CHANGES.md",
+        "HISTORY.md",
+        "docs/changelog.md",
+        ".changeset/"
+      ],
+      "system_of_record": "repo"
+    },
+    {
+      "id": "serve.migration-guide",
+      "title": "Migration and upgrade guide",
+      "stage": "serve",
+      "durability": "durable",
+      "scope": "product",
+      "producible": "Y",
+      "backfillability": "H",
+      "cadence": "on-release",
+      "sensitivity": "public",
+      "path": "docs/serve/migration-guide.md",
+      "selects_on": {
+        "all": [
+          {
+            "any": [
+              {
+                "answer": "q1_users",
+                "in": [
+                  "other-teams",
+                  "customers",
+                  "public"
+                ]
+              },
+              {
+                "signal": "users.public_signup",
+                "is": "present"
+              }
+            ]
+          },
+          {
+            "any": [
+              {
+                "signal": "docs.changelog",
+                "is": "present"
+              },
+              {
+                "signal": "data.migrations",
+                "is": "present"
+              }
+            ]
+          }
+        ]
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [],
+      "audiences": [
+        "users",
+        "engineering"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/serve/migration-guide.md",
+        "MIGRATING.md",
+        "UPGRADING.md",
+        "docs/migration.md",
+        "docs/upgrading.md"
+      ],
+      "system_of_record": "ask"
+    },
+    {
+      "id": "verify.defect-process",
+      "title": "Defect management process",
+      "stage": "verify",
+      "durability": "durable",
+      "scope": "org",
+      "producible": "M",
+      "backfillability": "P",
+      "cadence": "P365D",
+      "sensitivity": "internal",
+      "path": "docs/verify/defect-process.md",
+      "selects_on": {
+        "any": [
+          {
+            "answer": "q1_users",
+            "in": [
+              "my-team",
+              "other-teams",
+              "customers",
+              "public"
+            ]
+          },
+          {
+            "signal": "proc.authors_12mo",
+            "gte": 2
+          },
+          {
+            "signal": "deploy.ci",
+            "is": "present"
+          }
+        ]
+      },
+      "baseline_verdict": "optional",
+      "satisfies": [
+        "ssdf:RV.2",
+        "itil:problem"
+      ],
+      "audiences": [
+        "quality",
+        "engineering",
+        "operations"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/verify/defect-process.md",
+        "docs/process/defects.md",
+        "docs/bug-triage.md",
+        ".github/ISSUE_TEMPLATE/bug_report.md"
+      ],
+      "system_of_record": "ask"
+    },
+    {
+      "id": "verify.dod",
+      "title": "Definition of Ready / Definition of Done",
+      "stage": "verify",
+      "durability": "durable",
+      "scope": "repo",
+      "producible": "Y",
+      "backfillability": "H",
+      "cadence": "P180D",
+      "sensitivity": "internal",
+      "path": "docs/verify/definition-of-done.md",
+      "selects_on": {
+        "any": [
+          {
+            "any": [
+              {
+                "signal": "proc.codeowners",
+                "is": "present"
+              },
+              {
+                "signal": "proc.authors_12mo",
+                "gte": 8
+              },
+              {
+                "answer": "q1_users",
+                "in": [
+                  "other-teams"
+                ]
+              }
+            ]
+          },
+          {
+            "any": [
+              {
+                "answer": "q1_users",
+                "in": [
+                  "customers",
+                  "public"
+                ]
+              },
+              {
+                "answer": "q2_operator",
+                "in": [
+                  "separate-ops-team",
+                  "customer-operated"
+                ]
+              },
+              {
+                "signal": "proc.authors_12mo",
+                "gte": 5
+              },
+              {
+                "signal": "scale.services",
+                "gte": 3
+              }
+            ]
+          }
+        ]
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [
+        "ssdf:PO.4.1"
+      ],
+      "audiences": [
+        "engineering",
+        "quality",
+        "product"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/verify/definition-of-done.md",
+        "docs/definition-of-done.md",
+        "DEFINITION_OF_DONE.md",
+        "docs/process/dod.md",
+        ".github/pull_request_template.md"
+      ],
+      "system_of_record": "repo"
+    },
+    {
+      "id": "verify.rtm",
+      "title": "Requirements traceability matrix",
+      "stage": "verify",
+      "durability": "durable",
+      "scope": "product",
+      "producible": "Y",
+      "backfillability": "P",
+      "cadence": "on-change",
+      "sensitivity": "internal",
+      "path": "docs/verify/rtm.md",
+      "selects_on": {
+        "any": [
+          {
+            "any": [
+              {
+                "answer": "q1_users",
+                "in": [
+                  "customers",
+                  "public"
+                ]
+              },
+              {
+                "answer": "q2_operator",
+                "in": [
+                  "separate-ops-team",
+                  "customer-operated"
+                ]
+              },
+              {
+                "signal": "proc.authors_12mo",
+                "gte": 5
+              },
+              {
+                "signal": "scale.services",
+                "gte": 3
+              }
+            ]
+          },
+          {
+            "any": [
+              {
+                "answer": "q3_authorizer",
+                "in": [
+                  "soc2-or-iso-auditor",
+                  "government-authorizer",
+                  "sector-regulator"
+                ]
+              },
+              {
+                "signal": "sec.compliance_program",
+                "is": "present"
+              }
+            ]
+          }
+        ]
+      },
+      "baseline_verdict": "optional",
+      "satisfies": [
+        "iso29148"
+      ],
+      "audiences": [
+        "quality",
+        "compliance",
+        "product"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/verify/rtm.md",
+        "docs/traceability-matrix.md",
+        "docs/verify/traceability.md",
+        "docs/qa/rtm.md"
+      ],
+      "system_of_record": "ask"
+    },
+    {
+      "id": "verify.test-strategy",
+      "title": "Test strategy",
+      "stage": "verify",
+      "durability": "durable",
+      "scope": "product",
+      "producible": "Y",
+      "backfillability": "P",
+      "cadence": "P365D",
+      "sensitivity": "internal",
+      "path": "docs/verify/test-strategy.md",
+      "selects_on": {
+        "any": [
+          {
+            "answer": "q1_users",
+            "in": [
+              "customers",
+              "public"
+            ]
+          },
+          {
+            "answer": "q2_operator",
+            "in": [
+              "separate-ops-team",
+              "customer-operated"
+            ]
+          },
+          {
+            "signal": "proc.authors_12mo",
+            "gte": 5
+          },
+          {
+            "signal": "scale.services",
+            "gte": 3
+          }
+        ]
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [
+        "iso29119-3"
+      ],
+      "audiences": [
+        "quality",
+        "engineering"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/verify/test-strategy.md",
+        "docs/testing.md",
+        "docs/test-strategy.md",
+        "TESTING.md",
+        "docs/qa/strategy.md"
+      ],
+      "system_of_record": "ask"
+    }
+  ]
+}

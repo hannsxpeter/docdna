@@ -1,0 +1,4934 @@
+{
+  "schema": 1,
+  "signals": [
+    {
+      "id": "a11y.aria_usage",
+      "family": "a11y",
+      "label": "ARIA roles or attributes in interface source",
+      "pass": 2,
+      "gate": {
+        "any": [
+          {
+            "signal": "users.ui",
+            "is": "present"
+          }
+        ]
+      },
+      "max_state": "present",
+      "confidence_cap": "medium",
+      "detect": {
+        "kind": "grep",
+        "include_ext": [
+          ".tsx",
+          ".jsx",
+          ".vue",
+          ".svelte",
+          ".html",
+          ".htm",
+          ".erb",
+          ".hbs",
+          ".astro"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**",
+          "**/dist/**",
+          "**/build/**",
+          "**/coverage/**"
+        ],
+        "patterns": [
+          "aria-[a-z]+\\s*=",
+          "role\\s*=\\s*[\"'][a-z]+",
+          "aria[A-Z][a-zA-Z]+\\s*[=:]"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "a11y.statement",
+      "family": "a11y",
+      "label": "accessibility statement in the repo",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "ACCESSIBILITY.md",
+          "ACCESSIBILITY.rst",
+          "docs/**/accessibility*.md",
+          "**/accessibility-statement*",
+          ".github/ACCESSIBILITY.md"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "a11y.tooling",
+      "family": "a11y",
+      "label": "automated accessibility testing tool",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "manifest",
+        "files": [
+          "package.json",
+          "pyproject.toml",
+          "requirements.txt",
+          "Gemfile",
+          "composer.json"
+        ],
+        "deps": [
+          "axe-core",
+          "@axe-core/react",
+          "@axe-core/playwright",
+          "jest-axe",
+          "vitest-axe",
+          "cypress-axe",
+          "pa11y",
+          "pa11y-ci",
+          "@lhci/cli",
+          "eslint-plugin-jsx-a11y",
+          "eslint-plugin-vuejs-accessibility",
+          "axe-selenium-python",
+          "accessibility-checker"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "a11y.vpat",
+      "family": "a11y",
+      "label": "VPAT or accessibility conformance report",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "VPAT*",
+          "**/VPAT*",
+          "**/vpat*.md",
+          "**/vpat*.docx",
+          "**/accessibility-conformance-report*",
+          "docs/**/acr*.md"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "a11y.wcag_refs",
+      "family": "a11y",
+      "label": "accessibility standard cited in source or config",
+      "pass": 2,
+      "gate": {
+        "any": [
+          {
+            "signal": "users.ui",
+            "is": "present"
+          },
+          {
+            "signal": "a11y.tooling",
+            "is": "present"
+          }
+        ]
+      },
+      "max_state": "present",
+      "confidence_cap": "medium",
+      "detect": {
+        "kind": "grep",
+        "include_ext": [
+          ".ts",
+          ".tsx",
+          ".js",
+          ".jsx",
+          ".py",
+          ".rb",
+          ".yml",
+          ".yaml",
+          ".json"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**",
+          "**/dist/**",
+          "**/*.lock",
+          "package-lock.json"
+        ],
+        "patterns": [
+          "WCAG\\s*2\\.[012]",
+          "EN\\s*301\\s*549",
+          "Section\\s*508",
+          "\\bAODA\\b",
+          "wcag2a{1,2}\\b"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "ai.agent_framework",
+      "family": "ai",
+      "label": "agent orchestration framework dependency",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "manifest",
+        "files": [
+          "package.json",
+          "pyproject.toml",
+          "requirements.txt",
+          "Cargo.toml",
+          "go.mod"
+        ],
+        "deps": [
+          "langgraph",
+          "@langchain/langgraph",
+          "crewai",
+          "autogen",
+          "pyautogen",
+          "openai-agents",
+          "@openai/agents",
+          "@modelcontextprotocol/sdk",
+          "mcp",
+          "fastmcp",
+          "smolagents",
+          "semantic-kernel",
+          "llama-index-agent-openai"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "ai.content_provenance",
+      "family": "ai",
+      "label": "content provenance or watermarking for generated output",
+      "pass": 2,
+      "gate": {
+        "any": [
+          {
+            "signal": "ai.sdk",
+            "is": "present"
+          },
+          {
+            "signal": "ai.training",
+            "is": "present"
+          }
+        ]
+      },
+      "max_state": "present",
+      "confidence_cap": "medium",
+      "detect": {
+        "kind": "grep",
+        "include_ext": [
+          ".py",
+          ".ts",
+          ".tsx",
+          ".js",
+          ".jsx",
+          ".go",
+          ".java",
+          ".rs",
+          ".json",
+          ".yml",
+          ".yaml"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**",
+          "**/vendor/**",
+          "**/*.lock",
+          "package-lock.json"
+        ],
+        "patterns": [
+          "\\bc2pa\\b",
+          "content[_-]credentials",
+          "\\bsynthid\\b",
+          "provenance[_-]manifest",
+          "\\bwatermark(ing|ed)?\\b"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "ai.evals",
+      "family": "ai",
+      "label": "model or prompt evaluation suite",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "evals/**",
+          "eval/**",
+          "tests/evals/**",
+          "promptfooconfig.*",
+          "**/*.eval.ts",
+          "**/*_eval.py",
+          "**/*eval*.jsonl",
+          "**/braintrust*.ts",
+          "**/ragas*.py"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**",
+          "**/vendor/**"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "ai.inference",
+      "family": "ai",
+      "label": "model inference call in source",
+      "pass": 2,
+      "gate": {
+        "any": [
+          {
+            "signal": "ai.sdk",
+            "is": "present"
+          },
+          {
+            "signal": "ai.agent_framework",
+            "is": "present"
+          },
+          {
+            "signal": "ai.rag",
+            "is": "present"
+          }
+        ]
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "grep",
+        "include_ext": [
+          ".py",
+          ".ts",
+          ".tsx",
+          ".js",
+          ".jsx",
+          ".go",
+          ".rb",
+          ".java",
+          ".rs",
+          ".php"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**",
+          "**/vendor/**",
+          "**/*.lock",
+          "package-lock.json"
+        ],
+        "patterns": [
+          "messages\\.create\\(",
+          "messages\\.stream\\(",
+          "chat\\.completions\\.create\\(",
+          "responses\\.create\\(",
+          "generate_content\\(",
+          "invoke_model\\(",
+          "\\bollama\\.(chat|generate)\\(",
+          "generateText\\(",
+          "streamText\\("
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "ai.prompts",
+      "family": "ai",
+      "label": "prompt templates kept as files",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "medium",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "prompts/**",
+          "**/prompts/**",
+          "**/*.prompt",
+          "**/*.prompt.md",
+          "**/system_prompt*",
+          "**/prompt_templates/**",
+          "**/*.jinja"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**",
+          "**/vendor/**"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "ai.rag",
+      "family": "ai",
+      "label": "vector store or retrieval dependency",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "manifest",
+        "files": [
+          "package.json",
+          "pyproject.toml",
+          "requirements.txt",
+          "Cargo.toml",
+          "go.mod"
+        ],
+        "deps": [
+          "pinecone",
+          "pinecone-client",
+          "@pinecone-database/pinecone",
+          "weaviate-client",
+          "qdrant-client",
+          "chromadb",
+          "faiss-cpu",
+          "faiss-gpu",
+          "pgvector",
+          "lancedb",
+          "pymilvus",
+          "llama-index",
+          "langchain-community"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "ai.sdk",
+      "family": "ai",
+      "label": "model provider SDK dependency",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "manifest",
+        "files": [
+          "package.json",
+          "pyproject.toml",
+          "requirements.txt",
+          "Cargo.toml",
+          "go.mod",
+          "Gemfile"
+        ],
+        "deps": [
+          "anthropic",
+          "@anthropic-ai/sdk",
+          "openai",
+          "google-generativeai",
+          "@google/generative-ai",
+          "google-genai",
+          "cohere",
+          "mistralai",
+          "@mistralai/mistralai",
+          "groq",
+          "together",
+          "replicate",
+          "ollama",
+          "langchain",
+          "ai"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "ai.training",
+      "family": "ai",
+      "label": "model training or fine-tuning stack",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "medium",
+      "detect": {
+        "kind": "manifest",
+        "files": [
+          "pyproject.toml",
+          "requirements.txt",
+          "environment.yml",
+          "package.json"
+        ],
+        "deps": [
+          "torch",
+          "tensorflow",
+          "jax",
+          "flax",
+          "keras",
+          "scikit-learn",
+          "transformers",
+          "pytorch-lightning",
+          "accelerate",
+          "peft",
+          "trl",
+          "xgboost",
+          "lightgbm"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "arch.agent_skill",
+      "family": "arch",
+      "label": "packaged coding-agent skill",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "SKILL.md",
+          "skill/SKILL.md",
+          "**/skills/**/SKILL.md",
+          ".claude/skills/**/SKILL.md",
+          "plugin.json"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "arch.data_pipeline",
+      "family": "arch",
+      "label": "batch or streaming data pipeline framework",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "manifest",
+        "files": [
+          "pyproject.toml",
+          "requirements.txt",
+          "package.json",
+          "build.sbt",
+          "go.mod"
+        ],
+        "deps": [
+          "apache-airflow",
+          "dagster",
+          "prefect",
+          "luigi",
+          "dbt-core",
+          "kedro",
+          "flyteidl",
+          "mage-ai",
+          "apache-beam",
+          "pyspark",
+          "dlt",
+          "meltano"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "arch.desktop",
+      "family": "arch",
+      "label": "desktop application shell",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "manifest",
+        "files": [
+          "package.json",
+          "pyproject.toml",
+          "requirements.txt",
+          "Cargo.toml"
+        ],
+        "deps": [
+          "electron",
+          "@electron-forge/cli",
+          "@electron/packager",
+          "tauri",
+          "@tauri-apps/api",
+          "wails",
+          "PySide6",
+          "PyQt5",
+          "PyQt6",
+          "kivy",
+          "flet",
+          "egui"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "arch.extension",
+      "family": "arch",
+      "label": "browser or editor extension manifest",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "manifest",
+        "files": [
+          "manifest.json",
+          "public/manifest.json",
+          "src/manifest.json",
+          "package.json"
+        ],
+        "keys": [
+          "manifest_version",
+          "content_scripts",
+          "browser_action",
+          "action.default_popup",
+          "engines.vscode",
+          "contributes.commands",
+          "activationEvents"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "arch.firmware",
+      "family": "arch",
+      "label": "embedded firmware build tree",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "**/*.dts",
+          "**/*.dtsi",
+          "**/*.overlay",
+          "west.yml",
+          "zephyr/**",
+          "sdkconfig",
+          "sdkconfig.defaults",
+          "platformio.ini",
+          "**/prj.conf",
+          "meta-*/conf/layer.conf",
+          "**/*.ioc"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**",
+          "**/build/**"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "arch.mobile",
+      "family": "arch",
+      "label": "mobile application project",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "**/AndroidManifest.xml",
+          "**/*.xcodeproj/project.pbxproj",
+          "**/*.xcworkspace/contents.xcworkspacedata",
+          "ios/Podfile",
+          "android/app/build.gradle",
+          "pubspec.yaml",
+          "capacitor.config.*",
+          "react-native.config.js",
+          "**/Info.plist"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**",
+          "**/Pods/**",
+          "**/build/**"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "arch.notebook",
+      "family": "arch",
+      "label": "computational notebooks in the tree",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "**/*.ipynb",
+          "**/*.Rmd",
+          "**/*.qmd"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**",
+          "**/.ipynb_checkpoints/**"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "arch.safety_std",
+      "family": "arch",
+      "label": "functional safety standard referenced",
+      "pass": 2,
+      "gate": {
+        "any": [
+          {
+            "signal": "arch.firmware",
+            "is": "present"
+          },
+          {
+            "signal": "sec.health",
+            "is": "present"
+          },
+          {
+            "signal": "docs.docs_dir",
+            "is": "present"
+          }
+        ]
+      },
+      "max_state": "present",
+      "confidence_cap": "medium",
+      "detect": {
+        "kind": "grep",
+        "include_ext": [
+          ".c",
+          ".h",
+          ".cpp",
+          ".py",
+          ".rs",
+          ".ada",
+          ".yml",
+          ".yaml",
+          ".txt",
+          ".rst"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**",
+          "**/vendor/**",
+          "**/*.lock",
+          "package-lock.json"
+        ],
+        "patterns": [
+          "IEC\\s*61508",
+          "ISO\\s*26262",
+          "DO-?178[BC]",
+          "IEC\\s*62304",
+          "ISO\\s*14971",
+          "\\bASIL\\s*[A-D]\\b",
+          "\\bMISRA\\b",
+          "EN\\s*5012[89]"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "arch.service",
+      "family": "arch",
+      "label": "server-side application framework",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "manifest",
+        "files": [
+          "package.json",
+          "pyproject.toml",
+          "requirements.txt",
+          "go.mod",
+          "Gemfile",
+          "pom.xml",
+          "Cargo.toml",
+          "composer.json",
+          "mix.exs"
+        ],
+        "deps": [
+          "express",
+          "fastify",
+          "hono",
+          "koa",
+          "@nestjs/core",
+          "flask",
+          "fastapi",
+          "django",
+          "starlette",
+          "sanic",
+          "github.com/gin-gonic/gin",
+          "github.com/labstack/echo",
+          "github.com/gofiber/fiber",
+          "spring-boot-starter-web",
+          "rails",
+          "sinatra",
+          "actix-web",
+          "axum",
+          "laravel/framework",
+          "phoenix"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "arch.webapp",
+      "family": "arch",
+      "label": "browser application framework",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "manifest",
+        "files": [
+          "package.json"
+        ],
+        "deps": [
+          "react",
+          "react-dom",
+          "vue",
+          "svelte",
+          "@sveltejs/kit",
+          "@angular/core",
+          "next",
+          "nuxt",
+          "@remix-run/react",
+          "astro",
+          "solid-js",
+          "preact",
+          "gatsby",
+          "htmx.org"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "data.ddl",
+      "family": "data",
+      "label": "raw SQL schema definition",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "**/*.sql",
+          "**/*.ddl",
+          "db/schema.sql",
+          "**/schema.sql"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**",
+          "**/vendor/**",
+          "**/fixtures/**"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "data.lawful_basis",
+      "family": "data",
+      "label": "lawful basis for processing personal data",
+      "pass": 1,
+      "gate": {
+        "never": true
+      },
+      "max_state": "unknown",
+      "confidence_cap": null,
+      "detect": null,
+      "refuses_to_guess": true,
+      "question": "q5_markets"
+    },
+    {
+      "id": "data.migrations",
+      "family": "data",
+      "label": "database migration history",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "migrations/**",
+          "**/migrations/**",
+          "alembic/versions/**",
+          "db/migrate/**",
+          "prisma/migrations/**",
+          "supabase/migrations/**",
+          "**/flyway/**",
+          "**/liquibase/**",
+          "atlas.hcl"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**",
+          "**/vendor/**"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "data.multi_tenant",
+      "family": "data",
+      "label": "tenant scoping on stored data",
+      "pass": 2,
+      "gate": {
+        "any": [
+          {
+            "signal": "data.orm",
+            "is": "present"
+          },
+          {
+            "signal": "data.migrations",
+            "is": "present"
+          },
+          {
+            "signal": "data.ddl",
+            "is": "present"
+          }
+        ]
+      },
+      "max_state": "present",
+      "confidence_cap": "medium",
+      "detect": {
+        "kind": "grep",
+        "include_ext": [
+          ".py",
+          ".ts",
+          ".js",
+          ".go",
+          ".rb",
+          ".java",
+          ".sql",
+          ".prisma",
+          ".rs",
+          ".php"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**",
+          "**/vendor/**",
+          "**/*.lock",
+          "package-lock.json"
+        ],
+        "patterns": [
+          "\\btenant_id\\b",
+          "\\borganization_id\\b",
+          "\\bworkspace_id\\b",
+          "CREATE\\s+POLICY\\b",
+          "ROW\\s+LEVEL\\s+SECURITY",
+          "set_config\\(\\s*['\"]app\\.current_tenant",
+          "SET\\s+search_path\\s+TO\\s+tenant"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "data.orm",
+      "family": "data",
+      "label": "object relational mapper dependency",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "manifest",
+        "files": [
+          "package.json",
+          "pyproject.toml",
+          "requirements.txt",
+          "go.mod",
+          "Gemfile",
+          "pom.xml",
+          "Cargo.toml",
+          "composer.json"
+        ],
+        "deps": [
+          "sqlalchemy",
+          "django",
+          "peewee",
+          "tortoise-orm",
+          "prisma",
+          "@prisma/client",
+          "typeorm",
+          "sequelize",
+          "drizzle-orm",
+          "mongoose",
+          "knex",
+          "gorm.io/gorm",
+          "entgo.io/ent",
+          "activerecord",
+          "hibernate-core",
+          "diesel",
+          "sea-orm"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "data.person_entity",
+      "family": "data",
+      "label": "entity the code treats as a person",
+      "pass": 2,
+      "gate": {
+        "any": [
+          {
+            "signal": "data.orm",
+            "is": "present"
+          },
+          {
+            "signal": "data.migrations",
+            "is": "present"
+          },
+          {
+            "signal": "data.ddl",
+            "is": "present"
+          }
+        ]
+      },
+      "max_state": "present",
+      "confidence_cap": "medium",
+      "detect": {
+        "kind": "grep",
+        "include_ext": [
+          ".py",
+          ".ts",
+          ".js",
+          ".go",
+          ".rb",
+          ".java",
+          ".kt",
+          ".sql",
+          ".prisma",
+          ".rs",
+          ".php"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**",
+          "**/vendor/**",
+          "**/*.lock",
+          "package-lock.json"
+        ],
+        "patterns": [
+          "(class|model|type|struct)\\s+(User|Person|Customer|Patient|Employee|Member|Contact|Applicant|Citizen|Student|Client)s?\\b",
+          "CREATE\\s+TABLE\\s+(IF\\s+NOT\\s+EXISTS\\s+)?[\"'`]?(users|people|persons|customers|patients|employees|members|contacts|applicants)\\b",
+          "REFERENCES\\s+[\"'`]?(users|people|persons|customers|patients|employees|members)\\b",
+          "ForeignKey\\(\\s*[\"'](User|users|Person|people|Customer|customers)",
+          "belongs_to\\s+:(user|person|customer|patient|employee|member)\\b"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "data.pii",
+      "family": "data",
+      "label": "personal data on an entity the code treats as a person",
+      "pass": 2,
+      "gate": {
+        "any": [
+          {
+            "signal": "data.orm",
+            "is": "present"
+          },
+          {
+            "signal": "data.migrations",
+            "is": "present"
+          },
+          {
+            "signal": "data.ddl",
+            "is": "present"
+          }
+        ]
+      },
+      "max_state": "present",
+      "confidence_cap": "medium",
+      "detect": {
+        "kind": "derived",
+        "depends_on": [
+          "data.person_entity",
+          "data.pii_lexicon"
+        ],
+        "when": {
+          "all": [
+            {
+              "signal": "data.pii_lexicon",
+              "gte": 1
+            },
+            {
+              "signal": "data.person_entity",
+              "gte": 1
+            }
+          ]
+        }
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "data.pii_lexicon",
+      "family": "data",
+      "label": "personal-data field name, uncorroborated",
+      "pass": 2,
+      "gate": {
+        "any": [
+          {
+            "signal": "data.orm",
+            "is": "present"
+          },
+          {
+            "signal": "data.migrations",
+            "is": "present"
+          },
+          {
+            "signal": "data.ddl",
+            "is": "present"
+          }
+        ]
+      },
+      "max_state": "present",
+      "confidence_cap": "medium",
+      "detect": {
+        "kind": "grep",
+        "include_ext": [
+          ".py",
+          ".ts",
+          ".js",
+          ".go",
+          ".rb",
+          ".java",
+          ".kt",
+          ".sql",
+          ".prisma",
+          ".rs",
+          ".php"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**",
+          "**/vendor/**",
+          "**/locales/**",
+          "**/i18n/**",
+          "**/*.lock",
+          "package-lock.json"
+        ],
+        "patterns": [
+          "\\b(email|email_address|emailAddress)\\b\\s*[=:]",
+          "\\b(phone|phone_number|mobile_number|phoneNumber)\\b\\s*[=:]",
+          "\\b(ssn|sin|social_insurance_number|social_security_number)\\b",
+          "\\b(date_of_birth|birth_date|dateOfBirth|dob)\\b",
+          "\\b(first_name|last_name|full_name|given_name|surname|firstName|lastName)\\b",
+          "\\b(street_address|postal_code|zip_code|postalCode)\\b",
+          "\\b(passport_number|drivers_license|driver_licence|licence_number)\\b"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "data.schema",
+      "family": "data",
+      "label": "declared data schema artifact",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "prisma/schema.prisma",
+          "**/schema.prisma",
+          "db/schema.rb",
+          "**/schema.rb",
+          "**/*.dbml",
+          "**/*.avsc",
+          "**/*.graphqls",
+          "**/models.py",
+          "**/models/*.py",
+          "**/schemas/*.json"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**",
+          "**/vendor/**"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "data.special_category",
+      "family": "data",
+      "label": "special-category personal data vocabulary",
+      "pass": 2,
+      "gate": {
+        "any": [
+          {
+            "signal": "data.orm",
+            "is": "present"
+          },
+          {
+            "signal": "data.migrations",
+            "is": "present"
+          },
+          {
+            "signal": "data.ddl",
+            "is": "present"
+          },
+          {
+            "signal": "sec.health",
+            "is": "present"
+          }
+        ]
+      },
+      "max_state": "present",
+      "confidence_cap": "medium",
+      "detect": {
+        "kind": "grep",
+        "include_ext": [
+          ".py",
+          ".ts",
+          ".js",
+          ".go",
+          ".rb",
+          ".java",
+          ".sql",
+          ".prisma",
+          ".rs",
+          ".php"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**",
+          "**/vendor/**",
+          "**/locales/**",
+          "**/i18n/**",
+          "**/*.lock",
+          "package-lock.json"
+        ],
+        "patterns": [
+          "\\b(health_record|medical_record|diagnosis_code|prescription|patient_id)\\b",
+          "\\b(biometric|fingerprint_hash|face_embedding|iris_scan)\\b",
+          "\\b(ethnicity|religion|political_affiliation|union_membership)\\b\\s*[=:]",
+          "\\b(sexual_orientation|gender_identity)\\b",
+          "\\b(criminal_record|conviction_date|offence_code)\\b"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "data.warehouse",
+      "family": "data",
+      "label": "analytical warehouse or lakehouse client",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "manifest",
+        "files": [
+          "pyproject.toml",
+          "requirements.txt",
+          "package.json",
+          "go.mod",
+          "pom.xml"
+        ],
+        "deps": [
+          "dbt-core",
+          "dbt-snowflake",
+          "dbt-bigquery",
+          "dbt-redshift",
+          "snowflake-connector-python",
+          "google-cloud-bigquery",
+          "@google-cloud/bigquery",
+          "redshift-connector",
+          "databricks-sql-connector",
+          "duckdb",
+          "clickhouse-driver",
+          "trino"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "deploy.cd",
+      "family": "deploy",
+      "label": "automated deployment step in the pipeline",
+      "pass": 2,
+      "gate": {
+        "any": [
+          {
+            "signal": "deploy.ci",
+            "is": "present"
+          }
+        ]
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "grep",
+        "include_ext": [
+          ".yml",
+          ".yaml",
+          ".sh",
+          ".groovy",
+          ".toml"
+        ],
+        "include_glob": [
+          ".github/workflows/**",
+          ".gitlab-ci.yml",
+          ".circleci/config.yml",
+          "Jenkinsfile",
+          "azure-pipelines*.yml",
+          ".buildkite/**",
+          "Makefile",
+          "scripts/deploy*"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**",
+          "**/vendor/**"
+        ],
+        "patterns": [
+          "kubectl\\s+(apply|rollout|set\\s+image)",
+          "helm\\s+(upgrade|install)",
+          "terraform\\s+apply",
+          "aws\\s+ecs\\s+update-service",
+          "gcloud\\s+run\\s+deploy",
+          "az\\s+webapp\\s+(up|deploy)",
+          "flyctl\\s+deploy",
+          "vercel\\s+(deploy|--prod)",
+          "netlify\\s+deploy",
+          "serverless\\s+deploy",
+          "argocd\\s+app\\s+sync",
+          "^\\s*environment:\\s*(name:\\s*)?(production|prod|staging)"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "deploy.ci",
+      "family": "deploy",
+      "label": "continuous integration configuration",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          ".github/workflows/*.yml",
+          ".github/workflows/*.yaml",
+          ".gitlab-ci.yml",
+          ".circleci/config.yml",
+          "Jenkinsfile",
+          "azure-pipelines.yml",
+          ".buildkite/pipeline.yml",
+          ".travis.yml",
+          "bitbucket-pipelines.yml",
+          ".drone.yml",
+          "cloudbuild.yaml",
+          ".woodpecker.yml"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "deploy.container",
+      "family": "deploy",
+      "label": "container image build",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "Dockerfile",
+          "**/Dockerfile",
+          "**/Dockerfile.*",
+          "Containerfile",
+          "docker-compose.yml",
+          "docker-compose.yaml",
+          "compose.yml",
+          "compose.yaml",
+          ".dockerignore"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**",
+          "**/vendor/**"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "deploy.env_count",
+      "family": "deploy",
+      "label": "count of distinct deployment environments",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "medium",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "environments/*",
+          "envs/*",
+          "config/environments/*",
+          ".env.*",
+          "k8s/overlays/*",
+          "kustomize/overlays/*",
+          "terraform/environments/*",
+          "**/values-*.yaml",
+          "helm/values-*.yaml"
+        ],
+        "exclude_glob": [
+          ".env",
+          ".env.local",
+          "**/node_modules/**"
+        ],
+        "metric": "distinct_environments"
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "deploy.iac",
+      "family": "deploy",
+      "label": "infrastructure as code",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "**/*.tf",
+          "**/*.tfvars",
+          "Pulumi.yaml",
+          "**/*.bicep",
+          "**/cloudformation/**",
+          "**/*.cfn.yaml",
+          "cdk.json",
+          "ansible/**",
+          "**/playbook*.yml"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**",
+          "**/.terraform/**",
+          "**/vendor/**"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "deploy.kubernetes",
+      "family": "deploy",
+      "label": "Kubernetes workload manifests",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "k8s/**",
+          "kubernetes/**",
+          "**/kustomization.yaml",
+          "**/Chart.yaml",
+          "charts/**",
+          "helm/**",
+          "manifests/**/*.yaml",
+          "**/deployment.yaml"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**",
+          "**/vendor/**"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "deploy.paas",
+      "family": "deploy",
+      "label": "managed platform deployment descriptor",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "Procfile",
+          "fly.toml",
+          "render.yaml",
+          "railway.json",
+          "railway.toml",
+          "heroku.yml",
+          "captain-definition",
+          "runtime.txt",
+          ".platform.app.yaml",
+          "app.yaml"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "deploy.scheduled",
+      "family": "deploy",
+      "label": "scheduled or recurring workload",
+      "pass": 2,
+      "gate": {
+        "any": [
+          {
+            "signal": "deploy.ci",
+            "is": "present"
+          },
+          {
+            "signal": "deploy.kubernetes",
+            "is": "present"
+          },
+          {
+            "signal": "arch.data_pipeline",
+            "is": "present"
+          }
+        ]
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "grep",
+        "include_ext": [
+          ".yml",
+          ".yaml",
+          ".py",
+          ".tf",
+          ".ts",
+          ".js",
+          ".go"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**",
+          "**/vendor/**",
+          "**/*.lock",
+          "package-lock.json"
+        ],
+        "patterns": [
+          "kind:\\s*CronJob",
+          "-\\s*cron:\\s*['\"]",
+          "^\\s*schedule:\\s*$",
+          "schedule_interval\\s*=",
+          "@(daily|hourly|weekly|monthly)\\b",
+          "CronTrigger\\(",
+          "aws_cloudwatch_event_rule",
+          "celery\\.schedules"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "deploy.serverless",
+      "family": "deploy",
+      "label": "serverless function deployment",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "serverless.yml",
+          "serverless.yaml",
+          "template.yaml",
+          "samconfig.toml",
+          "vercel.json",
+          "netlify.toml",
+          "wrangler.toml",
+          "wrangler.jsonc",
+          "firebase.json",
+          "functions/**",
+          "**/lambda/**"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**",
+          "**/vendor/**"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "docs.adr",
+      "family": "docs",
+      "label": "architecture decision records",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "docs/adr/**",
+          "docs/adrs/**",
+          "docs/decisions/**",
+          "doc/adr/**",
+          "adr/**",
+          "architecture/decisions/**",
+          "**/adr/*.md",
+          "**/*-adr-*.md"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "docs.agent_files",
+      "family": "docs",
+      "label": "agent context files",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "AGENTS.md",
+          "CLAUDE.md",
+          "**/CLAUDE.md",
+          "GEMINI.md",
+          ".cursorrules",
+          ".cursor/rules/**",
+          ".windsurf/rules/**",
+          ".devin/rules/**",
+          ".github/copilot-instructions.md",
+          ".claude/**/*.md"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "docs.changelog",
+      "family": "docs",
+      "label": "changelog or release notes file",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "CHANGELOG.md",
+          "CHANGELOG",
+          "CHANGELOG.rst",
+          "CHANGES.md",
+          "HISTORY.md",
+          "NEWS.md",
+          "docs/changelog*",
+          ".changeset/**"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**",
+          "**/vendor/**"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "docs.citation",
+      "family": "docs",
+      "label": "citation or research metadata file",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "CITATION.cff",
+          "CITATION.bib",
+          "codemeta.json",
+          "paper.md",
+          "**/*.bib"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**",
+          "**/vendor/**"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "docs.doc_code_lag",
+      "family": "docs",
+      "label": "document older than the code it names",
+      "pass": 3,
+      "gate": {
+        "any": [
+          {
+            "signal": "scale.doc_count",
+            "gte": 1
+          }
+        ]
+      },
+      "max_state": "present",
+      "confidence_cap": "medium",
+      "detect": {
+        "kind": "git",
+        "metric": "doc_vs_referenced_code_lag",
+        "scope": "per_document",
+        "threshold_days": 90
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "docs.doc_last_commit",
+      "family": "docs",
+      "label": "last commit date per document",
+      "pass": 3,
+      "gate": {
+        "any": [
+          {
+            "signal": "scale.doc_count",
+            "gte": 1
+          }
+        ]
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "git",
+        "metric": "last_commit",
+        "scope": "per_document"
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "docs.docs_dir",
+      "family": "docs",
+      "label": "dedicated documentation directory",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "docs/**",
+          "doc/**",
+          "documentation/**",
+          "website/docs/**"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**",
+          "**/vendor/**"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "docs.llms_txt",
+      "family": "docs",
+      "label": "agent-readable documentation index",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "llms.txt",
+          "llms-full.txt",
+          "public/llms.txt",
+          "static/llms.txt"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "docs.owner_candidate",
+      "family": "docs",
+      "label": "most frequent author per document",
+      "pass": 3,
+      "gate": {
+        "any": [
+          {
+            "signal": "scale.doc_count",
+            "gte": 1
+          }
+        ]
+      },
+      "max_state": "present",
+      "confidence_cap": "medium",
+      "detect": {
+        "kind": "git",
+        "metric": "top_author",
+        "scope": "per_document"
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "docs.readme",
+      "family": "docs",
+      "label": "repository README",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "README.md",
+          "README",
+          "README.rst",
+          "README.txt",
+          "readme.md"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "docs.site_generator",
+      "family": "docs",
+      "label": "documentation site generator config",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "mkdocs.yml",
+          "mkdocs.yaml",
+          "docusaurus.config.*",
+          "docs/conf.py",
+          "sphinx/conf.py",
+          "book.toml",
+          "antora.yml",
+          "hugo.toml",
+          "hugo.yaml",
+          ".vitepress/config.*",
+          "docs/.vuepress/config.*",
+          ".readthedocs.yaml",
+          "readthedocs.yml"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "docs.stale",
+      "family": "docs",
+      "label": "documents untouched beyond the staleness threshold",
+      "pass": 3,
+      "gate": {
+        "any": [
+          {
+            "signal": "scale.doc_count",
+            "gte": 1
+          }
+        ]
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "git",
+        "metric": "documents_stale",
+        "scope": "per_document",
+        "threshold_days": 365
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "docs.system_of_record",
+      "family": "docs",
+      "label": "where the documentation of record actually lives",
+      "pass": 1,
+      "gate": {
+        "never": true
+      },
+      "max_state": "unknown",
+      "confidence_cap": null,
+      "detect": null,
+      "refuses_to_guess": true,
+      "question": "q8_doc_location"
+    },
+    {
+      "id": "iface.cli",
+      "family": "iface",
+      "label": "command line entry point declared",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "manifest",
+        "files": [
+          "package.json",
+          "pyproject.toml",
+          "setup.py",
+          "setup.cfg",
+          "Cargo.toml",
+          "composer.json"
+        ],
+        "keys": [
+          "bin",
+          "project.scripts",
+          "project.gui-scripts",
+          "tool.poetry.scripts",
+          "console_scripts",
+          "bin.name"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "iface.graphql",
+      "family": "iface",
+      "label": "GraphQL schema or gateway",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "**/*.graphql",
+          "**/*.gql",
+          "**/schema.graphql",
+          "**/graphql/**",
+          "apollo.config.js",
+          "codegen.yml"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**",
+          "**/vendor/**"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "iface.grpc",
+      "family": "iface",
+      "label": "protobuf or gRPC service definition",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "**/*.proto",
+          "**/protos/**",
+          "buf.yaml",
+          "buf.gen.yaml",
+          "**/*_pb2.py",
+          "**/*.pb.go"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**",
+          "**/vendor/**"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "iface.http",
+      "family": "iface",
+      "label": "server-side HTTP route, corroborated",
+      "pass": 2,
+      "gate": {
+        "any": [
+          {
+            "signal": "arch.service",
+            "is": "present"
+          },
+          {
+            "signal": "deploy.container",
+            "is": "present"
+          },
+          {
+            "signal": "deploy.kubernetes",
+            "is": "present"
+          },
+          {
+            "signal": "deploy.serverless",
+            "is": "present"
+          },
+          {
+            "signal": "deploy.paas",
+            "is": "present"
+          }
+        ]
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "grep",
+        "include_ext": [
+          ".py",
+          ".js",
+          ".mjs",
+          ".ts",
+          ".go",
+          ".rb",
+          ".java",
+          ".kt",
+          ".rs",
+          ".php",
+          ".cs"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**",
+          "**/vendor/**",
+          "**/*.test.*",
+          "**/*.spec.*",
+          "**/*.lock"
+        ],
+        "patterns": [
+          "\\b(app|router|api|mux|srv)\\.(get|post|put|patch|delete)\\s*\\(",
+          "@(app|router|bp)\\.(route|get|post|put|patch|delete)\\(",
+          "@(GetMapping|PostMapping|PutMapping|DeleteMapping|PatchMapping|RequestMapping)\\b",
+          "@(RestController|Controller)\\b",
+          "http\\.HandleFunc\\(",
+          "\\bmux\\.Handle(Func)?\\(",
+          "add_api_route\\(",
+          "resources?\\s+:[a-z_]+\\s*(do|,|$)",
+          "\\burlpatterns\\s*=",
+          "\\b(re_)?path\\(\\s*r?[\"']",
+          "^\\s*(get|post|put|patch|delete)\\s+[\"']/",
+          "Route::(get|post|put|patch|delete|any|match|resource|apiResource)\\(",
+          "\\bMap(Get|Post|Put|Patch|Delete|Controllers|Group)\\(",
+          "\\[(HttpGet|HttpPost|HttpPut|HttpPatch|HttpDelete|ApiController|Route)\\b"
+        ],
+        "corroborate": {
+          "scope": "same_file",
+          "any": [
+            "\\bfrom\\s+flask\\b",
+            "\\bimport\\s+flask\\b",
+            "\\bfrom\\s+fastapi\\b",
+            "\\bimport\\s+fastapi\\b",
+            "require\\(['\"]express['\"]\\)",
+            "from\\s+['\"]express['\"]",
+            "require\\(['\"]fastify['\"]\\)",
+            "from\\s+['\"]fastify['\"]",
+            "from\\s+['\"]hono['\"]",
+            "\"net/http\"",
+            "github\\.com/gin-gonic/gin",
+            "github\\.com/labstack/echo",
+            "github\\.com/gofiber/fiber",
+            "\\bfrom\\s+django\\b",
+            "\\bimport\\s+django\\b",
+            "\\bdjango\\.(urls|conf|http|views)\\b",
+            "\\bfrom\\s+rest_framework\\b",
+            "\\.routes\\.draw\\b",
+            "\\bActionController\\b",
+            "\\borg\\.springframework\\b",
+            "SpringApplication\\.run\\(",
+            "Illuminate\\\\Support\\\\Facades\\\\Route",
+            "Illuminate\\\\(Routing|Http)\\b",
+            "Microsoft\\.AspNetCore",
+            "WebApplication\\.Create(Builder)?\\(",
+            "\\bControllerBase\\b",
+            "\\.listen\\s*\\(\\s*(\\d|port|PORT|process\\.env)",
+            "app\\.run\\(",
+            "uvicorn\\.run\\(",
+            "http\\.ListenAndServe\\(",
+            "\\.bind\\(\\s*['\"]?0\\.0\\.0\\.0",
+            "srv\\.Serve\\("
+          ]
+        }
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "iface.mcp_server",
+      "family": "iface",
+      "label": "Model Context Protocol server",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "manifest",
+        "files": [
+          "package.json",
+          "pyproject.toml",
+          "requirements.txt",
+          "go.mod",
+          "Cargo.toml"
+        ],
+        "deps": [
+          "@modelcontextprotocol/sdk",
+          "@modelcontextprotocol/server-filesystem",
+          "mcp",
+          "fastmcp",
+          "mcp-server",
+          "rmcp"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "iface.openapi",
+      "family": "iface",
+      "label": "OpenAPI or Swagger description",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "openapi.yaml",
+          "openapi.yml",
+          "openapi.json",
+          "swagger.yaml",
+          "swagger.json",
+          "**/openapi/**",
+          "**/*.openapi.yaml",
+          "api/openapi*",
+          "docs/api/openapi*"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**",
+          "**/vendor/**"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "jur.authorizer",
+      "family": "jur",
+      "label": "external body that can audit, certify, or authorize this",
+      "pass": 1,
+      "gate": {
+        "never": true
+      },
+      "max_state": "hint",
+      "confidence_cap": null,
+      "detect": null,
+      "refuses_to_guess": true,
+      "question": "q3_authorizer"
+    },
+    {
+      "id": "jur.ca_region",
+      "family": "jur",
+      "label": "Canadian hosting region pinned in infrastructure",
+      "pass": 2,
+      "gate": {
+        "any": [
+          {
+            "signal": "deploy.iac",
+            "is": "present"
+          },
+          {
+            "signal": "deploy.kubernetes",
+            "is": "present"
+          },
+          {
+            "signal": "deploy.serverless",
+            "is": "present"
+          }
+        ]
+      },
+      "max_state": "hint",
+      "confidence_cap": "low",
+      "detect": {
+        "kind": "grep",
+        "include_ext": [
+          ".tf",
+          ".tfvars",
+          ".hcl",
+          ".yml",
+          ".yaml",
+          ".json",
+          ".toml"
+        ],
+        "exclude_glob": [
+          "README*",
+          "**/README*",
+          "**/*.md",
+          "**/*.rst",
+          "**/*.txt",
+          "**/docs/**",
+          "CHANGELOG*",
+          "LICENSE*",
+          "**/node_modules/**",
+          "**/vendor/**",
+          "**/*.lock",
+          "package-lock.json"
+        ],
+        "exclude_patterns": [
+          "\\bregions?\\s*[:=]\\s*[\\[{]",
+          "[\"']regions?[\"']\\s*:\\s*\\[",
+          "enum\\s+\\w*Regions?\\b",
+          "^\\s*(const|var|let)\\s+[A-Z_]*REGIONS?\\b"
+        ],
+        "patterns": [
+          "ca-central-1",
+          "ca-west-1",
+          "canadacentral",
+          "canadaeast",
+          "northamerica-northeast[12]"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": "q5_markets"
+    },
+    {
+      "id": "jur.eu",
+      "family": "jur",
+      "label": "European Union nexus, corroborated hint",
+      "pass": 2,
+      "gate": {
+        "any": [
+          {
+            "signal": "deploy.iac",
+            "is": "present"
+          },
+          {
+            "signal": "deploy.serverless",
+            "is": "present"
+          },
+          {
+            "signal": "users.i18n",
+            "is": "present"
+          },
+          {
+            "signal": "data.orm",
+            "is": "present"
+          }
+        ]
+      },
+      "max_state": "hint",
+      "confidence_cap": "low",
+      "detect": {
+        "kind": "derived",
+        "depends_on": [
+          "jur.eu_ai_act",
+          "jur.eu_region",
+          "jur.gdpr_lexicon"
+        ],
+        "when": {
+          "any": [
+            {
+              "all": [
+                {
+                  "signal": "jur.eu_region",
+                  "is": "hint"
+                },
+                {
+                  "signal": "jur.gdpr_lexicon",
+                  "is": "hint"
+                }
+              ]
+            },
+            {
+              "all": [
+                {
+                  "signal": "jur.eu_region",
+                  "is": "hint"
+                },
+                {
+                  "signal": "jur.eu_ai_act",
+                  "is": "hint"
+                }
+              ]
+            },
+            {
+              "all": [
+                {
+                  "signal": "jur.gdpr_lexicon",
+                  "is": "hint"
+                },
+                {
+                  "signal": "jur.eu_ai_act",
+                  "is": "hint"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "refuses_to_guess": false,
+      "question": "q5_markets"
+    },
+    {
+      "id": "jur.eu_ai_act",
+      "family": "jur",
+      "label": "EU AI Act vocabulary outside prose",
+      "pass": 2,
+      "gate": {
+        "any": [
+          {
+            "signal": "ai.sdk",
+            "is": "present"
+          },
+          {
+            "signal": "ai.training",
+            "is": "present"
+          },
+          {
+            "signal": "ai.rag",
+            "is": "present"
+          }
+        ]
+      },
+      "max_state": "hint",
+      "confidence_cap": "low",
+      "detect": {
+        "kind": "grep",
+        "include_ext": [
+          ".py",
+          ".ts",
+          ".tsx",
+          ".js",
+          ".go",
+          ".java",
+          ".yml",
+          ".yaml",
+          ".json",
+          ".tf"
+        ],
+        "exclude_glob": [
+          "README*",
+          "**/README*",
+          "**/*.md",
+          "**/*.rst",
+          "**/*.txt",
+          "**/docs/**",
+          "CHANGELOG*",
+          "LICENSE*",
+          "**/node_modules/**",
+          "**/vendor/**",
+          "**/*.lock",
+          "package-lock.json"
+        ],
+        "exclude_patterns": [
+          "\\bregions?\\s*[:=]\\s*[\\[{]"
+        ],
+        "patterns": [
+          "EU\\s+AI\\s+Act",
+          "Regulation\\s*\\(EU\\)\\s*2024/1689",
+          "high[_-]?risk[_-]?ai",
+          "conformity[_-]assessment",
+          "\\bAnnex\\s+IV\\b"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": "q5_markets"
+    },
+    {
+      "id": "jur.eu_region",
+      "family": "jur",
+      "label": "European hosting region pinned in infrastructure",
+      "pass": 2,
+      "gate": {
+        "any": [
+          {
+            "signal": "deploy.iac",
+            "is": "present"
+          },
+          {
+            "signal": "deploy.kubernetes",
+            "is": "present"
+          },
+          {
+            "signal": "deploy.serverless",
+            "is": "present"
+          }
+        ]
+      },
+      "max_state": "hint",
+      "confidence_cap": "low",
+      "detect": {
+        "kind": "grep",
+        "include_ext": [
+          ".tf",
+          ".tfvars",
+          ".hcl",
+          ".yml",
+          ".yaml",
+          ".json",
+          ".toml"
+        ],
+        "exclude_glob": [
+          "README*",
+          "**/README*",
+          "**/*.md",
+          "**/*.rst",
+          "**/*.txt",
+          "**/docs/**",
+          "CHANGELOG*",
+          "LICENSE*",
+          "**/node_modules/**",
+          "**/vendor/**",
+          "**/*.lock",
+          "package-lock.json"
+        ],
+        "exclude_patterns": [
+          "\\bregions?\\s*[:=]\\s*[\\[{]",
+          "[\"']regions?[\"']\\s*:\\s*\\[",
+          "enum\\s+\\w*Regions?\\b",
+          "^\\s*(const|var|let)\\s+[A-Z_]*REGIONS?\\b"
+        ],
+        "patterns": [
+          "eu-west-[123]",
+          "eu-central-[12]",
+          "eu-north-1",
+          "eu-south-[12]",
+          "europe-west[1-9]",
+          "europe-north1",
+          "westeurope",
+          "northeurope",
+          "francecentral",
+          "germanywestcentral"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": "q5_markets"
+    },
+    {
+      "id": "jur.fr_ca_locale",
+      "family": "jur",
+      "label": "fr-CA locale resources specifically",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "hint",
+      "confidence_cap": "low",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "**/fr-CA/**",
+          "**/fr_CA/**",
+          "**/fr-ca/**",
+          "**/fr-CA.*",
+          "**/fr_CA.*",
+          "**/*.fr-CA.json",
+          "locales/fr-CA*",
+          "**/messages/fr-CA*"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**",
+          "**/vendor/**"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": "q5_markets"
+    },
+    {
+      "id": "jur.gc",
+      "family": "jur",
+      "label": "Government of Canada nexus, corroborated hint",
+      "pass": 2,
+      "gate": {
+        "any": [
+          {
+            "signal": "jur.fr_ca_locale",
+            "is": "hint"
+          }
+        ]
+      },
+      "max_state": "hint",
+      "confidence_cap": "low",
+      "detect": {
+        "kind": "derived",
+        "depends_on": [
+          "jur.ca_region",
+          "jur.fr_ca_locale",
+          "jur.gc_domain",
+          "jur.protected_b",
+          "users.gc_design_system"
+        ],
+        "when": {
+          "all": [
+            {
+              "signal": "jur.fr_ca_locale",
+              "is": "hint"
+            },
+            {
+              "any": [
+                {
+                  "signal": "jur.gc_domain",
+                  "is": "hint"
+                },
+                {
+                  "signal": "jur.protected_b",
+                  "is": "hint"
+                },
+                {
+                  "signal": "jur.ca_region",
+                  "is": "hint"
+                },
+                {
+                  "signal": "users.gc_design_system",
+                  "is": "present"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "refuses_to_guess": false,
+      "question": "q3_authorizer"
+    },
+    {
+      "id": "jur.gc_domain",
+      "family": "jur",
+      "label": "Government of Canada domain or platform reference",
+      "pass": 2,
+      "gate": {
+        "any": [
+          {
+            "signal": "jur.fr_ca_locale",
+            "is": "hint"
+          },
+          {
+            "signal": "users.gc_design_system",
+            "is": "present"
+          },
+          {
+            "signal": "users.i18n",
+            "is": "present"
+          }
+        ]
+      },
+      "max_state": "hint",
+      "confidence_cap": "low",
+      "detect": {
+        "kind": "grep",
+        "include_ext": [
+          ".ts",
+          ".tsx",
+          ".js",
+          ".jsx",
+          ".py",
+          ".go",
+          ".rb",
+          ".json",
+          ".yml",
+          ".yaml",
+          ".tf",
+          ".html"
+        ],
+        "exclude_glob": [
+          "README*",
+          "**/README*",
+          "**/*.md",
+          "**/*.rst",
+          "**/*.txt",
+          "**/docs/**",
+          "CHANGELOG*",
+          "LICENSE*",
+          "**/node_modules/**",
+          "**/vendor/**",
+          "**/*.lock",
+          "package-lock.json"
+        ],
+        "exclude_patterns": [
+          "\\bregions?\\s*[:=]\\s*[\\[{]"
+        ],
+        "patterns": [
+          "\\b[a-z0-9-]+\\.gc\\.ca\\b",
+          "\\bcanada\\.ca\\b",
+          "\\bnotification\\.canada\\.ca\\b",
+          "\\bcds-snc\\b",
+          "\\bgcnotify\\b"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": "q3_authorizer"
+    },
+    {
+      "id": "jur.gdpr_lexicon",
+      "family": "jur",
+      "label": "GDPR vocabulary outside prose",
+      "pass": 2,
+      "gate": {
+        "any": [
+          {
+            "signal": "data.orm",
+            "is": "present"
+          },
+          {
+            "signal": "data.migrations",
+            "is": "present"
+          },
+          {
+            "signal": "users.i18n",
+            "is": "present"
+          },
+          {
+            "signal": "deploy.iac",
+            "is": "present"
+          }
+        ]
+      },
+      "max_state": "hint",
+      "confidence_cap": "low",
+      "detect": {
+        "kind": "grep",
+        "include_ext": [
+          ".py",
+          ".ts",
+          ".tsx",
+          ".js",
+          ".go",
+          ".rb",
+          ".java",
+          ".sql",
+          ".json",
+          ".yml",
+          ".yaml"
+        ],
+        "exclude_glob": [
+          "README*",
+          "**/README*",
+          "**/*.md",
+          "**/*.rst",
+          "**/*.txt",
+          "**/docs/**",
+          "CHANGELOG*",
+          "LICENSE*",
+          "**/node_modules/**",
+          "**/vendor/**",
+          "**/*.lock",
+          "package-lock.json"
+        ],
+        "exclude_patterns": [
+          "\\bregions?\\s*[:=]\\s*[\\[{]"
+        ],
+        "patterns": [
+          "\\bGDPR\\b",
+          "\\bDSAR\\b",
+          "data[_\\s]subject[_\\s](access[_\\s])?request",
+          "lawful[_\\s]basis",
+          "\\bDPIA\\b",
+          "right[_\\s]to[_\\s]erasure",
+          "data[_\\s]protection[_\\s]officer"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": "q5_markets"
+    },
+    {
+      "id": "jur.protected_b",
+      "family": "jur",
+      "label": "Canadian security categorization vocabulary",
+      "pass": 2,
+      "gate": {
+        "any": [
+          {
+            "signal": "deploy.iac",
+            "is": "present"
+          },
+          {
+            "signal": "jur.fr_ca_locale",
+            "is": "hint"
+          },
+          {
+            "signal": "users.gc_design_system",
+            "is": "present"
+          },
+          {
+            "signal": "sec.compliance_program",
+            "is": "present"
+          }
+        ]
+      },
+      "max_state": "hint",
+      "confidence_cap": "low",
+      "detect": {
+        "kind": "grep",
+        "include_ext": [
+          ".py",
+          ".ts",
+          ".js",
+          ".go",
+          ".tf",
+          ".hcl",
+          ".yml",
+          ".yaml",
+          ".json"
+        ],
+        "exclude_glob": [
+          "README*",
+          "**/README*",
+          "**/*.md",
+          "**/*.rst",
+          "**/*.txt",
+          "**/docs/**",
+          "CHANGELOG*",
+          "LICENSE*",
+          "**/node_modules/**",
+          "**/vendor/**",
+          "**/*.lock",
+          "package-lock.json"
+        ],
+        "exclude_patterns": [
+          "\\bregions?\\s*[:=]\\s*[\\[{]"
+        ],
+        "patterns": [
+          "Protected\\s*B\\b",
+          "\\bPBMM\\b",
+          "ITSG-33",
+          "\\bCCCS\\b",
+          "authority[_\\s]to[_\\s]operate"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": "q3_authorizer"
+    },
+    {
+      "id": "jur.us_federal",
+      "family": "jur",
+      "label": "United States federal program vocabulary",
+      "pass": 2,
+      "gate": {
+        "any": [
+          {
+            "signal": "deploy.iac",
+            "is": "present"
+          },
+          {
+            "signal": "deploy.ci",
+            "is": "present"
+          },
+          {
+            "signal": "sec.compliance_program",
+            "is": "present"
+          }
+        ]
+      },
+      "max_state": "hint",
+      "confidence_cap": "low",
+      "detect": {
+        "kind": "grep",
+        "include_ext": [
+          ".py",
+          ".ts",
+          ".js",
+          ".go",
+          ".tf",
+          ".hcl",
+          ".yml",
+          ".yaml",
+          ".json"
+        ],
+        "exclude_glob": [
+          "README*",
+          "**/README*",
+          "**/*.md",
+          "**/*.rst",
+          "**/*.txt",
+          "**/docs/**",
+          "CHANGELOG*",
+          "LICENSE*",
+          "**/node_modules/**",
+          "**/vendor/**",
+          "**/*.lock",
+          "package-lock.json"
+        ],
+        "exclude_patterns": [
+          "\\bregions?\\s*[:=]\\s*[\\[{]",
+          "[\"']regions?[\"']\\s*:\\s*\\["
+        ],
+        "patterns": [
+          "\\bFedRAMP\\b",
+          "\\bStateRAMP\\b",
+          "NIST\\s+SP\\s*800-53",
+          "\\bFISMA\\b",
+          "\\bCMMC\\b",
+          "us-gov-(west|east)-1",
+          "\\bFIPS\\s*140-[23]\\b"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": "q3_authorizer"
+    },
+    {
+      "id": "ops.alerts",
+      "family": "ops",
+      "label": "alert rules defined in the repo",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "ops/alerts*.yml",
+          "ops/alerts*.yaml",
+          "**/alerts*.yml",
+          "**/alerts*.yaml",
+          "**/*.rules.yml",
+          "**/prometheus/rules/**",
+          "**/alertmanager*.yml",
+          "**/monitors*.tf",
+          "**/*alert*.tf",
+          ".datadog/**"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**",
+          "**/vendor/**"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "ops.flags",
+      "family": "ops",
+      "label": "feature flag system",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "manifest",
+        "files": [
+          "package.json",
+          "pyproject.toml",
+          "requirements.txt",
+          "go.mod",
+          "Gemfile"
+        ],
+        "deps": [
+          "launchdarkly-server-sdk",
+          "launchdarkly-node-server-sdk",
+          "@launchdarkly/node-server-sdk",
+          "unleash-client",
+          "flagsmith",
+          "flipper",
+          "flipper-cloud",
+          "@splitsoftware/splitio",
+          "@openfeature/server-sdk",
+          "openfeature-sdk",
+          "django-waffle"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "ops.metrics",
+      "family": "ops",
+      "label": "metrics or tracing instrumentation",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "manifest",
+        "files": [
+          "package.json",
+          "pyproject.toml",
+          "requirements.txt",
+          "go.mod",
+          "pom.xml",
+          "Gemfile"
+        ],
+        "deps": [
+          "prometheus-client",
+          "prom-client",
+          "github.com/prometheus/client_golang",
+          "opentelemetry-api",
+          "opentelemetry-sdk",
+          "@opentelemetry/api",
+          "@opentelemetry/sdk-node",
+          "go.opentelemetry.io/otel",
+          "statsd",
+          "datadog",
+          "dd-trace",
+          "ddtrace",
+          "micrometer-core",
+          "sentry-sdk",
+          "@sentry/node"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "ops.oncall",
+      "family": "ops",
+      "label": "on-call or escalation configuration",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          ".pagerduty.yml",
+          "**/pagerduty*.tf",
+          "**/opsgenie*.tf",
+          "**/rootly*.tf",
+          "ONCALL.md",
+          "docs/**/on-call*",
+          "**/escalation*.md",
+          ".incident.yml"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "ops.operator_identity",
+      "family": "ops",
+      "label": "who runs this in production",
+      "pass": 1,
+      "gate": {
+        "never": true
+      },
+      "max_state": "unknown",
+      "confidence_cap": null,
+      "detect": null,
+      "refuses_to_guess": true,
+      "question": "q2_operator"
+    },
+    {
+      "id": "ops.rpo",
+      "family": "ops",
+      "label": "tolerable data loss window",
+      "pass": 1,
+      "gate": {
+        "never": true
+      },
+      "max_state": "unknown",
+      "confidence_cap": null,
+      "detect": null,
+      "refuses_to_guess": true,
+      "question": "q6_downtime"
+    },
+    {
+      "id": "ops.rto",
+      "family": "ops",
+      "label": "tolerable time to restore service",
+      "pass": 1,
+      "gate": {
+        "never": true
+      },
+      "max_state": "unknown",
+      "confidence_cap": null,
+      "detect": null,
+      "refuses_to_guess": true,
+      "question": "q6_downtime"
+    },
+    {
+      "id": "ops.runbook",
+      "family": "ops",
+      "label": "operational runbook in the repo",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "RUNBOOK.md",
+          "runbooks/**",
+          "**/runbook*.md",
+          "docs/**/runbook*",
+          "ops/runbooks/**",
+          "playbooks/**/*.md"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "ops.sla_exists",
+      "family": "ops",
+      "label": "contractual service level agreement with users",
+      "pass": 1,
+      "gate": {
+        "never": true
+      },
+      "max_state": "unknown",
+      "confidence_cap": null,
+      "detect": null,
+      "refuses_to_guess": true,
+      "question": "q6_downtime"
+    },
+    {
+      "id": "ops.slo",
+      "family": "ops",
+      "label": "service level objectives declared",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "**/slo*.yml",
+          "**/slo*.yaml",
+          "**/slos/**",
+          "**/*.sloth.yaml",
+          "**/openslo/**",
+          "**/slo*.tf",
+          "**/error-budget*"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**",
+          "**/vendor/**"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "proc.authors_12mo",
+      "family": "proc",
+      "label": "distinct commit authors in the last year",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "git",
+        "metric": "distinct_authors",
+        "window_days": 365
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "proc.code_of_conduct",
+      "family": "proc",
+      "label": "code of conduct",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "CODE_OF_CONDUCT.md",
+          ".github/CODE_OF_CONDUCT.md",
+          "docs/CODE_OF_CONDUCT.md",
+          "CODE_OF_CONDUCT.rst"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "proc.codeowners",
+      "family": "proc",
+      "label": "CODEOWNERS review routing",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "CODEOWNERS",
+          ".github/CODEOWNERS",
+          "docs/CODEOWNERS",
+          ".gitlab/CODEOWNERS"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "proc.commits_12mo",
+      "family": "proc",
+      "label": "commits in the last year",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "git",
+        "metric": "commit_count",
+        "window_days": 365
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "proc.contributing",
+      "family": "proc",
+      "label": "contribution guide",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "CONTRIBUTING.md",
+          ".github/CONTRIBUTING.md",
+          "docs/CONTRIBUTING.md",
+          "CONTRIBUTING.rst"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "proc.last_commit_days",
+      "family": "proc",
+      "label": "days since the last commit",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "git",
+        "metric": "days_since_last_commit"
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "proc.pr_template",
+      "family": "proc",
+      "label": "pull request template",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          ".github/pull_request_template.md",
+          ".github/PULL_REQUEST_TEMPLATE.md",
+          ".github/PULL_REQUEST_TEMPLATE/**",
+          ".gitlab/merge_request_templates/**"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "proc.tags",
+      "family": "proc",
+      "label": "release tags in git history",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "git",
+        "metric": "tag_count"
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "qual.coverage_tooling",
+      "family": "qual",
+      "label": "test coverage tooling configured",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "manifest",
+        "files": [
+          "package.json",
+          "pyproject.toml",
+          "requirements.txt",
+          "Gemfile",
+          "Cargo.toml",
+          "pom.xml"
+        ],
+        "deps": [
+          "coverage",
+          "pytest-cov",
+          "nyc",
+          "c8",
+          "@vitest/coverage-v8",
+          "@vitest/coverage-istanbul",
+          "istanbul",
+          "simplecov",
+          "cargo-tarpaulin",
+          "jacoco-maven-plugin"
+        ],
+        "keys": [
+          "tool.coverage",
+          "jest.collectCoverage",
+          "nyc"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "qual.e2e",
+      "family": "qual",
+      "label": "end to end browser or UI test harness",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "manifest",
+        "files": [
+          "package.json",
+          "pyproject.toml",
+          "requirements.txt",
+          "Gemfile",
+          "go.mod"
+        ],
+        "deps": [
+          "@playwright/test",
+          "playwright",
+          "cypress",
+          "selenium",
+          "selenium-webdriver",
+          "puppeteer",
+          "webdriverio",
+          "testcafe",
+          "nightwatch",
+          "capybara"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "qual.lint",
+      "family": "qual",
+      "label": "linter configuration",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          ".eslintrc*",
+          "eslint.config.*",
+          "biome.json",
+          ".flake8",
+          "ruff.toml",
+          ".ruff.toml",
+          ".pylintrc",
+          ".golangci.yml",
+          ".golangci.yaml",
+          ".rubocop.yml",
+          "clippy.toml",
+          ".stylelintrc*",
+          ".editorconfig"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "qual.load_test",
+      "family": "qual",
+      "label": "load or performance test assets",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "**/locustfile.py",
+          "**/k6/**",
+          "**/*k6*.js",
+          "**/gatling/**",
+          "**/*.jmx",
+          "**/artillery*.yml",
+          "**/artillery*.yaml",
+          "load-test*/**",
+          "perf/**",
+          "benchmarks/**"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**",
+          "**/vendor/**"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "qual.tests",
+      "family": "qual",
+      "label": "automated tests in the tree",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "tests/**",
+          "test/**",
+          "spec/**",
+          "**/tests/**",
+          "**/test_*.py",
+          "**/*_test.py",
+          "**/*_test.go",
+          "**/*.test.ts",
+          "**/*.test.js",
+          "**/*.spec.ts",
+          "**/*.spec.js",
+          "**/*Test.java",
+          "**/*_spec.rb"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**",
+          "**/vendor/**",
+          "**/dist/**"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "qual.typecheck",
+      "family": "qual",
+      "label": "static type checking configured",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "mypy.ini",
+          ".mypy.ini",
+          "pyrightconfig.json",
+          "tsconfig.json",
+          "jsconfig.json",
+          ".flowconfig",
+          "**/sorbet/config"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**",
+          "**/dist/**"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "scale.doc_churn",
+      "family": "scale",
+      "label": "commits touching each document in the last year",
+      "pass": 3,
+      "gate": {
+        "any": [
+          {
+            "signal": "scale.doc_count",
+            "gte": 1
+          }
+        ]
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "git",
+        "metric": "commit_count",
+        "scope": "per_document",
+        "window_days": 365
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "scale.doc_count",
+      "family": "scale",
+      "label": "documentation files in the tree",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "**/*.md",
+          "**/*.rst",
+          "**/*.adoc",
+          "**/*.txt",
+          "**/*.docx",
+          "**/*.pdf"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**",
+          "**/vendor/**",
+          "**/dist/**",
+          "LICENSE*"
+        ],
+        "metric": "files"
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "scale.file_count",
+      "family": "scale",
+      "label": "indexed files in the repository",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "**/*"
+        ],
+        "metric": "files"
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "scale.languages",
+      "family": "scale",
+      "label": "distinct source languages",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "**/*"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**",
+          "**/vendor/**",
+          "**/dist/**"
+        ],
+        "metric": "distinct_languages"
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "scale.loc",
+      "family": "scale",
+      "label": "lines of source in the repository",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "**/*"
+        ],
+        "exclude_glob": [
+          "**/*.lock",
+          "**/dist/**",
+          "**/node_modules/**",
+          "**/vendor/**",
+          "DOCDNA.md",
+          "llms.txt"
+        ],
+        "metric": "lines"
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "scale.services",
+      "family": "scale",
+      "label": "independently deployable units",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "medium",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "services/*",
+          "apps/*",
+          "packages/*",
+          "cmd/*",
+          "**/Dockerfile",
+          "k8s/**/deployment.yaml"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**",
+          "**/vendor/**"
+        ],
+        "metric": "distinct_units"
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "sec.artifact_signing",
+      "family": "sec",
+      "label": "release artifact signing or attestation",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "cosign.pub",
+          "**/cosign*.yml",
+          "**/cosign*.yaml",
+          ".sigstore/**",
+          "**/*.intoto.jsonl",
+          "**/provenance*.json",
+          "**/slsa*.yml",
+          ".github/workflows/*sign*.yml"
+        ],
+        "exclude_glob": [
+          "**/locales/**",
+          "**/i18n/**",
+          "**/translations/**",
+          "*.po",
+          "**/*.po",
+          "*.pot",
+          "**/*.pot",
+          "**/*.lock",
+          "package-lock.json",
+          "npm-shrinkwrap.json",
+          "pnpm-lock.yaml",
+          "yarn.lock",
+          "go.sum",
+          "**/node_modules/**",
+          "**/vendor/**"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "sec.authn",
+      "family": "sec",
+      "label": "authentication library or provider",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "manifest",
+        "files": [
+          "package.json",
+          "pyproject.toml",
+          "requirements.txt",
+          "go.mod",
+          "Gemfile",
+          "pom.xml",
+          "composer.json"
+        ],
+        "deps": [
+          "passport",
+          "next-auth",
+          "@auth/core",
+          "better-auth",
+          "lucia",
+          "@clerk/nextjs",
+          "auth0",
+          "authlib",
+          "django-allauth",
+          "flask-login",
+          "fastapi-users",
+          "pyjwt",
+          "python-jose",
+          "jsonwebtoken",
+          "devise",
+          "omniauth",
+          "warden",
+          "spring-boot-starter-security",
+          "keycloak-connect",
+          "@supabase/auth-helpers-nextjs"
+        ],
+        "exclude_glob": [
+          "**/locales/**",
+          "**/i18n/**",
+          "**/translations/**",
+          "*.po",
+          "**/*.po",
+          "*.pot",
+          "**/*.pot",
+          "**/*.lock",
+          "package-lock.json",
+          "npm-shrinkwrap.json",
+          "pnpm-lock.yaml",
+          "yarn.lock",
+          "go.sum",
+          "**/node_modules/**",
+          "**/vendor/**"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "sec.authz",
+      "family": "sec",
+      "label": "authorization or permission enforcement",
+      "pass": 2,
+      "gate": {
+        "any": [
+          {
+            "signal": "sec.authn",
+            "is": "present"
+          },
+          {
+            "signal": "arch.service",
+            "is": "present"
+          }
+        ]
+      },
+      "max_state": "present",
+      "confidence_cap": "medium",
+      "detect": {
+        "kind": "grep",
+        "include_ext": [
+          ".py",
+          ".ts",
+          ".js",
+          ".go",
+          ".rb",
+          ".java",
+          ".kt",
+          ".sql",
+          ".cs",
+          ".php"
+        ],
+        "exclude_glob": [
+          "**/locales/**",
+          "**/i18n/**",
+          "**/translations/**",
+          "*.po",
+          "**/*.po",
+          "*.pot",
+          "**/*.pot",
+          "**/*.lock",
+          "package-lock.json",
+          "npm-shrinkwrap.json",
+          "pnpm-lock.yaml",
+          "yarn.lock",
+          "go.sum",
+          "**/node_modules/**",
+          "**/vendor/**"
+        ],
+        "patterns": [
+          "@(RolesAllowed|PreAuthorize|Secured)\\b",
+          "\\bcasbin\\b",
+          "\\boso\\.(authorize|is_allowed)\\(",
+          "permission_required\\(",
+          "has_perm\\(",
+          "CREATE\\s+POLICY\\b",
+          "checkPermission\\(",
+          "\\brequire_role\\b",
+          "authorize!\\s"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "sec.compliance_program",
+      "family": "sec",
+      "label": "compliance automation or certification workspace",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "medium",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          ".vanta/**",
+          ".drata/**",
+          ".secureframe/**",
+          "compliance/**",
+          "soc2/**",
+          "**/iso27001/**",
+          "trust-center/**"
+        ],
+        "exclude_glob": [
+          "**/locales/**",
+          "**/i18n/**",
+          "**/translations/**",
+          "*.po",
+          "**/*.po",
+          "*.pot",
+          "**/*.pot",
+          "**/*.lock",
+          "package-lock.json",
+          "npm-shrinkwrap.json",
+          "pnpm-lock.yaml",
+          "yarn.lock",
+          "go.sum",
+          "**/node_modules/**",
+          "**/vendor/**"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "sec.crypto",
+      "family": "sec",
+      "label": "cryptographic library dependency",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "manifest",
+        "files": [
+          "package.json",
+          "pyproject.toml",
+          "requirements.txt",
+          "go.mod",
+          "Gemfile",
+          "Cargo.toml",
+          "pom.xml"
+        ],
+        "deps": [
+          "cryptography",
+          "pycryptodome",
+          "bcrypt",
+          "argon2-cffi",
+          "passlib",
+          "bcryptjs",
+          "node-forge",
+          "crypto-js",
+          "jose",
+          "libsodium-wrappers",
+          "tweetnacl",
+          "golang.org/x/crypto",
+          "bcprov-jdk18on",
+          "ring",
+          "rustls",
+          "openssl"
+        ],
+        "exclude_glob": [
+          "**/locales/**",
+          "**/i18n/**",
+          "**/translations/**",
+          "*.po",
+          "**/*.po",
+          "*.pot",
+          "**/*.pot",
+          "**/*.lock",
+          "package-lock.json",
+          "npm-shrinkwrap.json",
+          "pnpm-lock.yaml",
+          "yarn.lock",
+          "go.sum",
+          "**/node_modules/**",
+          "**/vendor/**"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "sec.health",
+      "family": "sec",
+      "label": "health data standard dependency",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "manifest",
+        "files": [
+          "package.json",
+          "pyproject.toml",
+          "requirements.txt",
+          "pom.xml",
+          "Gemfile"
+        ],
+        "deps": [
+          "fhir.resources",
+          "fhirclient",
+          "fhir-kit-client",
+          "@types/fhir",
+          "hl7apy",
+          "pydicom",
+          "hapi-fhir-base",
+          "smart-on-fhir"
+        ],
+        "exclude_glob": [
+          "**/locales/**",
+          "**/i18n/**",
+          "**/translations/**",
+          "*.po",
+          "**/*.po",
+          "*.pot",
+          "**/*.pot",
+          "**/*.lock",
+          "package-lock.json",
+          "npm-shrinkwrap.json",
+          "pnpm-lock.yaml",
+          "yarn.lock",
+          "go.sum",
+          "**/node_modules/**",
+          "**/vendor/**"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "sec.payments",
+      "family": "sec",
+      "label": "payment processor integration",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "manifest",
+        "files": [
+          "package.json",
+          "pyproject.toml",
+          "requirements.txt",
+          "go.mod",
+          "Gemfile",
+          "composer.json"
+        ],
+        "deps": [
+          "stripe",
+          "@stripe/stripe-js",
+          "braintree",
+          "adyen",
+          "@adyen/api-library",
+          "paypalrestsdk",
+          "@paypal/checkout-server-sdk",
+          "squareup",
+          "chargebee",
+          "razorpay",
+          "mollie-api-python",
+          "paddle-sdk"
+        ],
+        "exclude_glob": [
+          "**/locales/**",
+          "**/i18n/**",
+          "**/translations/**",
+          "*.po",
+          "**/*.po",
+          "*.pot",
+          "**/*.pot",
+          "**/*.lock",
+          "package-lock.json",
+          "npm-shrinkwrap.json",
+          "pnpm-lock.yaml",
+          "yarn.lock",
+          "go.sum",
+          "**/node_modules/**",
+          "**/vendor/**"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "sec.scanners",
+      "family": "sec",
+      "label": "security scanning in the pipeline",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          ".github/workflows/*codeql*",
+          ".github/workflows/*security*",
+          ".github/workflows/*scan*",
+          ".github/codeql/**",
+          ".semgrep.yml",
+          ".semgrepignore",
+          ".trivyignore",
+          ".snyk",
+          ".gitleaks.toml",
+          "gitleaks.toml",
+          "bandit.yml",
+          "sonar-project.properties"
+        ],
+        "exclude_glob": [
+          "**/locales/**",
+          "**/i18n/**",
+          "**/translations/**",
+          "*.po",
+          "**/*.po",
+          "*.pot",
+          "**/*.pot",
+          "**/*.lock",
+          "package-lock.json",
+          "npm-shrinkwrap.json",
+          "pnpm-lock.yaml",
+          "yarn.lock",
+          "go.sum",
+          "**/node_modules/**",
+          "**/vendor/**"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "sec.secrets_committed",
+      "family": "sec",
+      "label": "credential-shaped literal in a tracked file",
+      "pass": 2,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "medium",
+      "detect": {
+        "kind": "grep",
+        "include_ext": [
+          ".py",
+          ".ts",
+          ".js",
+          ".go",
+          ".rb",
+          ".java",
+          ".yml",
+          ".yaml",
+          ".json",
+          ".tf",
+          ".sh",
+          ".ini",
+          ".cfg"
+        ],
+        "exclude_glob": [
+          "**/locales/**",
+          "**/i18n/**",
+          "**/translations/**",
+          "*.po",
+          "**/*.po",
+          "*.pot",
+          "**/*.pot",
+          "**/*.lock",
+          "package-lock.json",
+          "npm-shrinkwrap.json",
+          "pnpm-lock.yaml",
+          "yarn.lock",
+          "go.sum",
+          "**/node_modules/**",
+          "**/vendor/**",
+          "**/*.example",
+          "**/*.sample",
+          "**/fixtures/**",
+          "**/testdata/**"
+        ],
+        "patterns": [
+          "-----BEGIN\\s+(RSA|EC|DSA|OPENSSH|PGP)?\\s*PRIVATE KEY-----",
+          "\\bAKIA[0-9A-Z]{16}\\b",
+          "\\bghp_[A-Za-z0-9]{36}\\b",
+          "\\bsk-ant-[A-Za-z0-9_-]{20,}",
+          "\\bxox[baprs]-[A-Za-z0-9-]{10,}",
+          "AWS_SECRET_ACCESS_KEY\\s*=\\s*[\"']?[A-Za-z0-9/+=]{40}"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "sec.secrets_management",
+      "family": "sec",
+      "label": "managed secret storage configuration",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          ".sops.yaml",
+          "**/*.sops.yaml",
+          "**/sealed-secret*.yaml",
+          "**/external-secrets/**",
+          "**/vault*.tf",
+          "**/secrets.tf",
+          "**/*secretsmanager*.tf",
+          ".env.example",
+          ".env.sample",
+          ".env.template"
+        ],
+        "exclude_glob": [
+          "**/locales/**",
+          "**/i18n/**",
+          "**/translations/**",
+          "*.po",
+          "**/*.po",
+          "*.pot",
+          "**/*.pot",
+          "**/*.lock",
+          "package-lock.json",
+          "npm-shrinkwrap.json",
+          "pnpm-lock.yaml",
+          "yarn.lock",
+          "go.sum",
+          "**/node_modules/**",
+          "**/vendor/**"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "sec.security_md",
+      "family": "sec",
+      "label": "private vulnerability reporting route",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "SECURITY.md",
+          ".github/SECURITY.md",
+          "docs/SECURITY.md",
+          "security.txt",
+          ".well-known/security.txt"
+        ],
+        "exclude_glob": [
+          "**/locales/**",
+          "**/i18n/**",
+          "**/translations/**",
+          "*.po",
+          "**/*.po",
+          "*.pot",
+          "**/*.pot",
+          "**/*.lock",
+          "package-lock.json",
+          "npm-shrinkwrap.json",
+          "pnpm-lock.yaml",
+          "yarn.lock",
+          "go.sum",
+          "**/node_modules/**",
+          "**/vendor/**"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "sec.weak_crypto",
+      "family": "sec",
+      "label": "weak cryptographic primitive in call position",
+      "pass": 2,
+      "gate": {
+        "any": [
+          {
+            "signal": "sec.crypto",
+            "is": "present"
+          },
+          {
+            "signal": "sec.authn",
+            "is": "present"
+          },
+          {
+            "signal": "sec.secrets_management",
+            "is": "present"
+          }
+        ]
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "grep",
+        "include_ext": [
+          ".py",
+          ".js",
+          ".ts",
+          ".go",
+          ".java",
+          ".rb",
+          ".cs",
+          ".php",
+          ".rs"
+        ],
+        "exclude_glob": [
+          "**/locales/**",
+          "**/i18n/**",
+          "**/translations/**",
+          "*.po",
+          "**/*.po",
+          "*.pot",
+          "**/*.pot",
+          "**/*.lock",
+          "package-lock.json",
+          "npm-shrinkwrap.json",
+          "pnpm-lock.yaml",
+          "yarn.lock",
+          "go.sum",
+          "**/node_modules/**",
+          "**/vendor/**"
+        ],
+        "patterns": [
+          "hashlib\\.md5\\(",
+          "hashlib\\.sha1\\(",
+          "crypto\\.createHash\\(['\"]md5",
+          "crypto\\.createHash\\(['\"]sha1",
+          "MessageDigest\\.getInstance\\(\"MD5\"",
+          "MessageDigest\\.getInstance\\(\"SHA-1\"",
+          "md5\\.New\\(",
+          "sha1\\.New\\(",
+          "Digest::MD5\\.",
+          "MD5\\.Create\\("
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "supply.artifact_published",
+      "family": "supply",
+      "label": "pipeline publishes a release artifact",
+      "pass": 2,
+      "gate": {
+        "any": [
+          {
+            "signal": "deploy.ci",
+            "is": "present"
+          },
+          {
+            "signal": "users.published_package",
+            "is": "present"
+          }
+        ]
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "grep",
+        "include_ext": [
+          ".yml",
+          ".yaml",
+          ".sh",
+          ".toml",
+          ".groovy"
+        ],
+        "include_glob": [
+          ".github/workflows/**",
+          ".gitlab-ci.yml",
+          ".circleci/config.yml",
+          "Jenkinsfile",
+          "Makefile",
+          "scripts/release*",
+          "scripts/publish*",
+          ".goreleaser.yml",
+          ".goreleaser.yaml"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**",
+          "**/vendor/**",
+          "**/*.lock",
+          "package-lock.json"
+        ],
+        "patterns": [
+          "npm\\s+publish",
+          "twine\\s+upload",
+          "pypa/gh-action-pypi-publish",
+          "cargo\\s+publish",
+          "gh\\s+release\\s+create",
+          "softprops/action-gh-release",
+          "goreleaser\\s+release",
+          "mvn\\s+deploy",
+          "gradle\\s+publish",
+          "gem\\s+push",
+          "docker\\s+push",
+          "helm\\s+push",
+          "dotnet\\s+nuget\\s+push"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "supply.dependabot",
+      "family": "supply",
+      "label": "automated dependency update configuration",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          ".github/dependabot.yml",
+          ".github/dependabot.yaml",
+          ".github/renovate.json",
+          "renovate.json",
+          ".renovaterc",
+          ".renovaterc.json"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "supply.has_deps",
+      "family": "supply",
+      "label": "declared third party dependencies",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "grep",
+        "include_glob": [
+          "**/package.json",
+          "**/composer.json",
+          "**/pyproject.toml",
+          "**/Cargo.toml",
+          "**/Pipfile",
+          "**/setup.py",
+          "**/setup.cfg",
+          "**/requirements.txt",
+          "**/requirements-*.txt",
+          "**/requirements/*.txt",
+          "**/constraints.txt",
+          "**/environment.yml",
+          "**/go.mod",
+          "**/Gemfile",
+          "**/*.gemspec",
+          "**/pom.xml",
+          "**/build.gradle",
+          "**/build.gradle.kts",
+          "**/pubspec.yaml",
+          "**/mix.exs"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**",
+          "**/vendor/**",
+          "**/*.lock",
+          "package-lock.json",
+          "**/package-lock.json"
+        ],
+        "patterns": [
+          "\"(dependencies|devDependencies|peerDependencies|optionalDependencies|require|require-dev)\"\\s*:\\s*\\{\\s*\"",
+          "\\b(dependencies|dev-dependencies|requires|install_requires|setup_requires)\\s*=\\s*\\[\\s*[\"']",
+          "^\\s*(install_requires|setup_requires|tests_require)\\s*=[^\\S\\n]*\\n[ \\t]+[A-Za-z]",
+          "\\[[A-Za-z0-9_.\\-]*(dependencies|packages)\\][^\\[]*?^[A-Za-z0-9_.\"'\\-]+\\s*=",
+          "^(?!end\\b|do\\b|else\\b|begin\\b|rescue\\b|ensure\\b)[A-Za-z][A-Za-z0-9._\\-]*(\\[[^\\]\\n]+\\])?\\s*(==|>=|<=|~=|!=|===|<|>|@\\s|$)",
+          "(^\\s*gem|\\badd_(runtime_|development_)?dependency)\\s+[\"']",
+          "<dependency>\\s*<groupId>",
+          "dependencies\\s*\\{[^}]*\\b(implementation|api|compileOnly|runtimeOnly|testImplementation|androidTestImplementation|annotationProcessor|classpath)\\b",
+          "^\\s*(require\\s+)?[a-z0-9.\\-]+\\.[a-z]{2,}/[^\\s]+\\s+v[0-9]",
+          "\\{\\s*:[a-z0-9_]+\\s*,\\s*[\"~>]",
+          "^(dependencies|dev_dependencies|dependency_overrides):[^\\S\\n]*\\n[ \\t]+[A-Za-z_\\-]"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "supply.license",
+      "family": "supply",
+      "label": "license file",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "LICENSE",
+          "LICENSE.md",
+          "LICENSE.txt",
+          "LICENCE",
+          "LICENCE.md",
+          "LICENSE-*",
+          "COPYING",
+          "COPYING.md",
+          "LICENSES/**"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**",
+          "**/vendor/**"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "supply.license_copyleft",
+      "family": "supply",
+      "label": "copyleft license",
+      "pass": 1,
+      "gate": {
+        "any": [
+          {
+            "signal": "supply.license",
+            "is": "present"
+          }
+        ]
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "derived",
+        "depends_on": [
+          "supply.license"
+        ],
+        "when": {
+          "signal": "supply.license",
+          "is": "present"
+        },
+        "match_detail": {
+          "field": "spdx",
+          "in": [
+            "GPL-2.0",
+            "GPL-3.0",
+            "AGPL-3.0",
+            "LGPL-2.1",
+            "LGPL-3.0",
+            "MPL-2.0",
+            "EUPL-1.2",
+            "SSPL-1.0"
+          ]
+        }
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "supply.license_permissive",
+      "family": "supply",
+      "label": "permissive license",
+      "pass": 1,
+      "gate": {
+        "any": [
+          {
+            "signal": "supply.license",
+            "is": "present"
+          }
+        ]
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "derived",
+        "depends_on": [
+          "supply.license"
+        ],
+        "when": {
+          "signal": "supply.license",
+          "is": "present"
+        },
+        "match_detail": {
+          "field": "spdx",
+          "in": [
+            "MIT",
+            "Apache-2.0",
+            "BSD-2-Clause",
+            "BSD-3-Clause",
+            "ISC",
+            "0BSD",
+            "Zlib",
+            "Unlicense",
+            "CC0-1.0"
+          ]
+        }
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "supply.lockfile",
+      "family": "supply",
+      "label": "dependency lockfile",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "package-lock.json",
+          "npm-shrinkwrap.json",
+          "yarn.lock",
+          "pnpm-lock.yaml",
+          "poetry.lock",
+          "uv.lock",
+          "Pipfile.lock",
+          "Cargo.lock",
+          "go.sum",
+          "Gemfile.lock",
+          "composer.lock"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**",
+          "**/vendor/**"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "supply.sbom",
+      "family": "supply",
+      "label": "software bill of materials",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "**/sbom*.json",
+          "**/*.cdx.json",
+          "**/*.spdx.json",
+          "**/*.spdx",
+          "**/bom.xml",
+          "**/sbom/**",
+          ".github/workflows/*sbom*"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**",
+          "**/vendor/**"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "users.analytics",
+      "family": "users",
+      "label": "product analytics or telemetry client",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "manifest",
+        "files": [
+          "package.json",
+          "pyproject.toml",
+          "requirements.txt",
+          "Gemfile",
+          "go.mod"
+        ],
+        "deps": [
+          "posthog-js",
+          "posthog-node",
+          "posthog",
+          "@segment/analytics-node",
+          "analytics-python",
+          "mixpanel",
+          "mixpanel-browser",
+          "@amplitude/analytics-browser",
+          "react-ga4",
+          "plausible-tracker",
+          "matomo-tracker",
+          "@vercel/analytics"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "users.external_count",
+      "family": "users",
+      "label": "how many people outside the authors use this",
+      "pass": 1,
+      "gate": {
+        "never": true
+      },
+      "max_state": "unknown",
+      "confidence_cap": null,
+      "detect": null,
+      "refuses_to_guess": true,
+      "question": "q1_users"
+    },
+    {
+      "id": "users.gc_design_system",
+      "family": "users",
+      "label": "Government of Canada design system components",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "manifest",
+        "files": [
+          "package.json",
+          "composer.json",
+          "Gemfile"
+        ],
+        "deps": [
+          "@cdssnc/gcds-components",
+          "@cdssnc/gcds-components-react",
+          "@cdssnc/gcds-components-vue",
+          "@cdssnc/gcds-tokens",
+          "@cdssnc/gcds-utility",
+          "gcweb"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "users.i18n",
+      "family": "users",
+      "label": "localized resource files",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "locales/**",
+          "**/locales/**",
+          "i18n/**",
+          "**/i18n/**",
+          "**/translations/**",
+          "**/*.po",
+          "**/messages/*.json",
+          "**/lang/**/*.json",
+          "next-intl.config.*"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**",
+          "**/vendor/**"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "users.is_oss",
+      "family": "users",
+      "label": "open source project shape",
+      "pass": 1,
+      "gate": {
+        "any": [
+          {
+            "signal": "supply.license",
+            "is": "present"
+          }
+        ]
+      },
+      "max_state": "present",
+      "confidence_cap": "medium",
+      "detect": {
+        "kind": "derived",
+        "depends_on": [
+          "proc.code_of_conduct",
+          "proc.contributing",
+          "supply.license",
+          "supply.license_permissive",
+          "users.published_package"
+        ],
+        "when": {
+          "all": [
+            {
+              "signal": "supply.license",
+              "is": "present"
+            },
+            {
+              "any": [
+                {
+                  "signal": "users.published_package",
+                  "is": "present"
+                },
+                {
+                  "signal": "proc.contributing",
+                  "is": "present"
+                },
+                {
+                  "signal": "proc.code_of_conduct",
+                  "is": "present"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "users.public_signup",
+      "family": "users",
+      "label": "self-serve account creation",
+      "pass": 2,
+      "gate": {
+        "any": [
+          {
+            "signal": "sec.authn",
+            "is": "present"
+          },
+          {
+            "signal": "users.ui",
+            "is": "present"
+          },
+          {
+            "signal": "arch.service",
+            "is": "present"
+          }
+        ]
+      },
+      "max_state": "present",
+      "confidence_cap": "medium",
+      "detect": {
+        "kind": "grep",
+        "include_ext": [
+          ".ts",
+          ".tsx",
+          ".js",
+          ".jsx",
+          ".vue",
+          ".svelte",
+          ".py",
+          ".rb",
+          ".go",
+          ".html",
+          ".erb"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**",
+          "**/vendor/**",
+          "**/*.lock",
+          "package-lock.json",
+          "**/*.test.*",
+          "**/*.spec.*"
+        ],
+        "patterns": [
+          "['\"]/(signup|sign-up|register|create-account)['\"]",
+          "\\b(handle|on)?[Ss]ign[Uu]p\\b",
+          "Create\\s+(an\\s+)?account",
+          "allow[_-]?registration",
+          "REGISTRATION_(OPEN|ENABLED)"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "users.published_package",
+      "family": "users",
+      "label": "publishable package manifest",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "manifest",
+        "files": [
+          "package.json",
+          "pyproject.toml",
+          "setup.py",
+          "setup.cfg",
+          "Cargo.toml",
+          "go.mod",
+          "composer.json",
+          "*.gemspec"
+        ],
+        "keys": [
+          "publishConfig",
+          "project.name",
+          "package.name",
+          "module",
+          "name"
+        ],
+        "not_keys": [
+          "private"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    },
+    {
+      "id": "users.repo_visibility",
+      "family": "users",
+      "label": "whether this repository is public",
+      "pass": 1,
+      "gate": {
+        "never": true
+      },
+      "max_state": "unknown",
+      "confidence_cap": null,
+      "detect": null,
+      "refuses_to_guess": true,
+      "question": "q1_users"
+    },
+    {
+      "id": "users.ui",
+      "family": "users",
+      "label": "human-facing user interface source",
+      "pass": 1,
+      "gate": {
+        "always": true
+      },
+      "max_state": "present",
+      "confidence_cap": "high",
+      "detect": {
+        "kind": "path",
+        "globs": [
+          "**/*.tsx",
+          "**/*.jsx",
+          "**/*.vue",
+          "**/*.svelte",
+          "**/*.erb",
+          "**/*.blade.php",
+          "**/templates/**/*.html",
+          "public/index.html",
+          "**/components/**"
+        ],
+        "exclude_glob": [
+          "**/node_modules/**",
+          "**/dist/**",
+          "**/build/**",
+          "**/coverage/**",
+          "**/docs/**"
+        ]
+      },
+      "refuses_to_guess": false,
+      "question": null
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+[project]
+name = "tinytool"
+version = "0.3.0"
+description = "A small personal CLI"

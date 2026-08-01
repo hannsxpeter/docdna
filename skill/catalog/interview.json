@@ -1,0 +1,412 @@
+{
+  "schema": 1,
+  "questions": [
+    {
+      "id": "q1_users",
+      "prompt": "Who uses this, besides you?",
+      "answers": [
+        "nobody",
+        "my-team",
+        "other-teams",
+        "customers",
+        "public"
+      ],
+      "multi_select": false,
+      "ask_on_first_run": false,
+      "default_from": [
+        {
+          "when": {
+            "all": [
+              {
+                "signal": "users.published_package",
+                "is": "present"
+              },
+              {
+                "signal": "supply.license_permissive",
+                "is": "present"
+              }
+            ]
+          },
+          "value": "public",
+          "cite": [
+            "users.published_package",
+            "supply.license_permissive"
+          ]
+        },
+        {
+          "when": {
+            "all": [
+              {
+                "signal": "users.public_signup",
+                "is": "present"
+              },
+              {
+                "signal": "data.multi_tenant",
+                "is": "present"
+              }
+            ]
+          },
+          "value": "customers",
+          "cite": [
+            "users.public_signup",
+            "data.multi_tenant"
+          ]
+        },
+        {
+          "when": {
+            "all": [
+              {
+                "signal": "deploy.cd",
+                "is": "present"
+              },
+              {
+                "not": {
+                  "signal": "users.public_signup",
+                  "is": "present"
+                }
+              }
+            ]
+          },
+          "value": "my-team",
+          "cite": [
+            "deploy.cd",
+            "users.public_signup"
+          ]
+        }
+      ],
+      "fallback": "nobody",
+      "counterfactual": "people outside your team use this",
+      "docs_moved": 14
+    },
+    {
+      "id": "q2_operator",
+      "prompt": "Who runs it in production, and can they page someone?",
+      "answers": [
+        "not-deployed",
+        "the-authors",
+        "separate-ops-team",
+        "customer-operated"
+      ],
+      "multi_select": false,
+      "ask_on_first_run": false,
+      "default_from": [
+        {
+          "when": {
+            "signal": "deploy.cd",
+            "is": "present"
+          },
+          "value": "the-authors",
+          "cite": [
+            "deploy.cd"
+          ]
+        }
+      ],
+      "fallback": "not-deployed",
+      "counterfactual": "a separate ops team runs this",
+      "docs_moved": 13
+    },
+    {
+      "id": "q3_authorizer",
+      "prompt": "Is there an external body that can audit, certify, or authorize this before it ships?",
+      "answers": [
+        "none",
+        "customer-security-review",
+        "soc2-or-iso-auditor",
+        "government-authorizer",
+        "sector-regulator"
+      ],
+      "multi_select": false,
+      "ask_on_first_run": false,
+      "default_from": [
+        {
+          "when": {
+            "all": [
+              {
+                "signal": "jur.gc",
+                "is": "hint"
+              },
+              {
+                "any": [
+                  {
+                    "signal": "users.gc_design_system",
+                    "is": "present"
+                  },
+                  {
+                    "signal": "jur.gc_domain",
+                    "is": "hint"
+                  },
+                  {
+                    "signal": "jur.protected_b",
+                    "is": "hint"
+                  }
+                ]
+              }
+            ]
+          },
+          "value": "government-authorizer",
+          "prompts": true,
+          "cite": [
+            "jur.gc",
+            "users.gc_design_system",
+            "jur.gc_domain",
+            "jur.protected_b"
+          ]
+        },
+        {
+          "when": {
+            "all": [
+              {
+                "signal": "jur.us_federal",
+                "is": "hint"
+              },
+              {
+                "signal": "sec.compliance_program",
+                "is": "present"
+              }
+            ]
+          },
+          "value": "government-authorizer",
+          "prompts": true,
+          "cite": [
+            "jur.us_federal",
+            "sec.compliance_program"
+          ]
+        },
+        {
+          "when": {
+            "signal": "sec.compliance_program",
+            "is": "present"
+          },
+          "value": "soc2-or-iso-auditor",
+          "cite": [
+            "sec.compliance_program"
+          ]
+        }
+      ],
+      "fallback": "none",
+      "counterfactual": "a government buyer is in the loop",
+      "docs_moved": 19
+    },
+    {
+      "id": "q4_decides_about_people",
+      "prompt": "Does it make, or materially assist, decisions about individual people?",
+      "answers": [
+        "no",
+        "internal-ops-only",
+        "affects-money-services-employment-or-legal-status"
+      ],
+      "multi_select": false,
+      "ask_on_first_run": false,
+      "default_from": [],
+      "fallback": "no",
+      "counterfactual": "this decides something about individual people",
+      "docs_moved": 8,
+      "no_signal_may_set": true
+    },
+    {
+      "id": "q5_markets",
+      "prompt": "Which markets do your users sit in?",
+      "answers": [
+        "my-org-only",
+        "canada",
+        "us",
+        "eu-eea",
+        "global"
+      ],
+      "multi_select": true,
+      "ask_on_first_run": false,
+      "default_from": [
+        {
+          "when": {
+            "all": [
+              {
+                "signal": "jur.eu",
+                "is": "hint"
+              },
+              {
+                "signal": "jur.gc",
+                "is": "hint"
+              }
+            ]
+          },
+          "value": [
+            "canada",
+            "eu-eea"
+          ],
+          "prompts": true,
+          "cite": [
+            "jur.eu",
+            "jur.gc"
+          ]
+        },
+        {
+          "when": {
+            "signal": "jur.eu",
+            "is": "hint"
+          },
+          "value": [
+            "eu-eea"
+          ],
+          "prompts": true,
+          "cite": [
+            "jur.eu"
+          ]
+        },
+        {
+          "when": {
+            "signal": "jur.gc",
+            "is": "hint"
+          },
+          "value": [
+            "canada"
+          ],
+          "prompts": true,
+          "cite": [
+            "jur.gc"
+          ]
+        }
+      ],
+      "fallback": [
+        "my-org-only"
+      ],
+      "counterfactual": "you sell to EU customers",
+      "docs_moved": 11
+    },
+    {
+      "id": "q6_downtime",
+      "prompt": "If it were down for a day, what breaks and how fast must it be back?",
+      "answers": [
+        "nothing",
+        "inconvenience-days",
+        "business-process-hours",
+        "revenue-or-safety-minutes"
+      ],
+      "multi_select": false,
+      "ask_on_first_run": false,
+      "default_from": [
+        {
+          "when": {
+            "all": [
+              {
+                "signal": "deploy.cd",
+                "is": "present"
+              },
+              {
+                "not": {
+                  "signal": "ops.oncall",
+                  "is": "present"
+                }
+              }
+            ]
+          },
+          "value": "inconvenience-days",
+          "cite": [
+            "deploy.cd",
+            "ops.oncall"
+          ]
+        },
+        {
+          "when": {
+            "signal": "ops.oncall",
+            "is": "present"
+          },
+          "value": "business-process-hours",
+          "cite": [
+            "ops.oncall"
+          ]
+        }
+      ],
+      "fallback": "nothing",
+      "counterfactual": "a day of downtime costs money or safety",
+      "docs_moved": 5
+    },
+    {
+      "id": "q7_maintenance",
+      "prompt": "Will anyone maintain these documents after today?",
+      "answers": [
+        "named-owner",
+        "a-team",
+        "snapshot"
+      ],
+      "multi_select": false,
+      "ask_on_first_run": false,
+      "default_from": [
+        {
+          "when": {
+            "signal": "proc.codeowners",
+            "is": "present"
+          },
+          "value": "a-team",
+          "cite": [
+            "proc.codeowners"
+          ]
+        },
+        {
+          "when": {
+            "all": [
+              {
+                "signal": "proc.authors_12mo",
+                "gte": 1
+              },
+              {
+                "not": {
+                  "signal": "proc.authors_12mo",
+                  "gte": 2
+                }
+              }
+            ]
+          },
+          "value": "named-owner",
+          "cite": [
+            "proc.authors_12mo"
+          ]
+        }
+      ],
+      "fallback": "snapshot",
+      "counterfactual": "someone maintains these documents after today",
+      "docs_moved": 0
+    },
+    {
+      "id": "q8_doc_location",
+      "prompt": "Where does your documentation live?",
+      "answers": [
+        "repo",
+        "repo-plus-wiki",
+        "mostly-elsewhere"
+      ],
+      "multi_select": false,
+      "ask_on_first_run": false,
+      "default_from": [
+        {
+          "when": {
+            "any": [
+              {
+                "signal": "docs.docs_dir",
+                "is": "present"
+              },
+              {
+                "signal": "docs.site_generator",
+                "is": "present"
+              },
+              {
+                "signal": "docs.readme",
+                "is": "present"
+              }
+            ]
+          },
+          "value": "repo",
+          "cite": [
+            "docs.docs_dir",
+            "docs.site_generator",
+            "docs.readme"
+          ]
+        }
+      ],
+      "fallback": "repo",
+      "counterfactual": "most of your documentation lives outside this repo",
+      "docs_moved": 0,
+      "always_state": true,
+      "always_state_text": "I only see documentation committed to this repo. If your docs live in Confluence or Notion, say so and I will mark those rows present-elsewhere rather than missing."
+    }
+  ]
+}

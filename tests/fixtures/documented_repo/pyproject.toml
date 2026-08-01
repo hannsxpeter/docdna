@@ -1,0 +1,11 @@
+[project]
+name = "orderbook"
+version = "2.1.0"
+requires-python = ">=3.9"
+dependencies = ["flask>=3.0", "psycopg[binary]>=3.1"]
+
+[project.scripts]
+orderbook = "src.cli:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

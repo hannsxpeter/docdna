@@ -1,0 +1,19 @@
+# macOS
+.DS_Store
+
+# Local agent settings (not part of the skill)
+.claude/settings.local.json
+
+# Python artifacts
+__pycache__/
+*.pyc
+
+# docdna output in this repo, when dogfooding. config.json is checked in, because it is human
+# intent (the assurance set and the excluded directories), not generated output. A parent directory
+# that is itself ignored cannot have a file re-included, so ignore the contents rather than the dir.
+.docdna/*
+!.docdna/config.json
+
+# Editor and OS noise
+*.swp
+Thumbs.db

@@ -1,0 +1,6 @@
+{
+  "name": "client-spa",
+  "private": true,
+  "scripts": { "dev": "vite", "build": "vite build" },
+  "dependencies": { "vue": "^3.4.0", "vue-router": "^4.3.0" }
+}
