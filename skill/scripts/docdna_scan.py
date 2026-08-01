@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 
 SCHEMA = 1
 TOOL = "docdna_scan"
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SIGNALS_PATH = os.path.normpath(os.path.join(HERE, "..", "catalog", "signals.json"))

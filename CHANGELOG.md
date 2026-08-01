@@ -2,6 +2,16 @@
 
 All notable changes to docdna are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2026-08-01
+
+### Fixed
+
+- **`docdna_wire.py` could delete another tool's instruction block outright.** `replace_block` located the span to overwrite with two independent `text.find()` calls, so the span was `[first start marker, first end marker]`, which is not necessarily one block. Given a duplicated docdna start marker with a codedna block between the two, or a docdna block that had come to enclose a codedna block after a hand-edit or a bad merge, that span reached across the sibling block and replacing it erased that block's content and both of its markers. The nine existing wiring tests all used the healthy side-by-side layout and none of them could see it. `locate_block` now anchors the end search after the start, re-anchors on a nested start rather than spanning it, and refuses any span containing a marker that is not docdna's own. A file in that state is reported as `skipped` and left byte-identical, with the reason printed, because a duplicate block is recoverable and deleted content is not.
+
+### Changed
+
+- `docdna_wire.py` now carries a `VERSION` constant like the other five helpers.
+
 ## [1.0.0] - 2026-08-01
 
 First public release. Point docdna at a repository and it answers three questions from the code: which documents this project owes, which of the ones it already has are now false, and which of those the code can write without asking anyone. It is a portable coding-agent skill with no service, no account, no build step, and no dependency beyond Python 3.8.

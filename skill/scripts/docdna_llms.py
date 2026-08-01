@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 
 SCHEMA = 1
 TOOL = "docdna_llms"
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SELECT_SCRIPT = os.path.join(HERE, "docdna_select.py")

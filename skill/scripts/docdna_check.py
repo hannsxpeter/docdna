@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 
 SCHEMA = 1
 TOOL = "docdna_check"
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CATALOG_DIR = os.path.normpath(os.path.join(HERE, "..", "catalog"))

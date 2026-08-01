@@ -6,7 +6,7 @@ allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 
 # DocDNA
 
-Version: 1.0.0
+Version: 1.0.1
 
 ## What this is
 
