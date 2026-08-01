@@ -158,6 +158,14 @@ brake and does not have one is a bug, not a tuning preference.
 **Every `present` signal carries at least one evidence record.** A `present` with no evidence is a scanner
 bug and `docdna_scan.py` raises rather than emitting it.
 
+**`hits` means two different things, and the detector kind decides which.** For `path`, `grep`, and
+`manifest` detectors it counts occurrences, so `present` implies `hits >= 1`. For `git` and `derived`
+detectors carrying a `metric` it is a measured magnitude, and **zero is a real measurement**: a repository
+cloned today reports `proc.last_commit_days` as `present` with `hits` of 0. Requiring a positive value
+there would force the scanner either to report `absent` when it did successfully measure, which is exactly
+the absence-of-evidence-as-false error section 3 forbids, or to inflate the number. Predicates that need a
+threshold use `gte`, which is defined on the magnitude and is therefore correct for both readings.
+
 ## 6. `documents.json`
 
 ```json

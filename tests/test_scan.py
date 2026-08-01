@@ -24,6 +24,11 @@ def load_scan():
     return module
 
 
+def load_signals():
+    with open(str(SIGNALS_PATH), encoding="utf-8") as handle:
+        return json.load(handle)["signals"]
+
+
 def write(root, rel, body):
     path = Path(root) / rel
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -145,6 +150,18 @@ class ScanTests(unittest.TestCase):
                 self.assertEqual(item["evidence"], [])
 
     def test_every_present_signal_carries_evidence(self):
+        # hits means two different things depending on the detector. For path, grep and manifest
+        # signals it counts occurrences, so present implies at least one. For git and derived
+        # metric signals it carries a measured magnitude, and zero is a real measurement: a
+        # repository cloned today has proc.last_commit_days = 0. Requiring hits > 0 there would
+        # force the scanner either to report absent when it did successfully measure, which is the
+        # absence-of-evidence-as-false error this project refuses, or to inflate the value.
+        counting = set()
+        for sig in load_signals():
+            detect = sig.get("detect") or {}
+            if detect.get("kind") in ("path", "grep", "manifest") and not detect.get("metric"):
+                counting.add(sig["id"])
+
         for root in fixture_dirs() + [str(ROOT)]:
             report = self.scan.scan(root, set(), False, 5)
             for item in report["signals"]:
@@ -152,7 +169,10 @@ class ScanTests(unittest.TestCase):
                     continue
                 where = "%s: %s" % (os.path.basename(root), item["id"])
                 self.assertTrue(item["evidence"], "%s is present with no evidence" % where)
-                self.assertTrue(item["hits"] > 0, "%s is present with no hits" % where)
+                self.assertIsInstance(item["hits"], int, "%s has a non-integer hits" % where)
+                self.assertTrue(item["hits"] >= 0, "%s is present with negative hits" % where)
+                if item["id"] in counting:
+                    self.assertTrue(item["hits"] > 0, "%s is present with no hits" % where)
                 for record in item["evidence"]:
                     self.assertTrue(record.get("path"), "%s has an evidence record with no path"
                                     % where)
