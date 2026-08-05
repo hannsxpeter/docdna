@@ -6,6 +6,8 @@ Thanks for your interest in improving docdna. It is a small project with a clear
 
 docdna is a portable coding-agent skill installed as a directory for hosts that support `SKILL.md`. The entrypoint lives in [`skill/SKILL.md`](skill/SKILL.md), executable helpers live under [`skill/scripts/`](skill/scripts/), and the machine-readable document catalog lives under [`skill/catalog/`](skill/catalog/). There is no build step and no runtime dependency to install.
 
+The prose documentation is layered on purpose. `README.md` is the front door and is written for a reader who has not used the tool and may not be an engineer. [`docs/QUICKSTART.md`](docs/QUICKSTART.md) is the guided first run and the glossary. [`docs/HOW-IT-DECIDES.md`](docs/HOW-IT-DECIDES.md), [`docs/MEASUREMENT.md`](docs/MEASUREMENT.md), and [`docs/COMPLIANCE.md`](docs/COMPLIANCE.md) hold the depth. When you change behaviour, change the layer that makes the claim, and check whether the README's short version of it is still true.
+
 docdna stands alone. Python 3.8 is the whole dependency list, and no other tool has to be present for any of it to work. If you also use [codedna](https://github.com/hannsxpeter/codedna), which fingerprints how a repo writes code, treat it as a separate project that happens to install and wire the same way: nothing here imports it, tests against it, or degrades without it.
 
 ## The one rule that governs everything
@@ -25,7 +27,7 @@ Three questions to answer before the pull request is ready:
 
 - **What input defeats it?** Write the bypass down even if you are not closing it. `docdna_backfill.py --verify` resolves a `code` anchor and then accepts any number written within `BIND_LINES` lines of it, whether or not the anchor says anything about that number, so a constant sitting beside the cited symbol still certifies a figure nobody decided. That is the honest description, and it belongs next to the check rather than in a reviewer's head.
 - **Does it verify, or does it accept an attestation?** Anything the model supplies and the tool re-reads is verification. Anything the model supplies and the tool takes at face value is attestation. A `run:` citation is attestation: docdna never runs the documented repository's own commands, so nothing executes the command and the writer produces both the command and its output. Attestation is legitimate; calling it verification is not.
-- **Where does it belong?** A limit that stays inside a docstring or a commit message is not documented. It goes in `skill/references/evidence.md` if a writer needs it while writing, and in the refusal list in `README.md` if it qualifies a promise made to a user.
+- **Where does it belong?** A limit that stays inside a docstring or a commit message is not documented. It goes in `skill/references/evidence.md` if a writer needs it while writing, and in the refusal list in [`docs/COMPLIANCE.md`](docs/COMPLIANCE.md) if it qualifies a promise made to a user. `README.md` carries the short version of that list, so a new refusal that a user would feel belongs in both.
 
 A check that cannot state its own mesh size is not finished, and "it catches the common case" is only acceptable as prose in the repository, never as an unqualified claim.
 

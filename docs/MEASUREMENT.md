@@ -1,0 +1,116 @@
+# What has been measured, and what has not
+
+A tool that overstates its own behaviour has no standing to report anybody else's drift. Two claims on the
+front page of this project were published before they were measured, and both were later falsified by
+measurement. So this page states the evidence position in full, including the parts that are unflattering.
+
+## Selection: qualitatively sound, never adjudicated
+
+**What exists.** Across 51 repositories the signal layer discriminated strongly and never errored. Present
+signals per repository ranged from 4 to 46, with a median of 19. The inputs to selection genuinely vary by
+repository rather than emitting a constant list, which is the necessary condition for selection to mean
+anything at all.
+
+**What does not exist.** Nobody has judged whether the selected set is *correct* for any repository. There is
+no ground truth, no adjudicated sample, and no measurement of agreement with a human expert.
+
+Exclusion reasons are in the same position. The mechanism that requires one is enforced in code. The reasons
+themselves have never been read for soundness.
+
+**So selection ships with no accuracy percentage attached**, and this section stays in the documentation
+until somebody does that adjudication. The alternative is a sixth round of measurement overturning the
+current claim the way it overturned the last two.
+
+## Tripwires: firing observed, the temporal case not
+
+The sentence that used to sit here was true in a way that misled.
+
+A tripwire does fire correctly on a real repository. Run `docdna_check.py` against this one and
+`govern.ownership` fires, on `users.is_oss` and `q1_users` becoming true.
+
+But every firing observed so far, here and in the test suite, is a **first evaluation**: the predicate was
+already true the moment it was first checked. What has never been observed is the case the feature actually
+rests on, an exclusion written while its predicate was false and a later run catching it after the
+repository changed.
+
+That is narrower and more useful than saying no tripwire has ever fired, and it is the claim to hold open.
+
+## Drift: both passes are leads, and here are the numbers
+
+Drift needs no setup, no frontmatter, and no prior run, and it works on documents docdna has never touched.
+Neither pass is a headline feature. Both produce leads, and the numbers are published here rather than
+buried.
+
+### Commands: 3.2 percent precision
+
+Across 51 repositories the command pass produced 31 findings and 1 was true drift. Of the 27 rows it then
+rated HIGH confidence, 0 were true, and that rating no longer exists.
+
+Recall is stranger. Across 77 documented commands in 5 maintained repositories, not one had a missing script
+name. There was nothing to find. The base rate of the defect this pass hunts is approximately zero, so its
+measured recall is too.
+
+### Paths: 10.9 percent precision
+
+On an earlier five-repository holdout, all 46 path findings were adjudicated by hand and 5 were real drift.
+
+The failures are not extraction bugs. Across those 46, the extractor produced no token that was not a
+genuine path reference.
+
+### One reason covers both
+
+A document names a command or a path for many reasons, and only one of them is a claim about this repository
+right now.
+
+28 of the 30 command false positives were documents making no claim about the repository at all: comparison
+tables with metasyntactic placeholders, task templates, case studies about external repositories, and one
+hypothetical drift example inside an instruction about detecting drift.
+
+On the path side, 16 were install targets in a host capability matrix, naming where a file goes rather than
+where it is. 10 were changelog entries describing the tree as it was. The rest were prospective paths in a
+fix recommendation, references into a sibling repository, hypothetical examples, and reports of files
+deleted on purpose.
+
+Every one of those paths is correctly absent. **No test that asks whether a string is a file on disk can
+tell them apart.**
+
+Volume is lopsided in the same direction: across all 51 repositories, drift output was 93.6 percent path
+rows and 6.4 percent command rows.
+
+## What the command pass did get right
+
+It resolves through the manifest chain rather than the walk order. `npm run dev` written in `services/api/`
+is checked against `services/api/package.json`, not against whichever `package.json` the walk reached first.
+When the command is declared in some other manifest in the tree, the row says where it lives rather than
+claiming the command does not exist.
+
+That fix is real, and it removed a class of silent false positives and false negatives. It did not make the
+underlying question decidable.
+
+## What the path pass does not look at
+
+A reference is dropped before anything is reported when **neither** its parent directory **nor** its first
+path component exists in the repository. Either one is enough to keep it, so a reference naming a file under
+a directory that does not exist inside `skill/` is still reported, because `skill/` itself is there.
+
+When no part of the path is rooted here, there is nothing left to distinguish a stale document from a path
+that was never rooted here, so the check declines to guess.
+
+The cost is real: deleting an entire `docs/` directory makes every reference into it invisible rather than
+glaring. The drop is at least counted rather than silent. The scan reports how many candidates each recall
+gate discarded, under `scan.drift.discarded`, so the reported findings can be read as the filtered view they
+are.
+
+## How drift is therefore treated
+
+Command rows and path rows alike carry `confidence: low` and a note saying a document names commands and
+paths for many reasons. That makes them minor findings in `docdna_check.py`, and drift of any kind gates CI
+only for the documents a user explicitly names in `assurance_set`.
+
+A gate that turns everything red gets disabled in week two. This one does not turn everything red.
+
+## Related
+
+- [HOW-IT-DECIDES.md](HOW-IT-DECIDES.md), what the selection engine does with these inputs
+- [../CHANGELOG.md](../CHANGELOG.md), the release notes for 1.1.0, which is what five rounds of measurement
+  did to this tool

@@ -2,6 +2,34 @@
 
 All notable changes to docdna are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **The prose documentation is rewritten and layered.** `README.md` was written for a reader who already
+  knew what a selection engine was, and it opened on the mechanism rather than on the question a newcomer
+  actually arrives with. It now leads with "which documents does this project actually owe", says who the
+  tool is for in plain language, and annotates the two real output samples line by line instead of assuming
+  the reader can parse them. Nothing was softened: the measured drift precision, the unadjudicated state of
+  selection, and the tripwire claim held open all survive, in shorter form, each linking to the page that
+  carries the full argument.
+- **Four documentation pages added**, holding the depth the README used to carry inline:
+  `docs/QUICKSTART.md` (a guided first run and a glossary of every term the report uses),
+  `docs/HOW-IT-DECIDES.md` (the selection engine, the eight questions, the catalog, the invariants),
+  `docs/MEASUREMENT.md` (what has been measured about this tool and what has not), and
+  `docs/COMPLIANCE.md` (the compliance posture and every refusal, including the seventeen that are enforced
+  in code).
+- `CONTRIBUTING.md` names which documentation layer a new claim or refusal belongs in, because the answer
+  used to be "the README" and now it is not.
+
+### Note on a filename
+
+The quickstart is `docs/QUICKSTART.md` rather than the getting-started name it wanted, because that name is
+already a `detect_paths` entry for `build.dev-setup` under `docs/`. On a case-insensitive filesystem
+`locate()` resolved the catalog's lowercase candidate against a differently-cased file on disk, adopted the
+page as this repository's development setup document, and emitted that lowercase path into `llms.txt`, where
+it would have been a broken link on Linux. The underlying case sensitivity in `locate()` is not fixed here.
+
 ## [1.2.0] - 2026-08-05
 
 Compliance. The catalog grows from 60 entries to 96, and for the first time it carries documents docdna refuses to write.
