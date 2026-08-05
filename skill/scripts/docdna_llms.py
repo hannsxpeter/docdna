@@ -15,6 +15,18 @@ TOOL = "docdna_llms"
 VERSION = "1.2.0"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+if HERE not in sys.path:
+    sys.path.insert(0, HERE)
+from docdna_fs import (MAX_CONTROL_BYTES, bind_root as safe_bind_root,
+                       is_dir as safe_is_dir,
+                       is_file as safe_is_file,
+                       listdir as safe_listdir, path_exists as safe_exists,
+                       open_root as safe_open_root, parse_json as safe_parse_json,
+                       read_text as safe_read_text,
+                       require_manifest as safe_require_manifest,
+                       root_is_current as safe_root_is_current,
+                       write_text as safe_write_text)
+
 SELECT_SCRIPT = os.path.join(HERE, "docdna_select.py")
 
 MANIFEST_REL = os.path.join(".docdna", "manifest.json")
@@ -49,12 +61,15 @@ STATE_NOTES = {"present-drifted": ("Lead: at least one path or command in it did
                "present-stub": "Stub: under 400 bytes, so treat it as a placeholder."}
 
 PROSE_EXT = (".md", ".markdown", ".rst", ".adoc", ".txt")
+DENY_READ = (".env",)
+DENY_READ_ALLOW = (".example", ".sample", ".template")
 SKIP_PREFIX = ("#", ">", "|", "<!--", "---", "===", "```", "![", "_Confidence")
 SKIP_BULLET = ("- ", "* ", "+ ", "1. ")
 EMPHASIS = ("**", "__", "*", "_", "`")
 LINK = re.compile(r"\[([^\]]+)\]\([^)]*\)")
 
 SUMMARY_LIMIT = 180
+SUMMARY_SOURCE_BYTES = 1000000
 LINE_WIDTH = 100
 MAX_DIR_FILES = 500
 VOWELS = "aeiou"
@@ -67,31 +82,166 @@ def now_utc():
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def load_json(path):
-    with open(path, encoding="utf-8") as handle:
-        return json.load(handle)
+def repository_path(root, candidate):
+    prefix = os.path.abspath(root)
+    target = (os.path.abspath(candidate) if os.path.isabs(candidate)
+              else os.path.abspath(os.path.join(prefix, candidate)))
+    if target != prefix and not target.startswith(prefix + os.sep):
+        return None
+    root_real = os.path.realpath(prefix)
+    target_real = os.path.realpath(target)
+    try:
+        if os.path.commonpath([root_real, target_real]) != root_real:
+            return None
+    except ValueError:
+        return None
+    return target
+
+
+def denied_read(rel):
+    name = os.path.basename(rel)
+    if not name.startswith(DENY_READ):
+        return False
+    return not name.endswith(DENY_READ_ALLOW)
+
+
+def tracked_paths(root):
+    if not safe_root_is_current(root):
+        return None
+    descriptor = safe_open_root(root)
+
+    def enter_bound_root():
+        os.fchdir(descriptor)
+
+    try:
+        process = subprocess.run(["git", "ls-files", "-z", "--cached"],
+                                 stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=60,
+                                 preexec_fn=enter_bound_root, pass_fds=(descriptor,))
+    except (OSError, subprocess.SubprocessError):
+        return None
+    finally:
+        os.close(descriptor)
+    if process.returncode != 0 or not safe_root_is_current(root):
+        return None
+    return set(item for item in process.stdout.decode("utf-8", "replace").split("\0") if item)
+
+
+def repository_name(root):
+    # The origin name survives a renamed checkout, unlike the local directory name.
+    fallback = os.path.basename(os.path.abspath(root))
+    if not safe_root_is_current(root):
+        return fallback
+    descriptor = safe_open_root(root)
+
+    def enter_bound_root():
+        os.fchdir(descriptor)
+
+    try:
+        process = subprocess.run(["git", "config", "--get", "remote.origin.url"],
+                                 stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=10,
+                                 preexec_fn=enter_bound_root, pass_fds=(descriptor,))
+    except (OSError, subprocess.SubprocessError):
+        return fallback
+    finally:
+        os.close(descriptor)
+    if process.returncode != 0 or not safe_root_is_current(root):
+        return fallback
+    remote = process.stdout.decode("utf-8", "replace").strip()
+    name = os.path.basename(os.path.normpath(remote))
+    if name.endswith(".git"):
+        name = name[:-4]
+    if re.match(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$", name):
+        return name
+    return fallback
+
+
+def indexed_path(paths, rel):
+    if paths is None:
+        return True
+    cleaned = rel.replace(os.sep, "/").strip("/")
+    prefix = cleaned + "/" if cleaned else ""
+    return cleaned in paths or any(item.startswith(prefix) for item in paths)
+
+
+def readable_repository_path(root, candidate, paths):
+    full = repository_path(root, candidate)
+    if full is None:
+        return None
+    root_real = os.path.realpath(root)
+    target = os.path.realpath(full)
+    source_rel = os.path.relpath(full, os.path.abspath(root)).replace(os.sep, "/")
+    target_rel = os.path.relpath(target, root_real).replace(os.sep, "/")
+    if denied_read(source_rel) or denied_read(target_rel):
+        return None
+    if not indexed_path(paths, source_rel) or not indexed_path(paths, target_rel):
+        return None
+    return target
+
+
+def output_path(root, rel):
+    if os.path.isabs(rel):
+        raise ValueError("output path must be relative to the repository: %s" % rel)
+    prefix = os.path.abspath(root)
+    target = os.path.abspath(os.path.join(prefix, rel))
+    if target != prefix and not target.startswith(prefix + os.sep):
+        raise ValueError("output path leaves the repository: %s" % rel)
+    current = prefix
+    for part in os.path.relpath(target, prefix).split(os.sep):
+        if part in ("", "."):
+            continue
+        current = os.path.join(current, part)
+        if os.path.lexists(current) and os.path.islink(current):
+            raise ValueError("output path uses a symlink: %s" % rel)
+    if repository_path(prefix, target) is None:
+        raise ValueError("output path resolves outside the repository: %s" % rel)
+    return target
+
+
+def read_repository_text(root, rel, max_bytes=None):
+    output_path(root, rel)
+    return safe_read_text(root, rel, max_bytes=max_bytes)
+
+
+def write_repository_text(root, rel, text):
+    descriptor = safe_open_root(root)
+    try:
+        output_path(root, rel)
+        safe_write_text(root, rel, text, root_descriptor=descriptor)
+    finally:
+        os.close(descriptor)
 
 
 def run_select(repo):
-    command = [sys.executable, SELECT_SCRIPT, "--unattended", repo]
-    process = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if not safe_root_is_current(repo):
+        raise ValueError("repository root changed before docdna_select.py ran")
+    descriptor = safe_open_root(repo)
+
+    def enter_bound_root():
+        os.fchdir(descriptor)
+
+    command = [sys.executable, SELECT_SCRIPT, "--unattended", "."]
+    try:
+        process = subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+                                 preexec_fn=enter_bound_root, pass_fds=(descriptor,))
+    finally:
+        os.close(descriptor)
+    if not safe_root_is_current(repo):
+        raise ValueError("repository root changed while docdna_select.py ran")
     if process.returncode != 0:
         raise ValueError("docdna_select.py failed: %s"
                          % process.stderr.decode("utf-8", "replace").strip())
 
 
 def read_manifest(root):
-    path = os.path.join(root, MANIFEST_REL)
-    if not os.path.exists(path):
+    output_path(root, MANIFEST_REL)
+    if not safe_exists(root, MANIFEST_REL):
         run_select(root)
-    if not os.path.exists(path):
+    if not safe_exists(root, MANIFEST_REL):
         raise ValueError("no %s under %s, and docdna_select.py wrote none"
                          % (MANIFEST_REL, root))
-    manifest = load_json(path)
-    if manifest.get("schema") != SCHEMA:
-        raise ValueError("%s declares schema %s, this build reads schema %d"
-                         % (MANIFEST_REL, manifest.get("schema"), SCHEMA))
-    return manifest
+    text = read_repository_text(root, MANIFEST_REL, max_bytes=MAX_CONTROL_BYTES)
+    manifest = safe_parse_json(text, MANIFEST_REL)
+    return safe_require_manifest(manifest, MANIFEST_REL, SCHEMA)
 
 
 def strip_frontmatter(lines):
@@ -132,11 +282,11 @@ def summarize(text):
     return text[:cut].rstrip(" ,;:") + "..."
 
 
-def first_paragraph(path):
+def first_paragraph(root, path):
     try:
-        with open(path, encoding="utf-8", errors="replace") as handle:
-            lines = handle.read().splitlines()
-    except OSError:
+        lines = safe_read_text(root, path, errors="replace",
+                               max_bytes=SUMMARY_SOURCE_BYTES).splitlines()
+    except (OSError, ValueError):
         return ""
     for raw in strip_frontmatter(lines):
         line = raw.strip()
@@ -146,25 +296,45 @@ def first_paragraph(path):
     return ""
 
 
-def count_files(path):
+def count_files(root, path, paths):
     total = 0
-    for _, _, names in os.walk(path):
+    pending = [path]
+    visited = set()
+    while pending:
+        folder = readable_repository_path(root, pending.pop(), paths)
+        if folder is None:
+            continue
+        real = os.path.realpath(folder)
+        if real in visited:
+            continue
+        visited.add(real)
+        try:
+            names = safe_listdir(root, folder)
+        except (OSError, ValueError):
+            continue
         for name in names:
-            if not name.startswith("."):
+            child_source = os.path.join(folder, name)
+            child = readable_repository_path(root, child_source, paths)
+            if child is None:
+                continue
+            if safe_is_dir(root, child):
+                if not os.path.islink(child_source):
+                    pending.append(child)
+            elif safe_is_file(root, child) and not name.startswith("."):
                 total += 1
         if total > MAX_DIR_FILES:
             break
     return total
 
 
-def summary_for(full):
-    if os.path.isdir(full):
-        count = count_files(full)
+def summary_for(root, full, paths):
+    if safe_is_dir(root, full):
+        count = count_files(root, full, paths)
         if count > MAX_DIR_FILES:
             return "over %d files in this directory." % MAX_DIR_FILES
         return "%s in this directory." % plural(count, "file")
     if full.lower().endswith(PROSE_EXT):
-        return first_paragraph(full)
+        return first_paragraph(root, full)
     return ""
 
 
@@ -185,10 +355,14 @@ def entry_path(root, row):
     path = row.get("path") or ""
     found = row.get("found_at")
     if path.endswith("/"):
-        if os.path.isdir(os.path.join(root, path)):
+        full = repository_path(root, path)
+        target = os.path.realpath(full) if full is not None else None
+        if target is not None and safe_is_dir(root, target):
             return path
         parent = os.path.dirname(found or "")
-        if parent and os.path.isdir(os.path.join(root, parent)):
+        full = repository_path(root, parent) if parent else None
+        target = os.path.realpath(full) if full is not None else None
+        if target is not None and safe_is_dir(root, target):
             return parent + "/"
     return found or path
 
@@ -196,6 +370,7 @@ def entry_path(root, row):
 def collect(root, manifest):
     skipped = {"not_present": 0, "elsewhere": 0, "missing_file": 0, "self": 0, "duplicate_path": 0}
     rows = []
+    paths = tracked_paths(root)
     for row in manifest.get("documents") or []:
         state = row.get("state")
         if state == "present-elsewhere":
@@ -208,13 +383,14 @@ def collect(root, manifest):
         if not rel or os.path.normpath(rel) == OUTPUT_REL:
             skipped["self"] += 1
             continue
-        full = os.path.join(root, rel)
-        if not os.path.exists(full):
+        full = readable_repository_path(root, rel, paths)
+        if full is None or not safe_exists(root, full):
             skipped["missing_file"] += 1
             continue
         rows.append({"id": row["id"], "title": row["title"], "stage": row["stage"], "state": state,
-                     "path": rel.replace(os.sep, "/"), "summary": summary_for(full), "also": [],
-                     "kind": "directory" if os.path.isdir(full) else "file"})
+                     "path": rel.replace(os.sep, "/"),
+                     "summary": summary_for(root, full, paths), "also": [],
+                     "kind": "directory" if safe_is_dir(root, full) else "file"})
     rows.sort(key=lambda item: (stage_rank(item["stage"]), item["title"], item["id"]))
     sections = {}
     first_at = {}
@@ -231,16 +407,14 @@ def collect(root, manifest):
     return sections, skipped
 
 
-def blockquote(root, manifest, listed):
-    name = os.path.basename(os.path.abspath(root))
+def blockquote(root, manifest, listed, name=None):
+    name = name or repository_name(root)
     primary = (manifest.get("archetype") or {}).get("primary") or "unknown"
     shape = "" if primary == "unknown" else ", %s %s repository" % (article(primary), primary)
-    head = manifest.get("repo_head")
     text = ("Documentation index for %s%s. It lists %s committed to this repository, grouped by "
-            "lifecycle stage. Generated by %s from %s%s on %s."
+            "lifecycle stage. Generated by %s from %s."
             % (name, shape, plural(listed, "document"), manifest.get("generated_by", TOOL),
-               MANIFEST_REL, " at commit %s" % head if head else "",
-               manifest.get("generated_at") or "an earlier run"))
+               MANIFEST_REL))
     return ["> " + line for line in textwrap.wrap(text, LINE_WIDTH - 2)]
 
 
@@ -266,8 +440,9 @@ def notes(skipped):
 
 def render(root, manifest, sections, skipped):
     listed = sum(len(rows) for rows in sections.values())
-    lines = ["# %s" % os.path.basename(os.path.abspath(root)), ""]
-    lines.extend(blockquote(root, manifest, listed))
+    name = repository_name(root)
+    lines = ["# %s" % name, ""]
+    lines.extend(blockquote(root, manifest, listed, name))
     lines.append("")
     lines.extend(notes(skipped))
     lines.append("")
@@ -291,9 +466,8 @@ def render(root, manifest, sections, skipped):
 
 
 def write_output(root, text):
-    path = os.path.join(root, OUTPUT_REL)
-    with open(path, "w", encoding="utf-8") as handle:
-        handle.write(text)
+    path = output_path(root, OUTPUT_REL)
+    write_repository_text(root, OUTPUT_REL, text)
     return path
 
 
@@ -311,9 +485,8 @@ def yaml_scalar(value):
     if isinstance(value, bool):
         return "true" if value else "false"
     if isinstance(value, list):
-        return "[%s]" % ", ".join(str(item) for item in value)
-    text = str(value)
-    return text if text else '""'
+        return json.dumps(value, ensure_ascii=False)
+    return json.dumps(str(value), ensure_ascii=False)
 
 
 def sidecar_fields(manifest, stamp):
@@ -354,17 +527,15 @@ def sidecar_fields(manifest, stamp):
 
 
 def write_sidecar(root, manifest):
-    directory = os.path.join(root, META_REL)
-    if not os.path.isdir(directory):
-        os.makedirs(directory)
-    path = os.path.join(directory, OUTPUT_ID + ".yml")
+    output_path(root, META_REL)
+    path = output_path(root, os.path.join(META_REL, OUTPUT_ID + ".yml"))
     stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     lines = ["---"]
     for key, value in sidecar_fields(manifest, stamp):
         lines.append("%s: %s" % (key, yaml_scalar(value)))
     lines.append("---")
-    with open(path, "w", encoding="utf-8") as handle:
-        handle.write("\n".join(lines) + "\n")
+    write_repository_text(root, os.path.join(META_REL, OUTPUT_ID + ".yml"),
+                          "\n".join(lines) + "\n")
     return path
 
 
@@ -380,7 +551,14 @@ def selected_state(manifest):
 
 
 def build(repo):
-    root = os.path.abspath(repo)
+    root = safe_bind_root(os.path.abspath(repo))
+    try:
+        return build_bound(root)
+    finally:
+        root.close()
+
+
+def build_bound(root):
     manifest = read_manifest(root)
     sections, skipped = collect(root, manifest)
     text = render(root, manifest, sections, skipped)

@@ -176,6 +176,15 @@ class BackfillVerifyRegressionTests(unittest.TestCase):
         self.assertIn("14", rows[0]["detail"])
         self.assertIn("none of the sources it cites", rows[0]["detail"])
 
+    def test_mistyped_identity_fields_are_findings_instead_of_a_traceback(self):
+        report = self.verify(CITED_TRUE, [("id", ["build.config-reference"]),
+                                          ("instance_id", ["one"])])
+
+        self.assertFalse(report["ok"])
+        rows = kinds(report["findings"], "frontmatter")
+        self.assertTrue(any("id must be a string" in row["detail"] for row in rows))
+        self.assertTrue(any("instance_id must be a string" in row["detail"] for row in rows))
+
     def test_a_citation_does_not_launder_a_number_the_cited_file_never_states(self):
         # The citation resolves, so the block is cited and the claim reads as sourced. The number
         # is still absent from the file the citation names, which is the whole of the refusal.
@@ -558,6 +567,7 @@ class DeleteGuardRegressionTests(unittest.TestCase):
         extra.append(("content_hash", content_hash or settled))
         manifest = {"schema": 1, "documents": [{"id": "build.config-reference",
                                                 "title": "Configuration reference",
+                                                "stage": "build",
                                                 "write_status": "in-progress",
                                                 "plan_generated_at": "%sT00:00:00Z" % stamp}]}
         tmp = tempfile.mkdtemp()
@@ -607,6 +617,7 @@ class DeleteGuardRegressionTests(unittest.TestCase):
         extra.append(("content_hash", settled))
         manifest = {"schema": 1, "documents": [{"id": "build.config-reference",
                                                 "title": "Configuration reference",
+                                                "stage": "build",
                                                 "write_status": "in-progress",
                                                 "plan_generated_at": "%sT00:00:00Z" % stamp}]}
         tmp = tempfile.mkdtemp()
@@ -644,6 +655,7 @@ class DeleteGuardRegressionTests(unittest.TestCase):
         text = self.stub_text(extra)
         manifest = {"schema": 1, "documents": [{"id": "build.config-reference",
                                                 "title": "Configuration reference",
+                                                "stage": "build",
                                                 "write_status": "in-progress",
                                                 "plan_generated_at": "%sT00:00:00Z" % stamp}]}
         with tempfile.TemporaryDirectory() as tmp:
@@ -854,13 +866,22 @@ class CheckNumberRegressionTests(unittest.TestCase):
         self.assertIn("90", rows[0]["detail"])
         self.assertIn("retained", rows[0]["detail"])
 
-    def test_no_docdna_script_ever_removes_a_path(self):
-        # The blast radius, stated as a property. docdna_backfill.py owns the one os.remove in the
-        # tree, and it sits behind delete_guard.
+    def test_only_atomic_output_helpers_and_backfill_can_remove_a_path(self):
+        # The shared filesystem helper may unlink its private temporary file after a failed atomic
+        # write and may remove a document only through its descriptor-relative unlink helper.
+        # docdna_backfill.py owns the policy decision, and it sits behind delete_guard.
         for name in ("docdna_check", "docdna_scan", "docdna_select", "docdna_llms", "docdna_wire"):
             source = (ROOT / "skill" / "scripts" / ("%s.py" % name)).read_text(encoding="utf-8")
             for call in ("os.remove(", "os.unlink(", "shutil.rmtree(", "os.rmdir(", "Path.unlink"):
                 self.assertNotIn(call, source, "%s calls %s" % (name, call))
+        source = (ROOT / "skill" / "scripts" / "docdna_fs.py").read_text(encoding="utf-8")
+        allowed = {"os.unlink(temp_name, dir_fd=parent)": 1,
+                   "os.unlink(quarantine, dir_fd=parent)": 2}
+        for call, count in allowed.items():
+            self.assertEqual(source.count(call), count)
+            source = source.replace(call, "")
+        for call in ("os.remove(", "os.unlink(", "shutil.rmtree(", "os.rmdir(", "Path.unlink"):
+            self.assertNotIn(call, source, "docdna_fs calls %s" % call)
 
 
 class ScanRegressionTests(unittest.TestCase):
@@ -1381,6 +1402,26 @@ class CodednaAdoptionRegressionTests(unittest.TestCase):
             # The manifest is not empty of the row that carries the risk, so the assertion above
             # is a statement about content rather than about an absent document.
             self.assertEqual(self.row(manifest)["path"], "docs/build/coding-standard.md")
+
+
+class BackfillFilesystemBoundaryTests(unittest.TestCase):
+    def test_backfill_refuses_a_symlinked_manifest_without_modifying_its_target(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            repo = write_repo(base / "repo", {"src/config/settings.py": SETTINGS})
+            subprocess.run([sys.executable, str(SELECT_PATH), "--unattended", str(repo)],
+                           check=True, capture_output=True, text=True)
+            manifest = repo / ".docdna" / "manifest.json"
+            outside = base / "outside-manifest.json"
+            manifest.replace(outside)
+            original = outside.read_bytes()
+            os.symlink(str(outside), str(manifest))
+
+            process = subprocess.run([sys.executable, str(BACKFILL_PATH), "--json", str(repo)],
+                                     capture_output=True, text=True)
+
+            self.assertEqual(process.returncode, 2)
+            self.assertEqual(outside.read_bytes(), original)
 
 
 if __name__ == "__main__":

@@ -266,7 +266,10 @@ year. Full posture in [docs/COMPLIANCE.md](docs/COMPLIANCE.md).
 
 ## Does it stand alone?
 
-Yes. docdna needs Python 3.8 and nothing else, and assumes no relationship to any other tool.
+Yes. docdna needs Python 3.8 on a POSIX host with descriptor-relative, no-follow filesystem support,
+which includes current Linux and macOS releases. It needs no third-party Python package and assumes no
+relationship to any other tool. Windows is not supported because Python does not expose equivalent
+race-safe filesystem primitives there.
 
 If you also use [codedna](https://github.com/hannsxpeter/codedna), which fingerprints how a repository
 writes code, the two run side by side: separate projects, separate installs, no shared code, and their

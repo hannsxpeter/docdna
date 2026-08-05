@@ -1,10 +1,12 @@
 import importlib.util
 import json
+import os
 import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 
@@ -67,6 +69,8 @@ def scan_file(name, root, tmp):
         SCAN_CACHE[name] = json.loads(proc.stdout.decode("utf-8"))
     payload = dict(SCAN_CACHE[name])
     payload["root"] = str(root)
+    details = root.stat()
+    payload["root_identity"] = {"device": details.st_dev, "inode": details.st_ino}
     path = Path(tmp) / "scan.json"
     path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
     return path
@@ -331,6 +335,362 @@ class ArchetypeTests(unittest.TestCase):
         self.assertLess(archetype["score"], archetype["floor"])
         self.assertEqual(archetype["primary"], "unknown")
         self.assertEqual(archetype["confidence"], "low")
+
+
+class SecurityBoundaryTests(unittest.TestCase):
+    def test_selector_bounds_imported_scan_files(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            repo = base / "repo"
+            repo.mkdir()
+            scan_path = base / "scan.json"
+            with scan_path.open("wb") as handle:
+                handle.truncate(SELECT.MAX_CONTROL_BYTES + 1)
+
+            process = subprocess.run([sys.executable, str(SELECT_PATH), "--scan", str(scan_path),
+                                      str(repo)], capture_output=True, text=True)
+
+            self.assertEqual(process.returncode, 2)
+            self.assertIn("bytes", process.stderr)
+            self.assertNotIn("Traceback", process.stderr)
+
+    def test_selector_reports_deeply_nested_scan_json_without_a_traceback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            repo = base / "repo"
+            repo.mkdir()
+            scan_path = base / "scan.json"
+            scan_path.write_text("[" * 2000 + "]" * 2000, encoding="utf-8")
+
+            process = subprocess.run([sys.executable, str(SELECT_PATH), "--scan", str(scan_path),
+                                      str(repo)], capture_output=True, text=True)
+
+            self.assertEqual(process.returncode, 2)
+            self.assertIn("scan", process.stderr)
+            self.assertNotIn("Traceback", process.stderr)
+
+    def test_selector_rejects_mistyped_config_fields_without_a_traceback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            metadata = repo / ".docdna"
+            metadata.mkdir()
+            (metadata / "config.json").write_text('{"exclude_dirs":"node_modules"}',
+                                                   encoding="utf-8")
+
+            process = subprocess.run([sys.executable, str(SELECT_PATH), str(repo)],
+                                     capture_output=True, text=True)
+
+            self.assertEqual(process.returncode, 2)
+            self.assertIn("array of strings", process.stderr)
+            self.assertNotIn("Traceback", process.stderr)
+
+    def test_selector_rejects_a_stale_scan_after_the_root_inode_changes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            repo = base / "repo"
+            repo.mkdir()
+            (repo / "README.md").write_text("original\n", encoding="utf-8")
+            scan_path = base / "scan.json"
+            with scan_path.open("w", encoding="utf-8") as handle:
+                subprocess.run([sys.executable, str(SCAN_PATH), "--json", str(repo)],
+                               stdout=handle, check=True)
+            repo.rename(base / "repo-original")
+            repo.mkdir()
+
+            process = subprocess.run([sys.executable, str(SELECT_PATH), "--scan", str(scan_path),
+                                      str(repo)], capture_output=True, text=True)
+
+            self.assertEqual(process.returncode, 2)
+            self.assertIn("identity does not match", process.stderr)
+            self.assertNotIn("Traceback", process.stderr)
+            self.assertFalse((repo / "DOCDNA.md").exists())
+
+    def test_selector_rejects_boolean_root_identity_values(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            repo = base / "repo"
+            repo.mkdir()
+            process = subprocess.run([sys.executable, str(SCAN_PATH), "--json", str(repo)],
+                                     check=True, capture_output=True)
+            scan = json.loads(process.stdout.decode("utf-8"))
+            scan["root_identity"] = {"device": True, "inode": True}
+            scan_path = base / "scan.json"
+            scan_path.write_text(json.dumps(scan), encoding="utf-8")
+
+            process = subprocess.run([sys.executable, str(SELECT_PATH), "--scan", str(scan_path),
+                                      str(repo)], capture_output=True, text=True)
+
+            self.assertEqual(process.returncode, 2)
+            self.assertIn("identity does not match", process.stderr)
+            self.assertNotIn("Traceback", process.stderr)
+
+    def test_selector_rejects_non_object_signal_evidence_concisely(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            repo = base / "repo"
+            repo.mkdir()
+            process = subprocess.run([sys.executable, str(SCAN_PATH), "--json", str(repo)],
+                                     check=True, capture_output=True)
+            scan = json.loads(process.stdout.decode("utf-8"))
+            scan["signals"][0]["evidence"] = [1]
+            scan_path = base / "scan.json"
+            scan_path.write_text(json.dumps(scan), encoding="utf-8")
+
+            process = subprocess.run([sys.executable, str(SELECT_PATH), "--scan", str(scan_path),
+                                      str(repo)], capture_output=True, text=True)
+
+            self.assertEqual(process.returncode, 2)
+            self.assertIn("array of objects", process.stderr)
+            self.assertNotIn("Traceback", process.stderr)
+
+    def test_selector_rejects_non_object_signal_detail_concisely(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            repo = base / "repo"
+            repo.mkdir()
+            process = subprocess.run([sys.executable, str(SCAN_PATH), "--json", str(repo)],
+                                     check=True, capture_output=True)
+            scan = json.loads(process.stdout.decode("utf-8"))
+            scan["signals"][0]["detail"] = 1
+            scan_path = base / "scan.json"
+            scan_path.write_text(json.dumps(scan), encoding="utf-8")
+
+            process = subprocess.run([sys.executable, str(SELECT_PATH), "--scan", str(scan_path),
+                                      str(repo)], capture_output=True, text=True)
+
+            self.assertEqual(process.returncode, 2)
+            self.assertIn("detail must be a JSON object", process.stderr)
+            self.assertNotIn("Traceback", process.stderr)
+
+    def test_selector_rejects_a_null_inventory_path_concisely(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            repo = base / "repo"
+            repo.mkdir()
+            process = subprocess.run([sys.executable, str(SCAN_PATH), "--json", str(repo)],
+                                     check=True, capture_output=True)
+            scan = json.loads(process.stdout.decode("utf-8"))
+            scan["inventory"]["docs"].append({"path": None, "bytes": 10})
+            scan_path = base / "scan.json"
+            scan_path.write_text(json.dumps(scan), encoding="utf-8")
+
+            process = subprocess.run([sys.executable, str(SELECT_PATH), "--scan", str(scan_path),
+                                      str(repo)], capture_output=True, text=True)
+
+            self.assertEqual(process.returncode, 2)
+            self.assertIn("path must be a non-null string", process.stderr)
+            self.assertNotIn("Traceback", process.stderr)
+
+    def test_selector_rejects_a_scan_from_another_repository_before_writing_outputs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            repo = base / "repo"
+            other = base / "other"
+            repo.mkdir()
+            other.mkdir()
+            (other / "README.md").write_text("other repository\n", encoding="utf-8")
+            scan_path = base / "other-scan.json"
+            with scan_path.open("w", encoding="utf-8") as handle:
+                subprocess.run([sys.executable, str(SCAN_PATH), "--json", str(other)],
+                               stdout=handle, check=True)
+
+            process = subprocess.run([sys.executable, str(SELECT_PATH), "--scan", str(scan_path),
+                                      str(repo)], capture_output=True, text=True)
+
+            self.assertEqual(process.returncode, 2)
+            self.assertIn("does not match repository", process.stderr)
+            self.assertFalse((repo / "DOCDNA.md").exists())
+            self.assertFalse((repo / ".docdna" / "manifest.json").exists())
+
+    def test_selector_does_not_classify_an_external_directory_symlink_as_present(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            repo = base / "repo"
+            repo.mkdir()
+            outside = base / "outside-licenses"
+            outside.mkdir()
+            (outside / "dependency.txt").write_text("external metadata marker\n", encoding="utf-8")
+            os.symlink(str(outside), str(repo / "licenses"))
+            subprocess.run(["git", "init", "-q"], cwd=str(repo), check=True)
+            subprocess.run(["git", "add", "licenses"], cwd=str(repo), check=True)
+            process = subprocess.run([sys.executable, str(SCAN_PATH), "--json", str(repo)],
+                                     check=True, capture_output=True)
+            scan = json.loads(process.stdout.decode("utf-8"))
+
+            states, found = SELECT.document_states(SELECT.load_catalog(), scan, str(repo))
+
+            self.assertEqual(states["assure.license-attribution"], "absent")
+            self.assertIsNone(found["assure.license-attribution"])
+
+    def test_selector_refuses_output_symlinks_without_touching_their_external_targets(self):
+        scenarios = ("DOCDNA.md", ".docdna/manifest.json", ".docdna")
+        for rel in scenarios:
+            with self.subTest(path=rel), tempfile.TemporaryDirectory() as tmp:
+                base = Path(tmp)
+                repo = base / "repo"
+                repo.mkdir()
+                outside = base / "outside"
+                if rel == ".docdna":
+                    outside.mkdir()
+                    marker_path = outside / "marker.txt"
+                    marker_path.write_text("untouched\n", encoding="utf-8")
+                    os.symlink(str(outside), str(repo / rel))
+                else:
+                    marker_path = outside
+                    marker_path.write_text("untouched\n", encoding="utf-8")
+                    target = repo / rel
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    os.symlink(str(marker_path), str(target))
+
+                with self.assertRaises(ValueError):
+                    SELECT.write_outputs(str(repo), {"schema": 1}, "report\n")
+
+                self.assertEqual(marker_path.read_text(encoding="utf-8"), "untouched\n")
+
+    def test_selector_write_resists_a_parent_symlink_swap_after_validation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            repo = base / "repo"
+            metadata = repo / ".docdna"
+            metadata.mkdir(parents=True)
+            outside = base / "outside-metadata"
+            outside.mkdir()
+            external = outside / "manifest.json"
+            external.write_text("untouched\n", encoding="utf-8")
+            original = SELECT.output_path
+            calls = {"count": 0}
+
+            def swap_parent(root, rel):
+                path = original(root, rel)
+                calls["count"] += 1
+                if calls["count"] == 3:
+                    metadata.rename(repo / ".docdna-original")
+                    os.symlink(str(outside), str(metadata))
+                return path
+
+            error = None
+            with mock.patch.object(SELECT, "output_path", side_effect=swap_parent):
+                try:
+                    SELECT.write_outputs(str(repo), {"schema": 1}, "report\n")
+                except (OSError, ValueError) as caught:
+                    error = caught
+
+            self.assertIsNotNone(error)
+            self.assertEqual(external.read_text(encoding="utf-8"), "untouched\n")
+
+    def test_selector_write_resists_a_repository_root_symlink_swap_after_validation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            repo = base / "repo"
+            repo.mkdir()
+            moved = base / "repo-original"
+            outside = base / "outside-repository"
+            outside.mkdir()
+            external = outside / "DOCDNA.md"
+            external.write_text("untouched\n", encoding="utf-8")
+            original = SELECT.output_path
+
+            def swap_root(root, rel):
+                path = original(root, rel)
+                repo.rename(moved)
+                os.symlink(str(outside), str(repo))
+                return path
+
+            with mock.patch.object(SELECT, "output_path", side_effect=swap_root):
+                with self.assertRaises(ValueError):
+                    SELECT.write_repository_text(str(repo), "DOCDNA.md", "generated\n")
+
+            self.assertEqual(external.read_text(encoding="utf-8"), "untouched\n")
+
+    def test_selector_write_resists_a_repository_root_directory_swap_after_validation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            repo = base / "repo"
+            repo.mkdir()
+            moved = base / "repo-original"
+            replacement = base / "replacement"
+            replacement.mkdir()
+            external = replacement / "DOCDNA.md"
+            external.write_text("untouched\n", encoding="utf-8")
+            original = SELECT.output_path
+
+            def swap_root(root, rel):
+                path = original(root, rel)
+                repo.rename(moved)
+                replacement.rename(repo)
+                return path
+
+            with mock.patch.object(SELECT, "output_path", side_effect=swap_root):
+                with self.assertRaises(ValueError):
+                    SELECT.write_repository_text(str(repo), "DOCDNA.md", "generated\n")
+
+            self.assertEqual((repo / "DOCDNA.md").read_text(encoding="utf-8"), "untouched\n")
+
+    def test_selector_keeps_both_outputs_in_one_bound_root_during_a_swap(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            repo = base / "repo"
+            repo.mkdir()
+            moved = base / "repo-original"
+            replacement = base / "replacement"
+            replacement.mkdir()
+            (replacement / "marker.txt").write_text("outside-marker\n", encoding="utf-8")
+            bound = SELECT.safe_bind_root(str(repo))
+            original = SELECT.write_repository_text
+            calls = {"count": 0}
+
+            def swap_after_first_write(root, rel, text):
+                result = original(root, rel, text)
+                calls["count"] += 1
+                if calls["count"] == 1:
+                    repo.rename(moved)
+                    replacement.rename(repo)
+                return result
+
+            try:
+                with mock.patch.object(SELECT, "write_repository_text",
+                                       side_effect=swap_after_first_write):
+                    SELECT.write_outputs(bound, {"schema": 1}, "report\n")
+            finally:
+                bound.close()
+
+            self.assertTrue((moved / ".docdna" / "manifest.json").exists())
+            self.assertEqual((moved / "DOCDNA.md").read_text(encoding="utf-8"), "report\n")
+            self.assertEqual((repo / "marker.txt").read_text(encoding="utf-8"),
+                             "outside-marker\n")
+            self.assertFalse((repo / "DOCDNA.md").exists())
+
+    def test_selector_replaces_a_hardlinked_output_without_modifying_the_external_inode(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            repo = base / "repo"
+            repo.mkdir()
+            external = base / "outside-report.md"
+            external.write_text("untouched\n", encoding="utf-8")
+            os.link(str(external), str(repo / "DOCDNA.md"))
+
+            SELECT.write_outputs(str(repo), {"schema": 1}, "generated report\n")
+
+            self.assertEqual(external.read_text(encoding="utf-8"), "untouched\n")
+            self.assertEqual((repo / "DOCDNA.md").read_text(encoding="utf-8"),
+                             "generated report\n")
+
+    def test_selector_refuses_hardlinked_prior_state_and_config_inputs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            repo = base / "repo"
+            metadata = repo / ".docdna"
+            metadata.mkdir(parents=True)
+            prior = base / "outside-prior.json"
+            prior.write_text(json.dumps({"secret": "HARDLINK-PRIOR-SECRET"}), encoding="utf-8")
+            config = base / "outside-config.json"
+            config.write_text(json.dumps({"exclude_dirs": ["HARDLINK-CONFIG-SECRET"]}),
+                              encoding="utf-8")
+            os.link(str(prior), str(metadata / "manifest.json"))
+            os.link(str(config), str(metadata / "config.json"))
+
+            self.assertEqual(SELECT.read_prior(str(repo)), {})
+            self.assertEqual(SELECT.config_excludes(str(repo)), [])
 
 
 class ManifestTests(unittest.TestCase):

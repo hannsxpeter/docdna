@@ -7,18 +7,26 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.8", "3.x"]
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.x"
+          python-version: "${{ matrix.python }}"
 
       - name: Compile helpers
         run: |
+          python -m py_compile skill/scripts/docdna_fs.py
           python -m py_compile skill/scripts/docdna_scan.py
           python -m py_compile skill/scripts/docdna_select.py
           python -m py_compile skill/scripts/docdna_backfill.py
@@ -34,6 +42,24 @@ jobs:
 
       - name: Run tests
         run: python -m unittest discover -s tests
+
+      # These files are generated and committed. Snapshot the bytes from the checkout before any
+      # helper can rewrite them, then rebuild from a full-history checkout and compare. The generated
+      # text deliberately excludes the current commit and wall-clock date, because a tracked file
+      # cannot reproducibly contain the identity of the commit that contains it.
+      - name: Committed generated artifacts match the code
+        run: |
+          cp DOCDNA.md /tmp/docdna-committed.md
+          cp llms.txt /tmp/docdna-llms-committed.txt
+          for _ in 1 2 3; do
+            python skill/scripts/docdna_select.py . > /dev/null
+          done
+          cp DOCDNA.md /tmp/docdna-settled.md
+          python skill/scripts/docdna_select.py . > /dev/null
+          diff -u /tmp/docdna-settled.md DOCDNA.md
+          python skill/scripts/docdna_llms.py . > /dev/null
+          diff -u /tmp/docdna-committed.md DOCDNA.md
+          diff -u /tmp/docdna-llms-committed.txt llms.txt
 
       # Every script, end to end, on this repository. The unit tests exercise the functions; this
       # step is the only thing that catches a script that cannot run at all, which is how
@@ -72,29 +98,6 @@ jobs:
           print("dogfood gate clean: %d documents linted for numbers, 0 flagged"
                 % report["numbers"]["linted"])
           PY
-
-      # Re-running Survey must converge. DOCDNA.md is itself a document in the tree, so a scanner
-      # that reads its own report as evidence grows a new finding on every run. The first two runs
-      # legitimately differ, because run one creates DOCDNA.md and run two reports the coverage
-      # delta against run one. From run three on the bytes must not move.
-      - name: Survey converges
-        run: |
-          for _ in 1 2 3; do
-            python skill/scripts/docdna_select.py . > /dev/null
-          done
-          cp DOCDNA.md /tmp/docdna-settled.md
-          python skill/scripts/docdna_select.py . > /dev/null
-          diff /tmp/docdna-settled.md DOCDNA.md
-
-      # llms.txt is generated and committed, so it drifts the moment a document is added and nothing
-      # notices. It shipped stale once already, indexing neither CHANGELOG.md nor CONTRIBUTING.md
-      # hours after both were added. DOCDNA.md has had a convergence gate since the same bug bit it;
-      # this is that gate for the other generated artifact.
-      - name: The committed llms.txt matches the code
-        run: |
-          cp llms.txt /tmp/docdna-llms-committed.txt
-          python skill/scripts/docdna_llms.py . > /dev/null
-          diff /tmp/docdna-llms-committed.txt llms.txt
 
       # Every sample of tool output in README.md and skill/SKILL.md, regenerated from the command
       # its marker names and compared byte for byte. It runs in the suite too; it gets its own step

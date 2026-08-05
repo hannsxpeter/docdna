@@ -6,6 +6,11 @@ All notable changes to docdna are documented in this file. The format is based o
 
 ### Changed
 
+- **Repository access now requires a POSIX host with descriptor-relative, no-follow filesystem
+  support.** Control files and imported scans are size-bounded and shape-validated, repository roots
+  stay bound to one inode across each operation, Git-derived scan data is checked against that binding,
+  filesystem walks do not follow swapped directories or block on special files, and stub deletion
+  revalidates the exact content it removes. Atomic output replacement preserves existing file modes.
 - **The prose documentation is rewritten and layered.** `README.md` was written for a reader who already
   knew what a selection engine was, and it opened on the mechanism rather than on the question a newcomer
   actually arrives with. It now leads with "which documents does this project actually owe", says who the

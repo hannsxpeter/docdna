@@ -3,8 +3,21 @@
 
 import argparse
 import json
+import os
 import re
+import sys
 from pathlib import Path
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+if HERE not in sys.path:
+    sys.path.insert(0, HERE)
+
+from docdna_fs import (MAX_CONTROL_BYTES, bind_root as safe_bind_root,
+                       is_dir as safe_is_dir,
+                       is_symlink as safe_is_symlink,
+                       open_root as safe_open_root,
+                       path_exists as safe_path_exists,
+                       read_text as safe_read_text, write_text as safe_write_text)
 
 VERSION = "1.2.0"
 
@@ -93,35 +106,43 @@ def replace_block(text, block, start_marker, end_marker):
     return block
 
 
-def write_target(path, body, prefix="", start_marker=START, end_marker=END):
-    existed = path.exists()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    text = path.read_text(encoding="utf-8") if existed else ""
-    if existed and locate_block(text, start_marker, end_marker)[2] == "conflict":
-        return "skipped"
-    if not text.strip() and prefix:
-        updated = prefix + body
-    else:
-        updated = replace_block(text, body, start_marker, end_marker)
-        if not existed and prefix:
-            updated = prefix + updated
-    path.write_text(updated, encoding="utf-8")
-    return "updated" if existed else "created"
+def write_target(root, path, body, prefix="", start_marker=START, end_marker=END):
+    rel = os.path.relpath(str(path), str(root))
+    descriptor = safe_open_root(root)
+    try:
+        if safe_is_symlink(root, rel):
+            raise ValueError("refused symlinked wiring target: %s" % rel)
+        existed = safe_path_exists(root, rel)
+        text = safe_read_text(root, rel, max_bytes=MAX_CONTROL_BYTES) if existed else ""
+        if existed and locate_block(text, start_marker, end_marker)[2] == "conflict":
+            return "skipped"
+        if not text.strip() and prefix:
+            updated = prefix + body
+        else:
+            updated = replace_block(text, body, start_marker, end_marker)
+            if not existed and prefix:
+                updated = prefix + updated
+        safe_write_text(root, rel, updated, root_descriptor=descriptor)
+        return "updated" if existed else "created"
+    finally:
+        os.close(descriptor)
 
 
 def cascade_path(root):
-    devin = root / ".devin/rules"
-    windsurf = root / ".windsurf/rules"
-    if windsurf.exists() and not devin.exists():
+    root_path = Path(str(root))
+    devin = root_path / ".devin/rules"
+    windsurf = root_path / ".windsurf/rules"
+    if safe_is_dir(root, ".windsurf/rules") and not safe_is_dir(root, ".devin/rules"):
         return windsurf / (RULE_BASENAME + ".md")
     return devin / (RULE_BASENAME + ".md")
 
 
 def target_path(root, target):
+    root_path = Path(str(root))
     if target in PLAIN_TARGETS:
-        return root / PLAIN_TARGETS[target], "", PLAIN_BLOCK
+        return root_path / PLAIN_TARGETS[target], "", PLAIN_BLOCK
     if target == "cursor":
-        return root / (".cursor/rules/" + RULE_BASENAME + ".mdc"), CURSOR_FRONTMATTER, PLAIN_BLOCK
+        return root_path / (".cursor/rules/" + RULE_BASENAME + ".mdc"), CURSOR_FRONTMATTER, PLAIN_BLOCK
     if target == "cascade":
         return cascade_path(root), CASCADE_FRONTMATTER, PLAIN_BLOCK
     raise ValueError("unknown target: %s" % target)
@@ -130,17 +151,24 @@ def target_path(root, target):
 def existing_targets(root):
     targets = ["agents"]
     for name, rel in PLAIN_TARGETS.items():
-        if name != "agents" and (root / rel).exists():
+        if name != "agents" and safe_path_exists(root, str(rel)):
             targets.append(name)
-    if (root / ".cursor/rules").exists():
+    if safe_is_dir(root, ".cursor/rules"):
         targets.append("cursor")
-    if (root / ".devin/rules").exists() or (root / ".windsurf/rules").exists():
+    if safe_is_dir(root, ".devin/rules") or safe_is_dir(root, ".windsurf/rules"):
         targets.append("cascade")
     return targets
 
 
 def wire(root, targets=None, all_targets=False):
-    root = Path(root)
+    root = safe_bind_root(os.path.abspath(str(root)))
+    try:
+        return wire_bound(root, targets, all_targets)
+    finally:
+        root.close()
+
+
+def wire_bound(root, targets=None, all_targets=False):
     selected = list(ALL_TARGETS if all_targets else (targets or existing_targets(root)))
     seen = set()
     results = []
@@ -149,7 +177,7 @@ def wire(root, targets=None, all_targets=False):
             continue
         seen.add(target)
         path, prefix, body = target_path(root, target)
-        action = write_target(path, body, prefix, START, END)
+        action = write_target(root, path, body, prefix, START, END)
         results.append({"target": target, "path": str(path), "action": action})
     return results
 
@@ -162,7 +190,11 @@ def main(argv=None):
     parser.add_argument("--json", action="store_true", help="emit JSON")
     args = parser.parse_args(argv)
 
-    results = wire(args.repo, targets=args.agent, all_targets=args.all)
+    try:
+        results = wire(args.repo, targets=args.agent, all_targets=args.all)
+    except ValueError as error:
+        sys.stderr.write("docdna_wire: %s\n" % error)
+        return 2
     if args.json:
         print(json.dumps(results, indent=2, sort_keys=True))
     else:
@@ -171,7 +203,8 @@ def main(argv=None):
             if item["action"] == "skipped":
                 print("  the docdna block there encloses another tool's block, so replacing it would")
                 print("  delete that tool's content. Separate the two blocks by hand and re-run.")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

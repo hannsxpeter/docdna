@@ -5,8 +5,8 @@ allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 ---
 
 # DocDNA
-
 Version: 1.2.0
+Runtime: Python 3.8+ on a POSIX host with descriptor-relative, no-follow filesystem support; Windows is not supported.
 
 ## What this is
 
@@ -149,10 +149,10 @@ than restarting. `--branch` puts the run on its own branch with one commit per d
    ```
 
    It re-reads every citation against the code. Assume each claim is wrong until the file proves it right.
-   FAIL means delete the claim, not soften it; a hedge still reads as documentation, and the auto-delete
-   touches only text written in this run. A pass sets the row to `verified`; `--keep` leaves a stub. It
-   cannot judge whether an anchor supports the sentence or execute a `run:` command, so an exhaustive
-   claim can pass; `references/evidence.md` governs.
+   FAIL means delete the unsupported claim, not soften it. A refused stub is retained by default.
+   `--delete-stub` removes one only when its frontmatter and content hash prove docdna wrote it in this run
+   and nobody edited it; `--keep` names the safe compatibility default. A pass sets the row to `verified`.
+   It cannot judge whether an anchor supports the sentence or run commands; `references/evidence.md` governs.
 
 **If cited claim blocks are fewer than GAP markers, do not write the file.** Record it in the manifest as
 `status: not-started` with its blockers. An empty file that exists is worse than a missing document that
@@ -177,10 +177,9 @@ flipping across elapsed time under an older manifest. Report a predicate true no
 Drift is a **warning** by default. It gates CI only for documents the user names in `assurance_set` in
 `.docdna/config.json`, typically three to five. A gate that turns everything red gets disabled in week two.
 
-**Exit codes.** `docdna_check.py` exits 1 on a gated finding, 2 on a bad invocation. `docdna_backfill.py`
-exits 3 for `--all` without `--yes` and 1 when `--verify` finds a document not clean; it,
-`docdna_select.py` and `docdna_llms.py` otherwise exit 0 when they ran and 2 when they could not, while
-`docdna_scan.py` and `docdna_wire.py` return no status of their own, so their 0 reports nothing.
+**Exit codes.** Every helper exits 0 after a successful run and 2 when invalid or unsafe input prevents
+the run. `docdna_check.py` exits 1 on a gated finding. `docdna_backfill.py` exits 3 for `--all` without
+`--yes` and 1 when `--verify` finds a document not clean.
 **Planning or writing zero documents is exit 0**: a repository that owes none of the derivable ten is an
 answer, and the refusals name their reasons.
 
@@ -192,7 +191,7 @@ The whole CLI surface. Every helper takes a positional `repo` (default `.`) and 
 | --- | --- |
 | `docdna_scan.py` | `--family <f>` limit gated passes to one signal family, repeatable; `--deep` per-document git metrics; `--exclude-dir <dir>` repeatable; `--max-evidence <n>` evidence records kept per signal |
 | `docdna_select.py` | `--answer key=value` record an interview answer, repeatable; `--unattended` take every unanswered question at its default and never ask; `--scan <path>` read scanner JSON instead of rescanning; `--exclude-dir <dir>` repeatable |
-| `docdna_backfill.py` | `--only <id>` plan this catalog id instead of the derivable ten, repeatable; `--all` lift the five-document cap, prints an estimate and waits; `--yes` answer that confirmation; `--limit <n>` never above 5; `--branch` own branch, one commit per document; `--verify <path>` re-read a written document and check every claim, see Backfill step 6; `--keep` leave a refused stub on disk instead of removing it; `--confirm-sensitive` below |
+| `docdna_backfill.py` | `--only <id>` plan this catalog id instead of the derivable ten, repeatable; `--all` lift the five-document cap, prints an estimate and waits; `--yes` answer that confirmation; `--limit <n>` never above 5; `--branch` own branch, one commit per document; `--verify <path>` re-read a written document and check every claim, see Backfill step 6; refused stubs are retained by default; `--delete-stub` remove only a guarded stub written in this run; `--keep` explicitly retain it for compatibility; `--confirm-sensitive` below |
 | `docdna_check.py` | `--fail-on blocker\|major\|minor\|never` default `major`; `--only drift\|lint\|gaps\|spine\|tripwires\|orphans` repeatable; `--scan <path>`; `--no-write` never touch `DOCDNA.md`; `--exclude-dir <dir>` repeatable |
 | `docdna_wire.py` | `--agent agents\|claude\|gemini\|copilot\|cursor\|cascade` repeatable; `--all` create or update every supported target |
 

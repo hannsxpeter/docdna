@@ -1,6 +1,7 @@
 import importlib.util
 import io
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -170,6 +171,23 @@ class CheckTests(unittest.TestCase):
             self.assertTrue(rows[0]["gating"])
             self.assertIn("src/config", rows[0]["detail"])
             self.assertIn("saturates the drift test", rows[0]["detail"])
+
+    def test_mistyped_sidecar_id_is_reported_without_a_traceback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = write_repo(tmp, {
+                "artifact.bin": "content\n",
+                ".docdna/meta/x.yml": "---\nid: [x]\ninstance_id: [one]\ntitle: T\n---\n",
+            })
+
+            process = cli(repo, "--json")
+
+            self.assertEqual(process.returncode, 1, process.stderr)
+            self.assertNotIn("Traceback", process.stderr)
+            report = json.loads(process.stdout)
+            rows = kinds(report, "frontmatter-unparsable")
+            self.assertEqual(len(rows), 1)
+            self.assertIn("id must be a string", rows[0]["detail"])
+            self.assertIn("instance_id must be a string", rows[0]["detail"])
 
     def test_covers_naming_a_glob_is_a_blocker(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -481,6 +499,93 @@ class CheckTests(unittest.TestCase):
         self.assertEqual(signals["arch.agent_skill"]["state"], "present")
         self.assertTrue(any(item["path"] == "SKILL.md"
                             for item in signals["arch.agent_skill"]["evidence"]))
+
+    @unittest.skipUnless(GIT, "git is not installed")
+    def test_check_does_not_read_a_tracked_document_symlink_outside_the_repository(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            repo = base / "repo"
+            repo.mkdir()
+            marker = "external-check-document-marker"
+            outside = base / "outside.md"
+            outside.write_text(document([], [("id", marker)]), encoding="utf-8")
+            os.symlink(str(outside), str(repo / "README.md"))
+            git(repo, "init", "--quiet")
+            git(repo, "add", "README.md")
+
+            process = cli(repo, "--json")
+            output = process.stdout + process.stderr
+
+            self.assertNotIn(marker, output)
+
+    def test_check_rejects_an_imported_scan_from_another_repository(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            repo = base / "repo"
+            other = base / "other"
+            repo.mkdir()
+            other.mkdir()
+            marker = "other-repository-check-marker"
+            (other / "README.md").write_text("# %s\n" % marker, encoding="utf-8")
+            scan_path = base / "other-scan.json"
+            with scan_path.open("w", encoding="utf-8") as handle:
+                subprocess.run([sys.executable, str(SCAN_PATH), "--json", str(other)],
+                               stdout=handle, check=True)
+
+            process = cli(repo, "--json", "--scan", str(scan_path))
+
+            self.assertEqual(process.returncode, 2)
+            self.assertIn("does not match repository", process.stderr)
+            self.assertNotIn(marker, process.stdout)
+
+    def test_check_rejects_a_null_inventory_path_concisely(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            repo = base / "repo"
+            repo.mkdir()
+            process = subprocess.run([sys.executable, str(SCAN_PATH), "--json", str(repo)],
+                                     check=True, capture_output=True)
+            scan = json.loads(process.stdout)
+            scan["inventory"]["docs"].append({"path": None, "bytes": 10})
+            scan_path = base / "scan.json"
+            scan_path.write_text(json.dumps(scan), encoding="utf-8")
+
+            process = cli(repo, "--json", "--scan", str(scan_path))
+
+            self.assertEqual(process.returncode, 2)
+            self.assertIn("path must be a non-null string", process.stderr)
+            self.assertNotIn("Traceback", process.stderr)
+
+    def test_check_rejects_mistyped_manifest_and_config_fields_concisely(self):
+        cases = ((".docdna/manifest.json", '{"schema":1,"interview":[]}'),
+                 (".docdna/manifest.json",
+                  '{"schema":1,"interview":{},"documents":[],"excluded":'
+                  '[{"revisit_when":{"all":1}}]}'),
+                 (".docdna/manifest.json",
+                  '{"schema":1,"interview":{},"documents":[],"excluded":'
+                  '[{"revisit_when":{"signal":[]}}]}'),
+                 (".docdna/config.json", '{"regulated":"false"}'))
+        for rel, body in cases:
+            with self.subTest(path=rel), tempfile.TemporaryDirectory() as tmp:
+                repo = write_repo(tmp, {rel: body})
+
+                process = cli(repo, "--json")
+
+                self.assertEqual(process.returncode, 2)
+                self.assertNotIn("Traceback", process.stderr)
+
+    def test_check_never_follows_a_symlinked_report_when_writing_gaps(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            repo = write_repo(base / "repo", {"README.md": "# App\n" + GAP_PAIR})
+            outside = base / "outside-report.md"
+            outside.write_text("external report marker\n", encoding="utf-8")
+            os.symlink(str(outside), str(repo / "DOCDNA.md"))
+
+            self.check.check(str(repo), set(self.check.PASSES), "major", None, True)
+
+            self.assertEqual(outside.read_text(encoding="utf-8"),
+                             "external report marker\n")
 
 
 if __name__ == "__main__":

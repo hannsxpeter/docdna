@@ -5,6 +5,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 
@@ -13,8 +14,8 @@ SCAN_PATH = ROOT / "skill" / "scripts" / "docdna_scan.py"
 SIGNALS_PATH = ROOT / "skill" / "catalog" / "signals.json"
 FIXTURES = ROOT / "tests" / "fixtures"
 
-TOP_KEYS = ["commit", "dirty", "drift", "generated", "inventory", "ownership", "root", "scan",
-            "schema", "signals", "tool", "unknown", "version"]
+TOP_KEYS = ["commit", "dirty", "drift", "generated", "inventory", "ownership", "root",
+            "root_identity", "scan", "schema", "signals", "tool", "unknown", "version"]
 
 
 def load_scan():
@@ -39,7 +40,7 @@ def write(root, rel, body):
 def read_ctx(root):
     return {"root": str(root), "cache": {},
             "scan": {"files_read": 0, "files_capped": 0, "files_skipped_large": 0,
-                     "read_errors": 0, "truncated": False}}
+                     "files_skipped_outside": 0, "read_errors": 0, "truncated": False}}
 
 
 def by_id(report):
@@ -108,6 +109,265 @@ class ScanTests(unittest.TestCase):
             self.assertEqual(report["scan"]["files_denied"], 2)
             self.assertNotIn("supersecretvalue", body)
             self.assertNotIn("alsosecretvalue", body)
+
+    def test_scanner_refuses_a_tracked_symlink_that_leaves_the_repository(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            repo = base / "repo"
+            repo.mkdir()
+            outside = write(base, "outside.py", "from flask import Flask\n"
+                                               "app = Flask(__name__)\n"
+                                               "@app.get(\"/outside-secret-marker\")\n")
+            os.symlink(str(outside), str(repo / "server.py"))
+            write(repo, "Procfile", "web: gunicorn server:app\n")
+            subprocess.run(["git", "init", "-q"], cwd=str(repo), check=True)
+            subprocess.run(["git", "add", "Procfile", "server.py"], cwd=str(repo), check=True)
+
+            report = self.scan.scan(str(repo), set(), False, 5)
+            body = json.dumps(report)
+
+            self.assertNotIn("outside-secret-marker", body)
+            self.assertEqual(report["scan"]["files_skipped_outside"], 1)
+            self.assertNotEqual(by_id(report)["iface.http"]["state"], "present")
+
+    def test_scanner_refuses_metadata_for_a_document_symlink_outside_the_repository(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            repo = base / "repo"
+            repo.mkdir()
+            outside = write(base, "outside.md", "outside document metadata marker\n")
+            os.symlink(str(outside), str(repo / "README.md"))
+            subprocess.run(["git", "init", "-q"], cwd=str(repo), check=True)
+            subprocess.run(["git", "add", "README.md"], cwd=str(repo), check=True)
+
+            report = self.scan.scan(str(repo), set(), False, 5)
+            document = report["inventory"]["docs"][0]
+
+            self.assertEqual(document["path"], "README.md")
+            self.assertIsNone(document["bytes"])
+            self.assertEqual(report["scan"]["files_skipped_outside"], 1)
+
+    def test_document_links_do_not_traverse_a_symlinked_directory_outside_the_repository(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            repo = base / "repo"
+            repo.mkdir()
+            outside = base / "outside"
+            write(outside, "secret.md", "outside linked document\n")
+            write(repo, "README.md", "[secret](linked-docs/secret.md)\n")
+            os.symlink(str(outside), str(repo / "linked-docs"))
+            subprocess.run(["git", "init", "-q"], cwd=str(repo), check=True)
+            subprocess.run(["git", "add", "README.md", "linked-docs"], cwd=str(repo), check=True)
+
+            report = self.scan.scan(str(repo), set(), False, 5)
+            document = report["inventory"]["docs"][0]
+
+            self.assertEqual(document["links_out"], 1)
+            self.assertEqual(document["links_broken"], 1)
+
+    def test_scanner_reads_a_symlink_that_resolves_inside_the_repository(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            target = write(root, "src/actual.py", "IN_REPO_MARKER = True\n")
+            os.symlink(str(target), str(root / "linked.py"))
+            ctx = read_ctx(root)
+
+            text = self.scan.read_text(ctx, "linked.py")
+
+        self.assertIn("IN_REPO_MARKER", text)
+        self.assertEqual(ctx["scan"]["files_skipped_outside"], 0)
+
+    def test_no_git_walk_keeps_the_original_root_descriptor_during_a_root_swap(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            root = base / "repo"
+            root.mkdir()
+            (root / "original.txt").write_text("original\n", encoding="utf-8")
+            moved = base / "repo-original"
+            replacement = base / "replacement"
+            replacement.mkdir()
+            (replacement / "external.txt").write_text("outside\n", encoding="utf-8")
+            filesystem = self.scan.safe_walk_paths.__globals__
+            original_listdir = filesystem["_LISTDIR"]
+            calls = {"count": 0}
+
+            def swap_after_root_listing(descriptor):
+                names = original_listdir(descriptor)
+                calls["count"] += 1
+                if calls["count"] == 1:
+                    root.rename(moved)
+                    replacement.rename(root)
+                return names
+
+            with mock.patch.dict(filesystem, {"_LISTDIR": swap_after_root_listing}):
+                files, _ = self.scan.walk_paths(str(root))
+
+            self.assertEqual(files, ["original.txt"])
+
+    def test_no_git_walk_never_traverses_a_nested_directory_swapped_for_a_symlink(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            root = base / "repo"
+            nested = root / "nested"
+            nested.mkdir(parents=True)
+            (nested / "original.txt").write_text("original\n", encoding="utf-8")
+            moved = root / "nested-original"
+            outside = base / "outside"
+            outside.mkdir()
+            (outside / "external.txt").write_text("outside\n", encoding="utf-8")
+            filesystem = self.scan.safe_walk_paths.__globals__
+            original_listdir = filesystem["_LISTDIR"]
+            calls = {"count": 0}
+
+            def swap_nested_after_root_listing(descriptor):
+                names = original_listdir(descriptor)
+                calls["count"] += 1
+                if calls["count"] == 1:
+                    nested.rename(moved)
+                    os.symlink(str(outside), str(nested))
+                return names
+
+            with mock.patch.dict(filesystem, {"_LISTDIR": swap_nested_after_root_listing}):
+                files, _ = self.scan.walk_paths(str(root))
+
+            self.assertNotIn("nested/external.txt", files)
+
+    def test_git_inventory_uses_the_bound_root_during_an_aba_swap(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            root = base / "repo"
+            replacement = base / "replacement"
+            moved = base / "repo-original"
+            root.mkdir()
+            replacement.mkdir()
+            (root / "original.txt").write_text("original\n", encoding="utf-8")
+            (replacement / "replacement.txt").write_text("replacement\n", encoding="utf-8")
+            for repo, name in ((root, "original.txt"), (replacement, "replacement.txt")):
+                subprocess.run(["git", "init", "-q"], cwd=str(repo), check=True)
+                subprocess.run(["git", "add", name], cwd=str(repo), check=True)
+            bound = self.scan.safe_bind_root(str(root))
+            original_run = subprocess.run
+
+            def swap_only_around_child(command, **kwargs):
+                root.rename(moved)
+                replacement.rename(root)
+                try:
+                    return original_run(command, **kwargs)
+                finally:
+                    root.rename(replacement)
+                    moved.rename(root)
+
+            try:
+                with mock.patch.object(self.scan.subprocess, "run",
+                                       side_effect=swap_only_around_child):
+                    files, _ = self.scan.git_paths(bound)
+            finally:
+                bound.close()
+
+            self.assertEqual(files, ["original.txt"])
+
+    def test_scanner_refuses_to_read_a_fifo_without_blocking(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            os.mkfifo(str(repo / "evil.py"))
+
+            process = subprocess.run([sys.executable, str(SCAN_PATH), "--json", str(repo)],
+                                     capture_output=True, text=True, timeout=5)
+
+            self.assertEqual(process.returncode, 0, process.stderr)
+            payload = json.loads(process.stdout)
+            self.assertGreaterEqual(payload["scan"]["read_errors"], 1)
+
+    def test_scanner_applies_read_denial_to_an_internal_symlink_target(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "repo"
+            repo.mkdir()
+            write(repo, ".env", "from flask import Flask\n"
+                                "app = Flask(__name__)\n"
+                                "@app.get('/private-inrepo-marker')\n")
+            os.symlink(".env", str(repo / "README.md"))
+            write(repo, "Procfile", "web: gunicorn server:app\n")
+            subprocess.run(["git", "init", "-q"], cwd=str(repo), check=True)
+            subprocess.run(["git", "add", "README.md", "Procfile"], cwd=str(repo), check=True)
+
+            report = self.scan.scan(str(repo), set(), False, 5)
+            body = json.dumps(report)
+
+            self.assertNotIn("private-inrepo-marker", body)
+            self.assertNotEqual(by_id(report)["iface.http"]["state"], "present")
+
+    def test_scanner_does_not_read_a_hardlinked_external_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            repo = base / "repo"
+            repo.mkdir()
+            outside = write(base, "outside.py", "from flask import Flask\n"
+                                                 "app = Flask(__name__)\n"
+                                                 "@app.get('/scanner-hardlink-marker')\n")
+            os.link(str(outside), str(repo / "server.py"))
+            write(repo, "Procfile", "web: gunicorn server:app\n")
+            subprocess.run(["git", "init", "-q"], cwd=str(repo), check=True)
+            subprocess.run(["git", "add", "Procfile"], cwd=str(repo), check=True)
+
+            report = self.scan.scan(str(repo), set(), False, 5)
+            body = json.dumps(report)
+
+            self.assertNotIn("scanner-hardlink-marker", body)
+            self.assertNotEqual(by_id(report)["iface.http"]["state"], "present")
+
+    def test_git_metrics_ignore_a_synthetic_merge_commit_identity(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "repo"
+            repo.mkdir()
+
+            def git(*args, name="Primary Author", email="primary@example.invalid"):
+                command = ["git", "-C", str(repo), "-c", "user.name=" + name,
+                           "-c", "user.email=" + email] + list(args)
+                return subprocess.run(command, check=True, capture_output=True, text=True)
+
+            git("init", "-q", "-b", "main")
+            write(repo, "base.py", "BASE = True\n")
+            git("add", "base.py")
+            git("commit", "-q", "-m", "base")
+            git("checkout", "-q", "-b", "feature")
+            write(repo, "feature.py", "FEATURE = True\n")
+            git("add", "feature.py")
+            git("commit", "-q", "-m", "feature")
+            before = self.scan.collect_git(str(repo))
+            git("checkout", "-q", "main")
+            git("merge", "-q", "--no-ff", "feature", "-m", "synthetic merge",
+                name="Synthetic Merge", email="merge@example.invalid")
+
+            after = self.scan.collect_git(str(repo))
+
+            self.assertEqual(after["authors"], before["authors"])
+            self.assertEqual(after["authors_window"], before["authors_window"])
+            self.assertEqual(after["commits_window"], before["commits_window"])
+
+    def test_git_metrics_ignore_release_tags_on_the_checked_out_commit(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "repo"
+            repo.mkdir()
+
+            def git(*args):
+                command = ["git", "-C", str(repo), "-c", "user.name=Release Author",
+                           "-c", "user.email=release@example.invalid"] + list(args)
+                return subprocess.run(command, check=True, capture_output=True, text=True)
+
+            git("init", "-q", "-b", "main")
+            write(repo, "release.py", "VERSION = 1\n")
+            git("add", "release.py")
+            git("commit", "-q", "-m", "release candidate")
+            before = self.scan.collect_git(str(repo))
+            git("tag", "v1.0.0")
+            tagged = self.scan.collect_git(str(repo))
+            write(repo, "next.py", "NEXT = True\n")
+            git("add", "next.py")
+            git("commit", "-q", "-m", "next development commit")
+            after = self.scan.collect_git(str(repo))
+
+            self.assertEqual(tagged["tags"], before["tags"])
+            self.assertEqual(after["tags"], before["tags"] + 1)
 
     def test_opaque_documents_are_indexed_but_not_parsed(self):
         with tempfile.TemporaryDirectory() as tmp:

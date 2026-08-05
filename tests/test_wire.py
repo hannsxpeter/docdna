@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -172,6 +173,33 @@ class WireTests(unittest.TestCase):
 
             self.assertEqual(payload[0]["target"], "agents")
             self.assertEqual(payload[0]["action"], "created")
+
+    def test_cli_bounds_existing_wiring_targets_without_a_traceback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            agents = Path(tmp) / "AGENTS.md"
+            with agents.open("wb") as handle:
+                handle.truncate(self.wire.MAX_CONTROL_BYTES + 1)
+
+            process = subprocess.run([sys.executable, str(WIRE_PATH), tmp],
+                                     capture_output=True, text=True)
+
+            self.assertEqual(process.returncode, 2)
+            self.assertIn("bytes", process.stderr)
+            self.assertNotIn("Traceback", process.stderr)
+
+    def test_refuses_a_symlinked_target_without_touching_the_external_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            repo = base / "repo"
+            repo.mkdir()
+            outside = base / "outside-agents.md"
+            outside.write_text("external marker\n", encoding="utf-8")
+            os.symlink(str(outside), str(repo / "AGENTS.md"))
+
+            with self.assertRaises(ValueError):
+                self.wire.wire(repo)
+
+            self.assertEqual(outside.read_text(encoding="utf-8"), "external marker\n")
 
 
 if __name__ == "__main__":

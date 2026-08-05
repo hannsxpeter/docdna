@@ -7,6 +7,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 import textwrap
 from datetime import datetime, timezone
 
@@ -15,6 +16,23 @@ TOOL = "docdna_select"
 VERSION = "1.2.0"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+if HERE not in sys.path:
+    sys.path.insert(0, HERE)
+from docdna_fs import (FileTooLarge, MAX_CONTROL_BYTES,
+                       bind_root as safe_bind_root, file_size as safe_file_size,
+                       is_dir as safe_is_dir,
+                       is_file as safe_is_file, listdir as safe_listdir,
+                       open_root as safe_open_root,
+                       parse_json as safe_parse_json,
+                       path_exists as safe_exists, read_bounded_path as safe_read_bounded_path,
+                       read_text as safe_read_text,
+                       require_config as safe_require_config,
+                       require_manifest as safe_require_manifest,
+                       require_root_identity as safe_require_root_identity,
+                       require_scan as safe_require_scan,
+                       root_is_current as safe_root_is_current,
+                       write_text as safe_write_text)
+
 CATALOG_DIR = os.path.normpath(os.path.join(HERE, "..", "catalog"))
 TEMPLATE_DIR = os.path.normpath(os.path.join(HERE, "..", "templates"))
 SCAN_SCRIPT = os.path.join(HERE, "docdna_scan.py")
@@ -143,6 +161,50 @@ def today():
 def load_json(path):
     with open(path, encoding="utf-8") as handle:
         return json.load(handle)
+
+
+def repository_path(root, candidate):
+    prefix = os.path.abspath(root)
+    target = (os.path.abspath(candidate) if os.path.isabs(candidate)
+              else os.path.abspath(os.path.join(prefix, candidate)))
+    if target != prefix and not target.startswith(prefix + os.sep):
+        return None
+    root_real = os.path.realpath(prefix)
+    target_real = os.path.realpath(target)
+    try:
+        if os.path.commonpath([root_real, target_real]) != root_real:
+            return None
+    except ValueError:
+        return None
+    return target
+
+
+def output_path(root, rel):
+    if os.path.isabs(rel):
+        raise ValueError("output path must be relative to the repository: %s" % rel)
+    prefix = os.path.abspath(root)
+    target = os.path.abspath(os.path.join(prefix, rel))
+    if target != prefix and not target.startswith(prefix + os.sep):
+        raise ValueError("output path leaves the repository: %s" % rel)
+    current = prefix
+    for part in os.path.relpath(target, prefix).split(os.sep):
+        if part in ("", "."):
+            continue
+        current = os.path.join(current, part)
+        if os.path.lexists(current) and os.path.islink(current):
+            raise ValueError("output path uses a symlink: %s" % rel)
+    if repository_path(prefix, target) is None:
+        raise ValueError("output path resolves outside the repository: %s" % rel)
+    return target
+
+
+def write_repository_text(root, rel, text):
+    descriptor = safe_open_root(root)
+    try:
+        output_path(root, rel)
+        safe_write_text(root, rel, text, root_descriptor=descriptor)
+    finally:
+        os.close(descriptor)
 
 
 def load_catalog():
@@ -816,17 +878,20 @@ def resolve_overlays(ctx, catalog):
 
 
 def locate(scan_docs, root, candidate):
+    full = repository_path(root, candidate.rstrip("/") or ".")
+    if full is None:
+        return None
+    target = os.path.realpath(full)
     if candidate.endswith("/"):
         for path in sorted(scan_docs):
-            if path.startswith(candidate):
+            if path.startswith(candidate) and repository_path(root, path) is not None:
                 return path
-        full = os.path.join(root, candidate.rstrip("/"))
-        if os.path.isdir(full) and os.listdir(full):
+        if safe_is_dir(root, target) and safe_listdir(root, target):
             return candidate
         return None
     if candidate in scan_docs:
         return candidate
-    if os.path.exists(os.path.join(root, candidate)):
+    if safe_exists(root, target):
         return candidate
     return None
 
@@ -855,8 +920,11 @@ def document_states(catalog, scan, root):
             size = None
             if hit in scan_docs:
                 size = scan_docs[hit].get("bytes")
-            elif os.path.isfile(os.path.join(root, hit)):
-                size = os.path.getsize(os.path.join(root, hit))
+            else:
+                full = repository_path(root, hit)
+                target = os.path.realpath(full) if full is not None else None
+                if target is not None and safe_is_file(root, target):
+                    size = safe_file_size(root, target)
             if hit in drifted:
                 state = "present-drifted"
             elif size is not None and size < STUB_BYTES:
@@ -1467,13 +1535,20 @@ def next_actions(manifest, ctx):
 
 
 def read_prior(root):
-    path = os.path.join(root, MANIFEST_REL)
-    if not os.path.exists(path):
-        return {}
     try:
-        return load_json(path)
+        output_path(root, MANIFEST_REL)
     except ValueError:
         return {}
+    if not safe_exists(root, MANIFEST_REL):
+        return {}
+    try:
+        text = safe_read_text(root, MANIFEST_REL, max_bytes=MAX_CONTROL_BYTES)
+    except FileTooLarge:
+        raise
+    except ValueError:
+        return {}
+    prior = safe_parse_json(text, MANIFEST_REL)
+    return safe_require_manifest(prior, MANIFEST_REL, SCHEMA)
 
 
 def prior_answers(prior, catalog, unattended):
@@ -1517,47 +1592,83 @@ def parse_answers(catalog, pairs):
 
 
 def run_scan(repo, exclude_dirs=None):
-    command = [sys.executable, SCAN_SCRIPT, "--json", repo]
+    if not safe_root_is_current(repo):
+        raise ValueError("repository root changed before docdna_scan.py ran")
+    descriptor = safe_open_root(repo)
+
+    def enter_bound_root():
+        os.fchdir(descriptor)
+
+    command = [sys.executable, SCAN_SCRIPT, "--json", "."]
     for directory in exclude_dirs or []:
         command.extend(["--exclude-dir", directory])
-    process = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    try:
+        with tempfile.TemporaryFile() as output:
+            process = subprocess.run(command, stdout=output, stderr=subprocess.PIPE,
+                                     preexec_fn=enter_bound_root, pass_fds=(descriptor,))
+            output.seek(0)
+            raw = output.read(MAX_CONTROL_BYTES + 1)
+    finally:
+        os.close(descriptor)
+    if not safe_root_is_current(repo):
+        raise ValueError("repository root changed while docdna_scan.py ran")
     if process.returncode != 0:
         raise ValueError("docdna_scan.py failed: %s"
                          % process.stderr.decode("utf-8", "replace").strip())
-    return json.loads(process.stdout.decode("utf-8", "replace"))
+    if len(raw) > MAX_CONTROL_BYTES:
+        raise ValueError("docdna_scan.py output exceeds the %d byte limit" % MAX_CONTROL_BYTES)
+    return safe_parse_json(raw.decode("utf-8", "replace"), "docdna_scan.py output")
 
 
 def write_outputs(root, manifest, report):
-    manifest_path = os.path.join(root, MANIFEST_REL)
-    directory = os.path.dirname(manifest_path)
-    if not os.path.isdir(directory):
-        os.makedirs(directory)
-    with open(manifest_path, "w", encoding="utf-8") as handle:
-        handle.write(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
-    with open(os.path.join(root, REPORT_REL), "w", encoding="utf-8") as handle:
-        handle.write(report)
+    manifest_path = output_path(root, MANIFEST_REL)
+    output_path(root, REPORT_REL)
+    write_repository_text(root, MANIFEST_REL,
+                          json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+    write_repository_text(root, REPORT_REL, report)
     return manifest_path
 
 
 def config_excludes(repo):
-    path = os.path.join(os.path.abspath(repo), CONFIG_REL)
-    if not os.path.exists(path):
-        return []
+    root = repo
     try:
-        raw = load_json(path)
+        output_path(root, CONFIG_REL)
     except ValueError:
         return []
+    if not safe_exists(root, CONFIG_REL):
+        return []
+    try:
+        text = safe_read_text(root, CONFIG_REL, max_bytes=MAX_CONTROL_BYTES)
+    except FileTooLarge:
+        raise
+    except ValueError:
+        return []
+    raw = safe_parse_json(text, CONFIG_REL)
+    safe_require_config(raw, CONFIG_REL)
     return [item for item in (raw.get("exclude_dirs") or []) if isinstance(item, str)]
 
 
 def select(repo, scan_path, answer_pairs, unattended, exclude_dirs=None):
+    root = safe_bind_root(os.path.abspath(repo))
+    try:
+        return select_bound(root, scan_path, answer_pairs, unattended, exclude_dirs)
+    finally:
+        root.close()
+
+
+def select_bound(root, scan_path, answer_pairs, unattended, exclude_dirs=None):
     catalog = load_catalog()
     errors = check_invariants(catalog)
     if errors:
         raise ValueError("catalog invariants failed\n  " + "\n  ".join(errors))
-    excludes = list(exclude_dirs or []) + config_excludes(repo)
-    scan = load_json(scan_path) if scan_path else run_scan(repo, excludes)
-    root = scan["root"]
+    excludes = list(exclude_dirs or []) + config_excludes(root)
+    scan = (safe_parse_json(safe_read_bounded_path(scan_path, MAX_CONTROL_BYTES), scan_path)
+            if scan_path else run_scan(root, excludes))
+    safe_require_scan(scan, "scan", SCHEMA)
+    scan_root = os.path.abspath(scan["root"])
+    if os.path.realpath(scan_root) != os.path.realpath(root):
+        raise ValueError("scan root %s does not match repository %s" % (scan_root, root))
+    safe_require_root_identity(root, scan.get("root_identity"), "scan")
     overrides = parse_answers(catalog, answer_pairs)
     prior = read_prior(root)
     states, found = document_states(catalog, scan, root)

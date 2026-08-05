@@ -8,6 +8,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 from datetime import datetime, timedelta, timezone
 
 SCHEMA = 1
@@ -19,6 +20,22 @@ SKILL_ROOT = os.path.normpath(os.path.join(HERE, ".."))
 CATALOG_DIR = os.path.join(SKILL_ROOT, "catalog")
 TEMPLATE_DIR = os.path.join(SKILL_ROOT, "templates")
 SELECT_SCRIPT = os.path.join(HERE, "docdna_select.py")
+if HERE not in sys.path:
+    sys.path.insert(0, HERE)
+
+from docdna_fs import (FileTooLarge, MAX_CONTROL_BYTES, bind_root as safe_bind_root,
+                       is_dir as safe_is_dir, is_file as safe_is_file,
+                       open_root as safe_open_root,
+                       parse_json as safe_parse_json,
+                       path_exists as safe_path_exists,
+                       read_text as safe_read_text,
+                       read_text_with_identity as safe_read_text_with_identity,
+                       require_manifest as safe_require_manifest,
+                       require_root_identity as safe_require_root_identity,
+                       require_scan as safe_require_scan,
+                       root_is_current as safe_root_is_current,
+                       unlink_file as safe_unlink_file,
+                       walk_paths as safe_walk_paths, write_text as safe_write_text)
 
 MANIFEST_REL = os.path.join(".docdna", "manifest.json")
 SIDECAR_DIR = os.path.join(".docdna", "meta")
@@ -356,12 +373,22 @@ def glob_match(path, patterns):
 
 
 def run_git(root, args):
+    if not safe_root_is_current(root):
+        return None
+    descriptor = safe_open_root(root)
+
+    def enter_bound_root():
+        os.fchdir(descriptor)
+
     try:
-        process = subprocess.run(["git"] + args, cwd=root, stdout=subprocess.PIPE,
-                                 stderr=subprocess.PIPE)
+        process = subprocess.run(["git"] + args, stdout=subprocess.PIPE,
+                                 stderr=subprocess.PIPE, preexec_fn=enter_bound_root,
+                                 pass_fds=(descriptor,))
     except OSError:
         return None
-    if process.returncode != 0:
+    finally:
+        os.close(descriptor)
+    if process.returncode != 0 or not safe_root_is_current(root):
         return None
     return process.stdout.decode("utf-8", "replace")
 
@@ -375,12 +402,8 @@ def prune_dir(name, parent=""):
 
 
 def walk_paths(root):
-    files = []
-    for base, dirs, names in os.walk(root):
-        dirs[:] = sorted(name for name in dirs if not prune_dir(name, base))
-        for name in names:
-            files.append(os.path.relpath(os.path.join(base, name), root).replace(os.sep, "/"))
-    return sorted(files)
+    files, _ = safe_walk_paths(root, prune_dir)
+    return files
 
 
 def build_index(root):
@@ -404,12 +427,11 @@ def read_text(root, rel, cache):
     if rel in cache:
         return cache[rel]
     text = None
-    full = os.path.join(root, rel)
     try:
-        if os.path.getsize(full) <= MAX_FILE_BYTES:
-            with open(full, encoding="utf-8", errors="replace") as handle:
-                text = handle.read()
-    except OSError:
+        full = repository_path(root, rel)
+        if full is not None:
+            text = safe_read_text(root, full, errors="replace", max_bytes=MAX_FILE_BYTES)
+    except (OSError, ValueError, FileTooLarge):
         text = None
     cache[rel] = text
     return text
@@ -743,7 +765,7 @@ def output_for(root, doc, row, catalog):
 
 
 def resume_state(root, doc, path):
-    return os.path.isfile(os.path.join(root, path))
+    return safe_is_file(root, repository_path(root, path) or path)
 
 
 def choose_targets(root, manifest, catalog, only, take_all, limit, confirmed, scan=None):
@@ -840,7 +862,8 @@ def build_plan(root, doc, row, output, taken, manifest, scan, index, cache):
     evidence = {"read_first": ordered[:MAX_EVIDENCE_PATHS], "covers": covers,
                 "signal_evidence": signals,
                 "detect_paths_present": [path for path in doc["detect_paths"]
-                                         if os.path.exists(os.path.join(root, path))],
+                                         if safe_path_exists(
+                                             root, repository_path(root, path) or path)],
                 "detect_paths_checked": doc["detect_paths"]}
     if spec.get("areas"):
         evidence["areas"] = top_areas(root, index)
@@ -873,7 +896,7 @@ def build_plan(root, doc, row, output, taken, manifest, scan, index, cache):
                            "why": "this path is not Markdown, so the frontmatter and the control "
                                   "block have nowhere to go in the file itself"}
         plan["banner_style"] = "plain lines, no blockquote marker, inside the file"
-    if os.path.isfile(os.path.join(root, output)):
+    if safe_is_file(root, repository_path(root, output) or output):
         plan["existing"] = {"path": output, "generated": generated_here(root, output),
                             "caution": "read it before touching it, and leave every line a person "
                                        "wrote unless the code contradicts it"}
@@ -884,9 +907,9 @@ def build_plan(root, doc, row, output, taken, manifest, scan, index, cache):
 
 def generated_here(root, rel):
     try:
-        with open(os.path.join(root, rel), encoding="utf-8", errors="replace") as handle:
-            return BANNER_OPEN in handle.read(4000)
-    except OSError:
+        return BANNER_OPEN in safe_read_text(root, repository_path(root, rel) or rel,
+                                             errors="replace", max_bytes=4000)
+    except (OSError, ValueError, FileTooLarge):
         return False
 
 
@@ -943,36 +966,64 @@ def estimate_for(plans, requested, refused, take_all):
 
 
 def read_manifest(root):
-    path = os.path.join(root, MANIFEST_REL)
-    if not os.path.exists(path):
+    if not safe_path_exists(root, MANIFEST_REL):
         return None
-    return load_json(path)
+    text = safe_read_text(root, MANIFEST_REL, max_bytes=MAX_CONTROL_BYTES)
+    manifest = safe_parse_json(text, MANIFEST_REL)
+    return safe_require_manifest(manifest, MANIFEST_REL, SCHEMA)
 
 
 def write_manifest(root, manifest):
-    path = os.path.join(root, MANIFEST_REL)
-    directory = os.path.dirname(path)
-    if not os.path.isdir(directory):
-        os.makedirs(directory)
-    with open(path, "w", encoding="utf-8") as handle:
-        handle.write(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+    safe_write_text(root, MANIFEST_REL,
+                    json.dumps(manifest, indent=2, sort_keys=True) + "\n")
 
 
 def run_select(repo):
-    command = [sys.executable, SELECT_SCRIPT, "--unattended", repo]
-    process = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if not safe_root_is_current(repo):
+        raise ValueError("repository root changed before docdna_select.py ran")
+    descriptor = safe_open_root(repo)
+
+    def enter_bound_root():
+        os.fchdir(descriptor)
+
+    command = [sys.executable, SELECT_SCRIPT, "--unattended", "."]
+    try:
+        process = subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+                                 preexec_fn=enter_bound_root, pass_fds=(descriptor,))
+    finally:
+        os.close(descriptor)
+    if not safe_root_is_current(repo):
+        raise ValueError("repository root changed while docdna_select.py ran")
     if process.returncode != 0:
         raise ValueError("docdna_select.py failed: %s"
                          % process.stderr.decode("utf-8", "replace").strip())
 
 
 def run_scan(root):
-    command = [sys.executable, os.path.join(HERE, "docdna_scan.py"), "--json", root]
-    process = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if not safe_root_is_current(root):
+        raise ValueError("repository root changed before docdna_scan.py ran")
+    descriptor = safe_open_root(root)
+
+    def enter_bound_root():
+        os.fchdir(descriptor)
+
+    command = [sys.executable, os.path.join(HERE, "docdna_scan.py"), "--json", "."]
+    try:
+        with tempfile.TemporaryFile() as output:
+            process = subprocess.run(command, stdout=output, stderr=subprocess.PIPE,
+                                     preexec_fn=enter_bound_root, pass_fds=(descriptor,))
+            output.seek(0)
+            raw = output.read(MAX_CONTROL_BYTES + 1)
+    finally:
+        os.close(descriptor)
+    if not safe_root_is_current(root):
+        raise ValueError("repository root changed while docdna_scan.py ran")
     if process.returncode != 0:
         raise ValueError("docdna_scan.py failed: %s"
                          % process.stderr.decode("utf-8", "replace").strip())
-    return json.loads(process.stdout.decode("utf-8", "replace"))
+    if len(raw) > MAX_CONTROL_BYTES:
+        raise ValueError("docdna_scan.py output exceeds the %d byte limit" % MAX_CONTROL_BYTES)
+    return safe_parse_json(raw.decode("utf-8", "replace"), "docdna_scan.py output")
 
 
 def set_status(root, doc_id, status, extra=None):
@@ -1019,10 +1070,22 @@ def make_branch(root):
 
 
 def path_ignored(root, rel):
+    if not safe_root_is_current(root):
+        return True
+    descriptor = safe_open_root(root)
+
+    def enter_bound_root():
+        os.fchdir(descriptor)
+
     try:
-        process = subprocess.run(["git", "check-ignore", "-q", rel], cwd=root,
-                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        process = subprocess.run(["git", "check-ignore", "-q", rel],
+                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                 preexec_fn=enter_bound_root, pass_fds=(descriptor,))
     except OSError:
+        return True
+    finally:
+        os.close(descriptor)
+    if not safe_root_is_current(root):
         return True
     return process.returncode == 0
 
@@ -1288,7 +1351,7 @@ def link_citations(root, text):
         if target.startswith(("http://", "https://", "mailto:", "#")):
             continue
         rel = target.split("#")[0]
-        if os.path.isfile(os.path.join(root, rel)):
+        if safe_is_file(root, repository_path(root, rel) or rel):
             found.append({"class": "code", "path": rel, "target": rel, "mode": "link"})
         else:
             broken.append(rel)
@@ -1381,14 +1444,25 @@ def contained(base, target):
     return target == base or target.startswith(base + os.sep)
 
 
+def repository_path(root, candidate):
+    prefix = os.path.abspath(root)
+    prefix_real = os.path.realpath(prefix)
+    target = (os.path.abspath(candidate) if os.path.isabs(candidate)
+              else os.path.abspath(os.path.join(prefix, candidate)))
+    if not contained(prefix, target):
+        return None
+    resolved = os.path.realpath(target)
+    if not contained(prefix_real, resolved):
+        return None
+    return resolved
+
+
 def inside_repo(root, full):
     # Both readings have to agree. The lexical one refuses a path that climbs out of the tree with
     # .. or names an absolute location; the resolved one refuses a symlink that points out of the
     # tree, which the lexical reading cannot see. A file reachable only by leaving the repository
     # is not a file in the repository, whichever way it leaves.
-    if not contained(os.path.abspath(root), os.path.abspath(full)):
-        return False
-    return contained(os.path.realpath(root), os.path.realpath(full))
+    return repository_path(root, full) is not None
 
 
 def outside_repo(path):
@@ -1416,7 +1490,7 @@ def resolve_code(root, cite, cache):
         return ("bare-line",
                 "%s cites a line number, which one inserted import invalidates" % path, "")
     full = os.path.join(root, path)
-    if not os.path.isfile(full):
+    if not safe_is_file(root, repository_path(root, full) or full):
         return "missing-path", "%s does not resolve to a file in this repository" % path, ""
     text = read_text(root, path, cache)
     if text is None:
@@ -1452,13 +1526,13 @@ def anchor_hit(text, anchor):
     return target.replace("-", " ") in text.lower()
 
 
-def read_file(full):
+def read_file(root, full):
     try:
-        if os.path.getsize(full) > MAX_FILE_BYTES:
+        candidate = repository_path(root, full)
+        if candidate is None:
             return None
-        with open(full, encoding="utf-8", errors="replace") as handle:
-            return handle.read()
-    except OSError:
+        return safe_read_text(root, candidate, errors="replace", max_bytes=MAX_FILE_BYTES)
+    except (OSError, ValueError, FileTooLarge):
         return None
 
 
@@ -1490,9 +1564,9 @@ def resolve_ref(cite, bases, root):
         return "missing-ref", "%s is not a path inside this repository or this skill" % rel, ""
     for base in bases:
         full = os.path.join(base, rel)
-        if not os.path.isfile(full):
-            continue
         if not inside_repo(root, full):
+            if not os.path.isfile(full):
+                continue
             # Containment first, before the file is opened and before its anchor is looked for.
             # Checking it last meant an out-of-repository file was read on every ref, and one whose
             # anchor happened not to match was reported as a missing anchor rather than as the
@@ -1503,7 +1577,9 @@ def resolve_ref(cite, bases, root):
                     "author of this project controls that file, so it is a pointer and not "
                     "evidence about this project, and a ref that lands there laundered the same "
                     "number in every install. It is refused, not downgraded" % rel, "")
-        text = read_file(full)
+        if not safe_is_file(root, repository_path(root, full) or full):
+            continue
+        text = read_file(root, full)
         if text is None:
             return "unreadable", "%s could not be read" % rel, ""
         if anchor and not anchor_hit(text, anchor):
@@ -1667,7 +1743,19 @@ def check_frontmatter(root, data, error, error_line, catalog):
     findings = []
     if data is None:
         return [finding("blocker", "frontmatter", error_line, error)], None
-    doc_id = data.get("id")
+    raw_doc_id = data.get("id")
+    if raw_doc_id is not None and not isinstance(raw_doc_id, str):
+        findings.append(finding("blocker", "frontmatter", 1,
+                                "frontmatter id must be a string, not %s"
+                                % type(raw_doc_id).__name__))
+        doc_id = None
+    else:
+        doc_id = raw_doc_id
+    instance_id = data.get("instance_id")
+    if instance_id is not None and not isinstance(instance_id, str):
+        findings.append(finding("blocker", "frontmatter", 1,
+                                "frontmatter instance_id must be a string or null, not %s"
+                                % type(instance_id).__name__))
     if not doc_id:
         findings.append(finding("blocker", "frontmatter", 1, "frontmatter names no catalog id"))
     elif doc_id not in catalog:
@@ -1692,7 +1780,7 @@ def check_frontmatter(root, data, error, error_line, catalog):
             findings.append(finding("blocker", "covers", 1,
                                     "covers names the directory %s; covers takes files only"
                                     % path))
-        elif not os.path.isfile(os.path.join(root, str(path))):
+        elif not safe_is_file(root, repository_path(root, str(path)) or str(path)):
             findings.append(finding("blocker", "covers", 1,
                                     "covers names %s, which is not a file here" % path))
     doc = catalog.get(doc_id) if doc_id else None
@@ -1712,11 +1800,10 @@ def read_sidecar(root, doc_id):
     if not doc_id:
         return None, "no catalog entry claims this path, so no sidecar can be found", 0
     rel = os.path.join(SIDECAR_DIR, "%s.yml" % doc_id)
-    full = os.path.join(root, rel)
-    if not os.path.isfile(full):
+    if not safe_is_file(root, repository_path(root, rel) or rel):
         return None, "%s carries no frontmatter and %s does not exist" % (doc_id, rel), 0
-    with open(full, encoding="utf-8", errors="replace") as handle:
-        text = handle.read()
+    text = safe_read_text(root, repository_path(root, rel) or rel, errors="replace",
+                          max_bytes=MAX_FILE_BYTES)
     if not text.startswith("---"):
         text = "---\n%s\n---\n" % text
     data, error, _ = parse_frontmatter(text)
@@ -1932,13 +2019,14 @@ def gap_lines(markers, lines):
 
 
 def verify_document(root, path, catalog, cache):
-    full = path if os.path.isabs(path) else os.path.join(root, path)
-    if not os.path.isfile(full):
+    full = repository_path(root, path)
+    if full is None or not safe_is_file(root, full):
         raise ValueError("%s is not a file" % path)
-    with open(full, encoding="utf-8", errors="replace") as handle:
-        text = handle.read()
+    text, file_identity = safe_read_text_with_identity(
+        root, full, errors="replace", max_bytes=MAX_FILE_BYTES)
     lines = text.splitlines()
-    rel = os.path.relpath(full, root).replace(os.sep, "/")
+    lexical = os.path.abspath(path) if os.path.isabs(path) else os.path.join(root, path)
+    rel = os.path.relpath(os.path.abspath(lexical), os.path.abspath(root)).replace(os.sep, "/")
     sidecar = not rel.lower().endswith(MARKDOWN_EXT)
     if sidecar:
         data, error, body_start = read_sidecar(root, catalog_id_for(rel, catalog))
@@ -2081,6 +2169,7 @@ def verify_document(root, path, catalog, cache):
               "stub_refused": stub, "findings": findings, "attested": attestations,
               "self_attested": self_attested,
               "frontmatter": data or {}, "body_hash": body_hash(lines, body_start),
+              "_file_identity": file_identity,
               "blockers": [item["detail"] for item in blockers]}
     report["verdict"] = verdict_of(report)
     return report
@@ -2220,10 +2309,11 @@ def verify_mode(root, path, catalog, cache, delete_stub, keep):
         report["retained"] = ["--keep was passed"] + report["retained"]
     if not report["retained"]:
         try:
-            os.remove(report["abspath"])
+            safe_unlink_file(root, report["path"], report.get("_file_identity"))
             report["removed"] = True
-        except OSError:
+        except (OSError, ValueError) as error:
             report["removed"] = False
+            report["retained"] = ["safe deletion was refused: %s" % error]
     if report["id"] and manifest is not None:
         if report["ok"]:
             extra = {"verified_at": now_utc(), "verify": report["counts"]}
@@ -2238,11 +2328,14 @@ def verify_mode(root, path, catalog, cache, delete_stub, keep):
                 extra["status"] = "not-started"
             set_status(root, report["id"], "failed", extra)
             report["write_status"] = "failed"
+    report.pop("_file_identity", None)
     return report
 
 
 def plan_mode(root, manifest, catalog, args, confirmed):
     scan = run_scan(root)
+    safe_require_scan(scan, "scan", SCHEMA)
+    safe_require_root_identity(root, scan.get("root_identity"), "scan")
     index = build_index(root)
     cache = {}
     chosen, refused, skipped, visibility = choose_targets(root, manifest, catalog, args.only,
@@ -2392,42 +2485,52 @@ def main(argv=None):
                              "refused stub")
     args = parser.parse_args(argv)
 
-    root = os.path.abspath(args.repo)
-    catalog = load_documents()
-    cache = {}
     try:
-        if args.verify:
-            report = verify_mode(root, args.verify, catalog, cache, args.delete_stub, args.keep)
-            if args.json:
-                print(json.dumps(report, indent=2, sort_keys=True))
-            else:
-                print_verify(report)
-            return 0 if report["ok"] else 1
-        if read_manifest(root) is None:
-            run_select(args.repo)
-        manifest = read_manifest(root)
-        if manifest is None:
-            raise ValueError("no .docdna/manifest.json, and docdna_select.py wrote none")
-        root = manifest.get("root") or root
-        if args.all and not args.yes and not confirm_all(len(manifest.get("documents") or [])):
-            sys.stderr.write("docdna_backfill: --all needs a confirmation; pass --yes\n")
-            return 3
-        report = plan_mode(root, manifest, catalog, args, args.confirm_sensitive)
-    except KeyError as error:
-        sys.stderr.write("docdna_backfill: manifest is missing key %s\n" % error)
-        return 2
-    except (OSError, ValueError) as error:
+        root = safe_bind_root(os.path.abspath(args.repo))
+    except ValueError as error:
         sys.stderr.write("docdna_backfill: %s\n" % error)
         return 2
-    if args.json:
-        print(json.dumps(report, indent=2, sort_keys=True))
-    else:
-        print_plan(report)
-    # Planning nothing is a result, not a failure: a repository that owes none of the derivable ten
-    # is the answer. Every refusal carries its reason and its remedy in report["refused"], so a
-    # caller that cares reads those rather than a status code. Exit 3 stays for the one case where
-    # the run did not happen at all, the unconfirmed --all above.
-    return 0
+    try:
+        catalog = load_documents()
+        cache = {}
+        try:
+            if args.verify:
+                report = verify_mode(root, args.verify, catalog, cache, args.delete_stub, args.keep)
+                if args.json:
+                    print(json.dumps(report, indent=2, sort_keys=True))
+                else:
+                    print_verify(report)
+                return 0 if report["ok"] else 1
+            if read_manifest(root) is None:
+                run_select(root)
+            manifest = read_manifest(root)
+            if manifest is None:
+                raise ValueError("no .docdna/manifest.json, and docdna_select.py wrote none")
+            manifest_root = os.path.abspath(manifest.get("root") or root)
+            if os.path.realpath(manifest_root) != os.path.realpath(root):
+                raise ValueError("manifest root %s does not match repository %s"
+                                 % (manifest.get("root"), root))
+            if args.all and not args.yes and not confirm_all(len(manifest.get("documents") or [])):
+                sys.stderr.write("docdna_backfill: --all needs a confirmation; pass --yes\n")
+                return 3
+            report = plan_mode(root, manifest, catalog, args, args.confirm_sensitive)
+        except KeyError as error:
+            sys.stderr.write("docdna_backfill: manifest is missing key %s\n" % error)
+            return 2
+        except (OSError, ValueError) as error:
+            sys.stderr.write("docdna_backfill: %s\n" % error)
+            return 2
+        if args.json:
+            print(json.dumps(report, indent=2, sort_keys=True))
+        else:
+            print_plan(report)
+        # Planning nothing is a result, not a failure: a repository that owes none of the
+        # derivable ten is the answer. Every refusal carries its reason and its remedy in
+        # report["refused"], so a caller that cares reads those rather than a status code. Exit 3
+        # stays for the one case where the run did not happen at all, the unconfirmed --all above.
+        return 0
+    finally:
+        root.close()
 
 
 if __name__ == "__main__":

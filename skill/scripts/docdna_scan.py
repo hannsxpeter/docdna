@@ -6,6 +6,7 @@ import json
 import os
 import re
 import subprocess
+import sys
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 
@@ -14,6 +15,15 @@ TOOL = "docdna_scan"
 VERSION = "1.2.0"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+if HERE not in sys.path:
+    sys.path.insert(0, HERE)
+from docdna_fs import (FileTooLarge, bind_root as safe_bind_root,
+                       file_size as safe_file_size, listdir as safe_listdir,
+                       open_root as safe_open_root, read_text as safe_read_text,
+                       root_identity as safe_root_identity,
+                       root_is_current as safe_root_is_current,
+                       walk_paths as safe_walk_paths)
+
 SIGNALS_PATH = os.path.normpath(os.path.join(HERE, "..", "catalog", "signals.json"))
 
 DOT_ALLOW = {".github", ".gitlab", ".circleci", ".buildkite", ".azure", ".azuredevops",
@@ -370,6 +380,52 @@ def denied_read(rel):
     return not name.endswith(DENY_READ_ALLOW)
 
 
+def resolves_inside(root, path):
+    root_real = os.path.realpath(root)
+    path_real = os.path.realpath(path)
+    try:
+        return os.path.commonpath([root_real, path_real]) == root_real
+    except ValueError:
+        return False
+
+
+def outside_repository(ctx, path, key=None):
+    if resolves_inside(ctx["root"], path):
+        return False
+    marker = key or os.path.realpath(path)
+    outside = ctx.setdefault("outside_paths", set())
+    if marker not in outside:
+        outside.add(marker)
+        ctx["scan"]["files_skipped_outside"] += 1
+    return True
+
+
+def record_denied_alias(ctx, rel):
+    denied = ctx.setdefault("denied_paths", set())
+    if rel not in denied:
+        denied.add(rel)
+        scan = ctx["scan"]
+        scan["files_denied"] = scan.get("files_denied", 0) + 1
+
+
+def repository_read_path(ctx, rel):
+    if denied_read(rel):
+        return None
+    full = os.path.join(ctx["root"], rel)
+    if outside_repository(ctx, full, rel):
+        return None
+    target = os.path.realpath(full)
+    source = os.path.abspath(full)
+    if target != source:
+        root_real = os.path.realpath(ctx["root"])
+        target_rel = os.path.relpath(target, root_real).replace(os.sep, "/")
+        indexed = ctx.get("pathset")
+        if denied_read(target_rel) or (indexed is not None and target_rel not in indexed):
+            record_denied_alias(ctx, rel)
+            return None
+    return target
+
+
 def secret_path(rel):
     return glob_match(rel, SECRET_PATH_GLOBS)
 
@@ -399,23 +455,43 @@ def evidence_record(rel, line=None, symbol=None, text=None):
 
 
 def run_git(root, args, timeout=60):
-    command = ["git", "-C", root] + args
+    if not safe_root_is_current(root):
+        return None
+    descriptor = safe_open_root(root)
+
+    def enter_bound_root():
+        os.fchdir(descriptor)
+
     try:
-        proc = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-                              timeout=timeout)
+        proc = subprocess.run(["git"] + args, stdout=subprocess.PIPE,
+                              stderr=subprocess.DEVNULL, timeout=timeout,
+                              preexec_fn=enter_bound_root, pass_fds=(descriptor,))
     except (OSError, subprocess.SubprocessError):
         return None
-    if proc.returncode != 0:
+    finally:
+        os.close(descriptor)
+    if proc.returncode != 0 or not safe_root_is_current(root):
         return None
     return proc.stdout.decode("utf-8", "replace")
 
 
 def git_ignores(root, rel):
-    command = ["git", "-C", root, "check-ignore", "-q", "--", rel]
+    if not safe_root_is_current(root):
+        return None
+    descriptor = safe_open_root(root)
+
+    def enter_bound_root():
+        os.fchdir(descriptor)
+
     try:
-        proc = subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                              timeout=20)
+        proc = subprocess.run(["git", "check-ignore", "-q", "--", rel],
+                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=20,
+                              preexec_fn=enter_bound_root, pass_fds=(descriptor,))
     except (OSError, subprocess.SubprocessError):
+        return None
+    finally:
+        os.close(descriptor)
+    if not safe_root_is_current(root):
         return None
     if proc.returncode == 0:
         return True
@@ -488,16 +564,19 @@ def collect_git(root):
     status = run_git(root, ["status", "--porcelain"])
     facts["dirty"] = bool(status.strip()) if status is not None else None
     tags = run_git(root, ["tag", "--list"])
-    facts["tags"] = len([line for line in (tags or "").splitlines() if line.strip()])
-    last = run_git(root, ["log", "-1", "--format=%aI"])
+    current_tags = run_git(root, ["tag", "--points-at", "HEAD"])
+    all_tags = set(line.strip() for line in (tags or "").splitlines() if line.strip())
+    head_tags = set(line.strip() for line in (current_tags or "").splitlines() if line.strip())
+    facts["tags"] = len(all_tags - head_tags)
+    last = run_git(root, ["log", "--no-merges", "-1", "--format=%aI"])
     if last and last.strip():
         facts["last_commit"] = iso_z(last.strip())
         facts["last_commit_days"] = days_since(last.strip())
     cutoff = (datetime.now(timezone.utc) - timedelta(days=WINDOW_DAYS)).strftime("%Y-%m-%d")
-    count = run_git(root, ["rev-list", "--count", "--since=" + cutoff, "HEAD"])
+    count = run_git(root, ["rev-list", "--no-merges", "--count", "--since=" + cutoff, "HEAD"])
     if count and count.strip().isdigit():
         facts["commits_window"] = int(count.strip())
-    emails = run_git(root, ["log", "--since=" + cutoff, "--format=%aE"])
+    emails = run_git(root, ["log", "--no-merges", "--since=" + cutoff, "--format=%aE"])
     if emails is not None:
         facts["authors_window"] = len(set(line.strip().lower() for line in emails.splitlines()
                                           if line.strip()))
@@ -507,7 +586,7 @@ def collect_git(root):
 
 
 def git_shortlog(root):
-    text = run_git(root, ["shortlog", "-sne", "HEAD"])
+    text = run_git(root, ["shortlog", "--no-merges", "-sne", "HEAD"])
     authors = []
     for line in (text or "").splitlines():
         match = re.match(r"^\s*(\d+)\s+(.*?)\s+<([^>]*)>\s*$", line)
@@ -518,7 +597,7 @@ def git_shortlog(root):
 
 
 def collect_git_paths(root, facts):
-    text = run_git(root, ["log", "-n", str(MAX_LOG_COMMITS), "--name-only",
+    text = run_git(root, ["log", "--no-merges", "-n", str(MAX_LOG_COMMITS), "--name-only",
                           "--format=%x00%H|%aI|%aN"])
     if text is None:
         return
@@ -551,19 +630,7 @@ def prune_dir(name, parent=""):
 
 
 def walk_paths(root):
-    files = []
-    pruned = set()
-    for base, dirs, names in os.walk(root):
-        keep = []
-        for name in dirs:
-            if prune_dir(name, base):
-                pruned.add(name)
-            else:
-                keep.append(name)
-        dirs[:] = sorted(keep)
-        for name in names:
-            files.append(os.path.relpath(os.path.join(base, name), root).replace(os.sep, "/"))
-    return sorted(files), pruned
+    return safe_walk_paths(root, prune_dir)
 
 
 def git_paths(root):
@@ -614,22 +681,20 @@ def read_text(ctx, rel):
         return ctx["cache"][rel]
     text = None
     scan = ctx["scan"]
-    if denied_read(rel):
+    full = repository_read_path(ctx, rel)
+    if full is None:
         ctx["cache"][rel] = None
         return None
     if scan["files_read"] >= MAX_READ_FILES:
         scan["files_capped"] += 1
         scan["truncated"] = True
     else:
-        full = os.path.join(ctx["root"], rel)
         try:
-            if os.path.getsize(full) > MAX_FILE_BYTES:
-                scan["files_skipped_large"] += 1
-            else:
-                with open(full, encoding="utf-8", errors="replace") as handle:
-                    text = handle.read()
-                scan["files_read"] += 1
-        except OSError:
+            text = safe_read_text(ctx["root"], full, errors="replace", max_bytes=MAX_FILE_BYTES)
+            scan["files_read"] += 1
+        except FileTooLarge:
+            scan["files_skipped_large"] += 1
+        except (OSError, ValueError):
             scan["read_errors"] += 1
     ctx["cache"][rel] = text
     return text
@@ -1364,16 +1429,21 @@ def resolve_path(ctx, base, token):
 def contained(root, rel):
     prefix = os.path.abspath(root)
     target = os.path.abspath(os.path.join(prefix, rel))
-    return target == prefix or target.startswith(prefix + os.sep)
+    if target != prefix and not target.startswith(prefix + os.sep):
+        return False
+    return resolves_inside(prefix, target)
 
 
 def disk_listing(ctx, folder):
     names = ctx["listings"].get(folder)
     if names is None:
-        try:
-            names = set(os.listdir(folder))
-        except OSError:
+        if outside_repository(ctx, folder):
             names = set()
+        else:
+            try:
+                names = set(safe_listdir(ctx["root"], os.path.realpath(folder)))
+            except (OSError, ValueError):
+                names = set()
         ctx["listings"][folder] = names
     return names
 
@@ -1390,6 +1460,8 @@ def disk_entry(ctx, rel):
         if part not in disk_listing(ctx, folder):
             return False
         folder = os.path.join(folder, part)
+        if outside_repository(ctx, folder):
+            return False
     return True
 
 
@@ -1474,9 +1546,12 @@ def build_inventory(ctx, generator_globs):
 
 
 def file_bytes(ctx, rel):
+    full = repository_read_path(ctx, rel)
+    if full is None:
+        return None
     try:
-        return os.path.getsize(os.path.join(ctx["root"], rel))
-    except OSError:
+        return safe_file_size(ctx["root"], full)
+    except (OSError, ValueError):
         return None
 
 
@@ -2401,7 +2476,15 @@ def build_unknown(ctx, signals, results, families):
 
 
 def scan(root, families, deep, max_evidence, excludes=None):
-    root = os.path.abspath(root)
+    root = safe_bind_root(os.path.abspath(root))
+    try:
+        return scan_bound(root, families, deep, max_evidence, excludes)
+    finally:
+        root.close()
+
+
+def scan_bound(root, families, deep, max_evidence, excludes=None):
+    device, inode = safe_root_identity(root)
     index = build_index(root)
     denied = [rel for rel in index["paths"] if denied_read(rel)]
     excludes = normalize_excludes(excludes)
@@ -2415,9 +2498,11 @@ def scan(root, families, deep, max_evidence, excludes=None):
     ctx = {"root": root, "paths": index["paths"], "pathset": index["pathset"],
            "dirs": index["dirs"], "entries": index["entries"], "basenames": index["basenames"],
            "cache": {}, "results": {}, "docs": [], "doc_lag": {}, "deep": deep,
+           "denied_paths": set(denied),
            "excludes": excludes, "git": collect_git(root), "ignored": {}, "listings": {},
            "scan": {"files_total": len(index["paths"]), "files_read": 0, "files_skipped_large": 0,
-                    "files_denied": len(denied), "files_capped": 0, "read_errors": 0,
+                    "files_skipped_outside": 0, "files_denied": len(denied),
+                    "files_capped": 0, "read_errors": 0,
                     "dirs_pruned": index["pruned"], "dirs_excluded": sorted(excludes),
                     "index_source": index["source"], "ignore_checks": 0, "ignore_answered": 0,
                     "ignore_unchecked": 0, "ignore_fallback": None, "ignore_source": "none",
@@ -2441,7 +2526,8 @@ def scan(root, families, deep, max_evidence, excludes=None):
     for doc in inventory["docs"]:
         doc.pop("top_author", None)
     return {"schema": SCHEMA, "tool": TOOL, "version": VERSION, "generated": now_utc(),
-            "root": root, "commit": ctx["git"]["head"], "dirty": ctx["git"]["dirty"],
+            "root": root, "root_identity": {"device": device, "inode": inode},
+            "commit": ctx["git"]["head"], "dirty": ctx["git"]["dirty"],
             "scan": ctx["scan"], "signals": emitted, "inventory": inventory, "drift": drift,
             "ownership": build_ownership(ctx),
             "unknown": build_unknown(ctx, signals, results, families)}
@@ -2457,9 +2543,10 @@ def print_text(report):
     print("  %-9s: %s (%s index)" % ("commit", head, scan_stats["index_source"]))
     if report["dirty"]:
         print("  %-9s: %s" % ("worktree", "dirty"))
-    print("  %-9s: %d indexed, %d read, %d denied, %d unreadable"
+    print("  %-9s: %d indexed, %d read, %d denied, %d outside, %d unreadable"
           % ("files", scan_stats["files_total"], scan_stats["files_read"],
-             scan_stats["files_denied"], scan_stats["read_errors"]))
+             scan_stats["files_denied"], scan_stats["files_skipped_outside"],
+             scan_stats["read_errors"]))
     print("  %-9s: %d present, %d hint, %d absent, %d unknown"
           % ("signals", counts["present"], counts["hint"], counts["absent"], counts["unknown"]))
     print("  %-9s: %d markdown, %d opaque, %d with frontmatter"
@@ -2514,13 +2601,18 @@ def main(argv=None):
                         help="evidence records kept per signal")
     args = parser.parse_args(argv)
 
-    report = scan(args.repo, set(args.family or []), args.deep, max(1, args.max_evidence),
-                  args.exclude_dir)
+    try:
+        report = scan(args.repo, set(args.family or []), args.deep, max(1, args.max_evidence),
+                      args.exclude_dir)
+    except (OSError, ValueError) as error:
+        sys.stderr.write("docdna_scan: %s\n" % error)
+        return 2
     if args.json:
         print(json.dumps(report, indent=2, sort_keys=True))
     else:
         print_text(report)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

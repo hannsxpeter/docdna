@@ -4,11 +4,11 @@ Thanks for your interest in improving docdna. It is a small project with a clear
 
 ## What docdna is
 
-docdna is a portable coding-agent skill installed as a directory for hosts that support `SKILL.md`. The entrypoint lives in [`skill/SKILL.md`](skill/SKILL.md), executable helpers live under [`skill/scripts/`](skill/scripts/), and the machine-readable document catalog lives under [`skill/catalog/`](skill/catalog/). There is no build step and no runtime dependency to install.
+docdna is a coding-agent skill installed as a directory for POSIX hosts that support `SKILL.md`. The entrypoint lives in [`skill/SKILL.md`](skill/SKILL.md), executable helpers live under [`skill/scripts/`](skill/scripts/), and the machine-readable document catalog lives under [`skill/catalog/`](skill/catalog/). There is no build step and no third-party runtime dependency to install.
 
 The prose documentation is layered on purpose. `README.md` is the front door and is written for a reader who has not used the tool and may not be an engineer. [`docs/QUICKSTART.md`](docs/QUICKSTART.md) is the guided first run and the glossary. [`docs/HOW-IT-DECIDES.md`](docs/HOW-IT-DECIDES.md), [`docs/MEASUREMENT.md`](docs/MEASUREMENT.md), and [`docs/COMPLIANCE.md`](docs/COMPLIANCE.md) hold the depth. When you change behaviour, change the layer that makes the claim, and check whether the README's short version of it is still true.
 
-docdna stands alone. Python 3.8 is the whole dependency list, and no other tool has to be present for any of it to work. If you also use [codedna](https://github.com/hannsxpeter/codedna), which fingerprints how a repo writes code, treat it as a separate project that happens to install and wire the same way: nothing here imports it, tests against it, or degrades without it.
+docdna stands alone. Python 3.8 on a POSIX host with descriptor-relative, no-follow filesystem support is the complete runtime contract, and no other tool has to be present for any of it to work. Windows is not supported because Python does not expose equivalent race-safe filesystem primitives there. If you also use [codedna](https://github.com/hannsxpeter/codedna), which fingerprints how a repo writes code, treat it as a separate project that happens to install and wire the same way: nothing here imports it, tests against it, or degrades without it.
 
 ## The one rule that governs everything
 
@@ -53,9 +53,13 @@ Security lexicons exclude locales, i18n bundles, `.po` files, and lockfiles glob
 Run the automated checks before opening a pull request:
 
 ```sh
+python3 -m py_compile skill/scripts/docdna_fs.py
 python3 -m py_compile skill/scripts/docdna_scan.py
 python3 -m py_compile skill/scripts/docdna_select.py
 python3 -m py_compile skill/scripts/docdna_backfill.py
+python3 -m py_compile skill/scripts/docdna_check.py
+python3 -m py_compile skill/scripts/docdna_wire.py
+python3 -m py_compile skill/scripts/docdna_llms.py
 python3 -m unittest discover -s tests
 tmp="$(mktemp -d)"
 CLAUDE_SKILLS_DIR="$tmp/claude" CODEX_SKILLS_DIR="$tmp/codex" CURSOR_SKILLS_DIR="$tmp/cursor" WINDSURF_SKILLS_DIR="$tmp/windsurf" ./install.sh all

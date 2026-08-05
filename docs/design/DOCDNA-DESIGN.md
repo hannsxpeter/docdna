@@ -917,6 +917,7 @@ Only `docdna_scan.py` is required by the Survey happy path. `SKILL.md` says so, 
   "version": "0.1.0",
   "generated": "2026-07-31T18:04:11Z",
   "root": "/Users/hprincivil/Projects/example",
+  "root_identity": {"device": 16777234, "inode": 4815162342},
   "commit": "639dfe7c1a2b3d4e5f60718293a4b5c6d7e8f901",
   "dirty": false,
   "scan": {
@@ -978,6 +979,11 @@ Only `docdna_scan.py` is required by the Survey happy path. `SKILL.md` says so, 
   ]
 }
 ```
+
+`root_identity` binds the scan to the device and inode opened for that invocation. The selector and
+checker reject an imported scan when those values do not match the repository they have opened. The
+values are local filesystem identity, not portable metadata: moving or copying a repository requires a
+fresh scan.
 
 Rules that are part of the contract: `evidence` is capped at `--max-evidence` (default 5) with `evidence_truncated` set; `hits` is always the full count; `text` is truncated to 160 characters and passed through a secret-shaped redactor. **The redactor is not a safety claim.** `text` is omitted entirely for any file matched by a secret-bearing path rule, and the docs say "review before sharing", never "safe to paste".
 

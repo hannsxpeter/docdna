@@ -8,6 +8,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 from collections import Counter
 from datetime import datetime, timezone
 
@@ -18,6 +19,22 @@ VERSION = "1.2.0"
 HERE = os.path.dirname(os.path.abspath(__file__))
 CATALOG_DIR = os.path.normpath(os.path.join(HERE, "..", "catalog"))
 SCAN_SCRIPT = os.path.join(HERE, "docdna_scan.py")
+if HERE not in sys.path:
+    sys.path.insert(0, HERE)
+
+from docdna_fs import (FileTooLarge, MAX_CONTROL_BYTES, bind_root as safe_bind_root,
+                       is_dir as safe_is_dir, is_file as safe_is_file,
+                       listdir as safe_listdir, open_root as safe_open_root,
+                       path_exists as safe_path_exists,
+                       parse_json as safe_parse_json,
+                       read_bounded_path as safe_read_bounded_path, read_text as safe_read_text,
+                       require_config as safe_require_config,
+                       require_manifest as safe_require_manifest,
+                       require_root_identity as safe_require_root_identity,
+                       require_scan as safe_require_scan,
+                       root_is_current as safe_root_is_current,
+                       walk_paths as safe_walk_paths,
+                       write_text as safe_write_text)
 
 MANIFEST_REL = os.path.join(".docdna", "manifest.json")
 CONFIG_REL = os.path.join(".docdna", "config.json")
@@ -332,26 +349,52 @@ def load_json(path):
         return json.load(handle)
 
 
-def read_text(path):
+def repository_path(root, candidate):
+    prefix = os.path.abspath(root)
+    prefix_real = os.path.realpath(prefix)
+    target = (os.path.abspath(candidate) if os.path.isabs(candidate)
+              else os.path.abspath(os.path.join(prefix, candidate)))
     try:
-        if os.path.getsize(path) > MAX_FILE_BYTES:
+        if os.path.commonpath([prefix, target]) != prefix:
             return None
-        with open(path, "rb") as handle:
-            raw = handle.read()
-    except OSError:
+        resolved = os.path.realpath(target)
+        if os.path.commonpath([prefix_real, resolved]) != prefix_real:
+            return None
+    except ValueError:
         return None
-    if b"\x00" in raw:
+    return resolved
+
+
+def read_text(root, path):
+    candidate = repository_path(root, path)
+    if candidate is None:
         return None
-    return raw.decode("utf-8", "replace")
+    try:
+        text = safe_read_text(root, candidate, errors="replace", max_bytes=MAX_FILE_BYTES)
+    except (OSError, ValueError, FileTooLarge):
+        return None
+    if "\x00" in text:
+        return None
+    return text
 
 
 def run_git(root, args):
+    if not safe_root_is_current(root):
+        return None
+    descriptor = safe_open_root(root)
+
+    def enter_bound_root():
+        os.fchdir(descriptor)
+
     try:
-        process = subprocess.run(["git", "-C", root] + args, stdout=subprocess.PIPE,
-                                 stderr=subprocess.PIPE, timeout=60)
+        process = subprocess.run(["git"] + args, stdout=subprocess.PIPE,
+                                 stderr=subprocess.PIPE, timeout=60,
+                                 preexec_fn=enter_bound_root, pass_fds=(descriptor,))
     except (OSError, subprocess.SubprocessError):
         return None
-    if process.returncode != 0:
+    finally:
+        os.close(descriptor)
+    if process.returncode != 0 or not safe_root_is_current(root):
         return None
     return process.stdout.decode("utf-8", "replace")
 
@@ -475,6 +518,22 @@ def parse_sidecar(text):
     return parse_block(lines, start, end)
 
 
+def validate_metadata_identities(data):
+    # Replace invalid identity values before any pass can use them as mapping keys.
+    clean = dict(data)
+    errors = []
+    ident = clean.get("id")
+    if ident is not None and not isinstance(ident, str):
+        errors.append("id must be a string, not %s" % type(ident).__name__)
+        clean["id"] = None
+    instance = clean.get("instance_id")
+    if instance is not None and not isinstance(instance, str):
+        errors.append("instance_id must be a string or null, not %s"
+                      % type(instance).__name__)
+        clean["instance_id"] = None
+    return clean, "; ".join(errors) if errors else None
+
+
 def as_list(value):
     if value is None:
         return []
@@ -549,8 +608,7 @@ def covers_state(root, covers, commit=None):
         if not isinstance(rel, str):
             continue
         if commit is None:
-            full = os.path.join(root, rel)
-            text = read_text(full) if os.path.isfile(full) else None
+            text = read_text(root, rel) if safe_is_file(root, repository_path(root, rel) or rel) else None
         else:
             text = git_show(root, commit, rel)
         if text is None:
@@ -853,7 +911,7 @@ def relative_links(root, rel, text):
         if not clean:
             continue
         full = os.path.normpath(os.path.join(base, clean))
-        if not os.path.exists(full):
+        if not safe_path_exists(root, full):
             line = text.count("\n", 0, match.start()) + 1
             broken.append((line, target))
     return broken
@@ -868,17 +926,19 @@ def load_catalog_documents():
 
 
 def load_manifest(root):
-    path = os.path.join(root, MANIFEST_REL)
-    if not os.path.exists(path):
+    if not safe_path_exists(root, MANIFEST_REL):
         return None
     try:
-        return load_json(path)
-    except ValueError:
+        text = safe_read_text(root, MANIFEST_REL, max_bytes=MAX_CONTROL_BYTES)
+    except FileTooLarge:
+        raise
+    except (OSError, ValueError):
         return None
+    manifest = safe_parse_json(text, MANIFEST_REL)
+    return safe_require_manifest(manifest, MANIFEST_REL, SCHEMA)
 
 
 def load_config(root, manifest):
-    path = os.path.join(root, CONFIG_REL)
     config = {"assurance_set": [], "regulated": False, "safety_critical": False,
               "source": "defaults"}
     answers = {}
@@ -889,11 +949,15 @@ def load_config(root, manifest):
         config["regulated"] = True
     if answers.get("q6_downtime") == "revenue-or-safety-minutes":
         config["safety_critical"] = True
-    if os.path.exists(path):
+    if safe_path_exists(root, CONFIG_REL):
         try:
-            raw = load_json(path)
-        except ValueError:
+            text = safe_read_text(root, CONFIG_REL, max_bytes=MAX_CONTROL_BYTES)
+        except FileTooLarge:
+            raise
+        except (OSError, ValueError):
             return config
+        raw = safe_parse_json(text, CONFIG_REL)
+        safe_require_config(raw, CONFIG_REL)
         config["source"] = CONFIG_REL
         config["assurance_set"] = [item for item in as_list(raw.get("assurance_set"))
                                    if isinstance(item, str)]
@@ -904,25 +968,47 @@ def load_config(root, manifest):
 
 
 def config_excludes(repo):
-    path = os.path.join(os.path.abspath(repo), CONFIG_REL)
-    if not os.path.exists(path):
+    root = repo
+    if not safe_path_exists(root, CONFIG_REL):
         return []
     try:
-        raw = load_json(path)
-    except ValueError:
+        text = safe_read_text(root, CONFIG_REL, max_bytes=MAX_CONTROL_BYTES)
+    except FileTooLarge:
+        raise
+    except (OSError, ValueError):
         return []
+    raw = safe_parse_json(text, CONFIG_REL)
+    safe_require_config(raw, CONFIG_REL)
     return [item for item in as_list(raw.get("exclude_dirs")) if isinstance(item, str)]
 
 
 def run_scan(repo, exclude_dirs=None):
-    command = [sys.executable, SCAN_SCRIPT, "--json", repo]
+    if not safe_root_is_current(repo):
+        raise ValueError("repository root changed before docdna_scan.py ran")
+    descriptor = safe_open_root(repo)
+
+    def enter_bound_root():
+        os.fchdir(descriptor)
+
+    command = [sys.executable, SCAN_SCRIPT, "--json", "."]
     for directory in exclude_dirs or []:
         command.extend(["--exclude-dir", directory])
-    process = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    try:
+        with tempfile.TemporaryFile() as output:
+            process = subprocess.run(command, stdout=output, stderr=subprocess.PIPE,
+                                     preexec_fn=enter_bound_root, pass_fds=(descriptor,))
+            output.seek(0)
+            raw = output.read(MAX_CONTROL_BYTES + 1)
+    finally:
+        os.close(descriptor)
+    if not safe_root_is_current(repo):
+        raise ValueError("repository root changed while docdna_scan.py ran")
     if process.returncode != 0:
         raise ValueError("docdna_scan.py failed: %s"
                          % process.stderr.decode("utf-8", "replace").strip())
-    return json.loads(process.stdout.decode("utf-8", "replace"))
+    if len(raw) > MAX_CONTROL_BYTES:
+        raise ValueError("docdna_scan.py output exceeds the %d byte limit" % MAX_CONTROL_BYTES)
+    return safe_parse_json(raw.decode("utf-8", "replace"), "docdna_scan.py output")
 
 
 def adopted_frontmatter(data):
@@ -937,7 +1023,9 @@ def collect_documents(root, scan):
         rel = row["path"]
         if not rel.lower().endswith(MARKDOWN_EXT):
             continue
-        text = read_text(os.path.join(root, rel))
+        if row.get("bytes") is None:
+            continue
+        text = read_text(root, rel)
         if text is None:
             continue
         present, data, error, body_start = parse_frontmatter(text)
@@ -950,9 +1038,12 @@ def collect_documents(root, scan):
             continue
         if not adopted_frontmatter(data):
             continue
+        data, identity_error = validate_metadata_identities(data)
         documents.append({"path": rel, "id": data.get("id"), "data": data, "error": None,
                           "text": text, "lines": markdown_lines(text, body_start),
                           "sidecar": None, "kind": "markdown"})
+        if identity_error:
+            documents[-1]["error"] = identity_error
     for record in collect_sidecars(root):
         documents.append(record)
     documents.sort(key=lambda item: item["path"])
@@ -970,7 +1061,9 @@ def collect_prose(root, scan, documents):
         rel = row["path"]
         if rel in adopted or not rel.lower().endswith(MARKDOWN_EXT):
             continue
-        text = read_text(os.path.join(root, rel))
+        if row.get("bytes") is None:
+            continue
+        text = read_text(root, rel)
         if text is None:
             continue
         _, data, _, body_start = parse_frontmatter(text)
@@ -982,18 +1075,20 @@ def collect_prose(root, scan, documents):
 
 
 def collect_sidecars(root):
-    directory = os.path.join(root, META_REL)
     records = []
-    if not os.path.isdir(directory):
+    if not safe_is_dir(root, META_REL):
         return records
-    for name in sorted(os.listdir(directory)):
+    for name in sorted(safe_listdir(root, META_REL)):
         if not name.endswith((".yml", ".yaml")):
             continue
         rel = os.path.join(META_REL, name)
-        text = read_text(os.path.join(directory, name))
+        text = read_text(root, rel)
         if text is None:
             continue
         data, error = parse_sidecar(text)
+        if data is not None:
+            data, identity_error = validate_metadata_identities(data)
+            error = error or identity_error
         records.append({"path": rel, "id": (data or {}).get("id") or os.path.splitext(name)[0],
                         "data": data or {}, "error": error, "text": text, "lines": [],
                         "sidecar": os.path.splitext(name)[0], "kind": "sidecar"})
@@ -1002,23 +1097,22 @@ def collect_sidecars(root):
 
 def source_files(root):
     files = []
-    for base, dirs, names in os.walk(root):
-        dirs[:] = sorted(name for name in dirs
-                         if name not in IGNORE_DIRS and not name.startswith("."))
-        for name in sorted(names):
-            if os.path.splitext(name)[1].lower() not in SOURCE_EXT:
-                continue
-            rel = os.path.relpath(os.path.join(base, name), root)
-            files.append(rel.replace(os.sep, "/"))
+    def pruned(name, parent):
+        return name in IGNORE_DIRS or name.startswith(".")
+
+    indexed, _ = safe_walk_paths(root, pruned)
+    for rel in indexed:
+        if os.path.splitext(rel)[1].lower() in SOURCE_EXT and safe_is_file(root, rel):
+            files.append(rel)
             if len(files) >= MAX_SOURCE_FILES:
-                return files
+                break
     return files
 
 
 def collect_annotations(root):
     found = []
     for rel in source_files(root):
-        text = read_text(os.path.join(root, rel))
+        text = read_text(root, rel)
         if text is None or "@covers" not in text:
             continue
         for match in ANNOTATION.finditer(text):
@@ -1179,7 +1273,8 @@ def citation_anchor(root, row):
     claim = row.get("claim") or ""
     if "#" not in claim:
         return False
-    return os.path.isfile(os.path.join(root, claim.split("#", 1)[0]))
+    return safe_is_file(root, repository_path(root, claim.split("#", 1)[0])
+                        or claim.split("#", 1)[0])
 
 
 def pass_drift(ctx):
@@ -1289,13 +1384,13 @@ def lint_covers(ctx, doc):
                     "patterns; a glob saturates the drift test." % entry,
                     path=doc["path"], ident=doc["id"])
             continue
-        if entry.endswith("/") or os.path.isdir(os.path.join(root, entry)):
+        if entry.endswith("/") or safe_is_dir(root, repository_path(root, entry) or entry):
             finding(ctx, "lint", "covers-directory", "blocker",
                     "covers names a directory: %s. covers names interface-defining files, never "
                     "directories; a directory saturates the drift test." % entry,
                     path=doc["path"], ident=doc["id"])
             continue
-        if not os.path.isfile(os.path.join(root, entry)):
+        if not safe_is_file(root, repository_path(root, entry) or entry):
             finding(ctx, "lint", "covers-missing", "major",
                     "covers names %s, which is not a file in this repository" % entry,
                     path=doc["path"], ident=doc["id"])
@@ -1360,7 +1455,8 @@ def lint_sidecars(ctx):
     for ident, target in sorted(ctx["found_paths"].items()):
         if target.lower().endswith(MARKDOWN_EXT) or target.endswith("/"):
             continue
-        if ident in ctx["sidecar_ids"] or not os.path.isfile(os.path.join(ctx["root"], target)):
+        if ident in ctx["sidecar_ids"] or not safe_is_file(
+                ctx["root"], repository_path(ctx["root"], target) or target):
             continue
         finding(ctx, "lint", "sidecar-missing", "major",
                 "%s is not Markdown, so its frontmatter has nowhere to go and needs a sidecar at "
@@ -1483,10 +1579,10 @@ def code_problem(ctx, rel, anchor):
         # path carrying .. lands wherever the citation asks, so without this a citation resolved
         # against a file outside the repository and bound its numbers into this document.
         return outside_repo(rel)
-    if not os.path.isfile(full):
+    if not safe_is_file(ctx["root"], repository_path(ctx["root"], full) or full):
         return "stale-evidence", "citation names %s, which is not a file in this repository" % rel
     if rel not in cache:
-        text = read_text(full) or ""
+        text = read_text(ctx["root"], full) or ""
         cache[rel] = (text, set(extract_declarations(rel, text)))
     text, names = cache[rel]
     if not anchor_resolves(text, names, anchor):
@@ -1515,10 +1611,12 @@ def ref_file(ctx, doc, rel):
     escaped = False
     for candidate in candidates:
         full = os.path.normpath(candidate)
-        if not os.path.isfile(full):
+        if not os.path.lexists(full):
             continue
         if not inside_repo(root, full):
             escaped = True
+            continue
+        if not safe_is_file(root, repository_path(root, full) or full):
             continue
         return full, False
     return None, escaped
@@ -1543,7 +1641,7 @@ def ref_problem(ctx, doc, payload):
         return None
     cache = ctx["ref_cache"]
     if full not in cache:
-        text = read_text(full) or ""
+        text = read_text(ctx["root"], full) or ""
         cache[full] = (text, set(extract_declarations(rel, text)) | heading_slugs(text))
     text, names = cache[full]
     if not anchor_resolves(text, names, anchor):
@@ -1652,7 +1750,7 @@ def ref_backing(ctx, doc, payload):
     if full is None:
         return ""
     if full not in ctx["ref_cache"]:
-        text = read_text(full) or ""
+        text = read_text(ctx["root"], full) or ""
         ctx["ref_cache"][full] = (text, set(extract_declarations(rel, text)) | heading_slugs(text))
     text = ctx["ref_cache"][full][0]
     spans = binding_spans(text, anchor.lstrip("#"))
@@ -1686,10 +1784,11 @@ def claim_support(ctx, doc, text):
             continue
         if anchor and code_problem(ctx, rel, anchor) is not None:
             continue
-        if not anchor and not os.path.isfile(os.path.join(ctx["root"], rel)):
+        if not anchor and not safe_is_file(
+                ctx["root"], repository_path(ctx["root"], rel) or rel):
             continue
         if rel not in ctx["cite_cache"]:
-            body = read_text(os.path.join(ctx["root"], rel)) or ""
+            body = read_text(ctx["root"], rel) or ""
             ctx["cite_cache"][rel] = (body, set(extract_declarations(rel, body)))
         backing = code_backing(ctx, rel, anchor)
         if backing:
@@ -2111,10 +2210,9 @@ def gaps_block(ctx):
 
 
 def write_gaps_block(ctx):
-    path = os.path.join(ctx["root"], REPORT_REL)
-    if not os.path.exists(path):
+    if not safe_path_exists(ctx["root"], REPORT_REL):
         return False
-    text = read_text(path)
+    text = read_text(ctx["root"], REPORT_REL)
     if text is None:
         return False
     start = text.find(GAPS_START)
@@ -2132,8 +2230,7 @@ def write_gaps_block(ctx):
         updated = text.rstrip() + "\n\n" + block
     else:
         updated = block
-    with open(path, "w", encoding="utf-8") as handle:
-        handle.write(updated)
+    safe_write_text(ctx["root"], REPORT_REL, updated)
     return True
 
 
@@ -2162,7 +2259,7 @@ def node_exists(ctx, ident):
     for prefix in PATH_PREFIXES:
         if ident.startswith(prefix):
             payload = ident[len(prefix):].split("::", 1)[0].split("@", 1)[-1]
-            return os.path.exists(os.path.join(ctx["root"], payload))
+            return safe_path_exists(ctx["root"], payload)
     return ident.startswith(EXTERNAL_PREFIXES)
 
 
@@ -2406,11 +2503,26 @@ def staleness_summary(ctx):
 
 
 def check(repo, passes, fail_on, scan_path, write, exclude_dirs=None):
-    if not os.path.isdir(repo):
+    requested_root = os.path.abspath(repo)
+    if not os.path.isdir(requested_root):
         raise ValueError("%s is not a directory" % repo)
-    excludes = list(exclude_dirs or []) + config_excludes(repo)
-    scan = load_json(scan_path) if scan_path else run_scan(repo, excludes)
-    root = scan["root"]
+    root = safe_bind_root(requested_root)
+    try:
+        return check_bound(root, passes, fail_on, scan_path, write, exclude_dirs)
+    finally:
+        root.close()
+
+
+def check_bound(root, passes, fail_on, scan_path, write, exclude_dirs=None):
+    excludes = list(exclude_dirs or []) + config_excludes(root)
+    scan = (safe_parse_json(safe_read_bounded_path(scan_path, MAX_CONTROL_BYTES), scan_path)
+            if scan_path else run_scan(root, excludes))
+    safe_require_scan(scan, "scan", SCHEMA)
+    scan_root = os.path.abspath(scan["root"])
+    if os.path.realpath(scan_root) != os.path.realpath(root):
+        raise ValueError("scan root %s does not match repository %s"
+                         % (scan["root"], root))
+    safe_require_root_identity(root, scan.get("root_identity"), "scan")
     manifest = load_manifest(root)
     catalog = load_catalog_documents()
     config = load_config(root, manifest)
@@ -2435,7 +2547,7 @@ def check(repo, passes, fail_on, scan_path, write, exclude_dirs=None):
            "documents": documents, "prose": prose, "signals": signal_map(scan), "answers": answers,
            "docstate": docstate, "found_paths": found_paths, "path_ids": path_ids,
            "sidecar_ids": set(doc["sidecar"] for doc in documents if doc["sidecar"]),
-           "adopted": bool(documents) or os.path.isdir(os.path.join(root, META_REL)),
+           "adopted": bool(documents) or safe_is_dir(root, META_REL),
            "annotations": [], "findings": [], "gaps": [], "gaps_by_path": {}, "gap_errors": {},
            "cite_cache": {}, "ref_cache": {},
            "today": today(), "write": write, "spine_nodes": set(), "report": {}}
