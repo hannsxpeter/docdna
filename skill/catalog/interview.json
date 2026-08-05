@@ -107,13 +107,15 @@
     },
     {
       "id": "q3_authorizer",
-      "prompt": "Is there an external body that can audit, certify, or authorize this before it ships?",
+      "prompt": "Which external review or regulated relationship applies to this system?",
       "answers": [
         "none",
         "customer-security-review",
         "soc2-or-iso-auditor",
         "government-authorizer",
-        "sector-regulator"
+        "sector-regulator",
+        "hipaa-covered-entity-or-business-associate",
+        "pci-merchant-or-service-provider"
       ],
       "multi_select": false,
       "ask_on_first_run": false,
@@ -171,20 +173,10 @@
             "jur.us_federal",
             "sec.compliance_program"
           ]
-        },
-        {
-          "when": {
-            "signal": "sec.compliance_program",
-            "is": "present"
-          },
-          "value": "soc2-or-iso-auditor",
-          "cite": [
-            "sec.compliance_program"
-          ]
         }
       ],
       "fallback": "none",
-      "counterfactual": "a government buyer is in the loop",
+      "counterfactual": "a regulated relationship or external reviewer applies",
       "docs_moved": 19
     },
     {

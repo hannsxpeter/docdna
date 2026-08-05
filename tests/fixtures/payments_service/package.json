@@ -1,0 +1,6 @@
+{
+  "name": "payments-service",
+  "private": true,
+  "scripts": { "dev": "node src/server.js", "test": "node --test" },
+  "dependencies": { "stripe": "^16.2.0", "express": "^4.19.2" }
+}

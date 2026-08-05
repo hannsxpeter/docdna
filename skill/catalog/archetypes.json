@@ -494,6 +494,45 @@
       "adds": []
     },
     {
+      "id": "app-store",
+      "when": {
+        "any": [
+          {
+            "signal": "arch.mobile",
+            "is": "present"
+          },
+          {
+            "signal": "arch.extension",
+            "is": "present"
+          }
+        ]
+      },
+      "adds": [
+        "assure.data-classification",
+        "assure.privacy-notice",
+        "build.compat-matrix",
+        "serve.changelog"
+      ]
+    },
+    {
+      "id": "health",
+      "when": {
+        "signal": "sec.health",
+        "is": "present"
+      },
+      "adds": [
+        "assure.audit-logging",
+        "assure.baa",
+        "assure.hipaa-sra",
+        "assure.identity-lifecycle",
+        "assure.phi-inventory",
+        "assure.privacy-notice",
+        "assure.rbac-matrix",
+        "assure.sec-incident-plan",
+        "assure.training-records"
+      ]
+    },
+    {
       "id": "operated-by-others",
       "when": {
         "answer": "q2_operator",
@@ -517,6 +556,22 @@
       ]
     },
     {
+      "id": "payments",
+      "when": {
+        "signal": "sec.payments",
+        "is": "present"
+      },
+      "adds": [
+        "assure.audit-logging",
+        "assure.chd-flow",
+        "assure.hardening-baseline",
+        "assure.key-management",
+        "assure.pci-saq",
+        "assure.pentest",
+        "assure.rbac-matrix"
+      ]
+    },
+    {
       "id": "public-ui",
       "when": {
         "all": [
@@ -535,6 +590,57 @@
       },
       "adds": [
         "assure.acr-inputs"
+      ]
+    },
+    {
+      "id": "regulated",
+      "when": {
+        "any": [
+          {
+            "answer": "q3_authorizer",
+            "in": [
+              "customer-security-review",
+              "government-authorizer",
+              "hipaa-covered-entity-or-business-associate",
+              "pci-merchant-or-service-provider",
+              "sector-regulator",
+              "soc2-or-iso-auditor"
+            ]
+          },
+          {
+            "answer": "q5_markets",
+            "in": [
+              "canada",
+              "eu-eea",
+              "global",
+              "us"
+            ]
+          }
+        ]
+      },
+      "adds": [
+        "assure.control-mapping",
+        "assure.data-classification",
+        "assure.scanning-index",
+        "govern.compliance-register",
+        "govern.traceability",
+        "retire.archive-manifest",
+        "verify.rtm"
+      ]
+    },
+    {
+      "id": "safety-critical",
+      "when": {
+        "signal": "arch.safety_std",
+        "is": "present"
+      },
+      "adds": [
+        "decide.waivers",
+        "frame.requirements",
+        "govern.compliance-register",
+        "govern.traceability",
+        "verify.rtm",
+        "verify.test-strategy"
       ]
     },
     {

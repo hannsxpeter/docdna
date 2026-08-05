@@ -36,7 +36,7 @@ them defends an absence. That gap is what docdna is for.
 
 This is the part to look at first.
 
-Selection runs off signals detected in the repository, an archetype (eight primaries, five overlays), and
+Selection runs off signals detected in the repository, an archetype (eight primaries, ten overlays), and
 an eight-question interview **of which none is asked on the first run**. Every answer is defaulted from
 signals, labelled `assumed`, and printed with its blast radius, so you correct in one sentence instead of
 answering a form. Every selected document names what selected it. A document selected by a signal cites
@@ -104,23 +104,24 @@ purpose most rows in that section are not.
 ```
 docdna  solo-utility  ·  335 lines Python  ·  no license  ·  CI only
 
-Documentation  0 of 20        Leads  2 possible stale references
+Documentation  0 of 24        Leads  2 possible stale references
 
-MISSING AND LOAD-BEARING  (18, showing 3)
+MISSING AND LOAD-BEARING  (22, showing 3)
   design.api-contract   Selected by iface.http. [config/urls.py]
   design.data-model     This code owns a persistent schema and the meaning of its columns lives ...
   govern.manifest       The catalog selects this document for every repository.
 
-NOT APPLICABLE  23 documents. No external body audits, certifies, or authorizes this before it
-                ships, and no compliance workspace exists in the repository. Full ledger:
-                .docdna/manifest.json
-                assure.acr-inputs is one signal away: users.ui or arch.webapp
+NOT APPLICABLE  55 documents. No compliance program exists in this repository and no external
+                reviewer has been confirmed, so there is no attestation package to assemble. Full
+                ledger: .docdna/manifest.json
+                assure.a11y-statement is one signal away: q5_markets or q3_authorizer
 
 NOTE            I only see documentation committed to this repo. If your docs live in Confluence or
                 Notion, say so and I will mark those rows present-elsewhere rather than missing.
 
-ASSUMED         assumed q2_operator=not-deployed, q3_authorizer=none, q1_users=nobody.
-                If a separate ops team runs this, up to 9 documents become required.
+ASSUMED         assumed q3_authorizer=none, q2_operator=not-deployed, q5_markets=['my-org-only'].
+                If a regulated relationship or external reviewer applies, up to 22 documents become
+                required.
 
 POSSIBLE STALE REFERENCES  (2)
   README.md             says `python manage.py runserver`; Procfile runs `gunicorn`; this document ...
@@ -129,7 +130,8 @@ POSSIBLE STALE REFERENCES  (2)
                 table, a task template, a case study about another repository. These are leads for a
                 human to read, not findings. Full list: .docdna/manifest.json
 
-NEXT            write 4 derivable documents  ·  refresh 1 drifted document  ·  --answer q2_operator
+NEXT            write 4 derivable documents  ·  refresh 1 drifted document  ·  --answer
+                q3_authorizer
 ```
 
 ## What has been measured, and what has not
@@ -253,6 +255,43 @@ that cell is an `unverifiable` GAP carrying the exact command a human can run to
 [`skill/templates/verify-dod.md`](skill/templates/verify-dod.md) requires. A workflow that runs and does
 not gate is a signal, not enforcement.
 
+## Compliance, and why it does not generate a SOC 2 document
+
+The catalog carries the SOC 2, HIPAA, PCI, GDPR, EU AI Act, CRA and ITSG-33 rows. It does not follow that
+your repository owes any of them. Ninety-six entries means ninety-six rows **ruled on**, most of them
+`not-applicable` with a stated reason and a tripwire, not ninety-six documents written.
+
+Three fixtures that ship in this repository, each surveyed with no questions asked:
+
+| Fixture | Selected | Excluded | HIPAA | PCI | SOC 2 |
+| --- | --- | --- | --- | --- | --- |
+| `internal_service`, a Django app | 41 | 55 | not-applicable | not-applicable | not-applicable |
+| `health_service`, FHIR and patient records | 35 | 61 | **optional**, PHI inventory recommended | not-applicable | not-applicable |
+| `payments_service`, Stripe | 33 | 63 | not-applicable | **optional**, data flow recommended | not-applicable |
+
+A plain service is told it owes nothing under any of the three, and is not asked about them either. SOC 2
+stays quiet on all three because none carries a compliance program, which is correct: SOC 2 is something an
+organisation elects to undergo, not something a codebase implies.
+
+Note the asymmetry inside HIPAA. `phi-inventory` is **recommended**, because an inventory of where health
+data sits is derivable from a schema. The risk assessment and the business associate agreement are
+**optional and never required**, because a signal must not make a legal instrument mandatory. Only your
+answer to "is there an external body that can audit or authorize this" can do that, which is invariant I6
+and is enforced at catalog load time.
+
+Ask for one of the seventeen refused instruments and docdna declines by name:
+
+> **producible R: docdna never writes this document.** A security risk assessment is a regulated
+> deliverable under the HIPAA Security Rule and is evidence a covered entity or business associate stands
+> behind. docdna writes the inventory that feeds it and refuses the assessment itself.
+> **Signed by the covered entity's Security Official.**
+
+Regulatory facts live in [`skill/references/regime-facts/`](skill/references/regime-facts/), six files
+carrying `verified:` dates. Forty-seven facts are cited to primary sources, eCFR, the AICPA, the PCI SSC,
+EUR-Lex, NIST and the Canadian Centre for Cyber Security. Three could not be confirmed and sit in an
+explicit "Unverified, do not rely on" section rather than in the body. Vendor summaries and law-firm
+explainers were rejected as non-primary. CI reports the age of every file and fails past a year.
+
 ## What it refuses
 
 The refusals are the product. A tool that refuses nothing gets asked for everything.
@@ -271,15 +310,21 @@ The refusals are the product. A tool that refuses nothing gets asked for everyth
   checked for shape only and is recorded as an attestation rather than a verification. Those limits are
   structural, not a backlog item, and
   [`skill/references/evidence.md`](skill/references/evidence.md) names all four in its second section.
-- **No legal instrument.** No System Security Plan, PIA, DPIA, AIA, VPAT, or AI Act Annex IV file. docdna
-  produces the evidence an assessor needs, under `docs/assure/inputs/`, and names who must sign. The
-  signature line stays empty. At this version the refusal holds by absence: the catalog does not carry
-  those instruments, so there is no id to select and no template to fill. The enforcement exists for when
-  one is added. `producible: R` is in the schema, `docdna_backfill.py` refuses every entry marked it, and
-  catalog invariant I1 fails the build if a template ever ships for an entry that is not `producible: Y`.
-  Separately, nineteen of the sixty entries are `producible: M`, manifest-only: docdna tracks the row,
-  states which signal made it required, and names what a human has to supply. Those nineteen are where the
-  threat model, the runbook, and the data classification register live.
+- **No legal instrument.** No System Security Plan, HIPAA security risk assessment, business associate
+  agreement, SOC 2 system description, PCI attestation, PIA, DPIA, AIA, VPAT, or AI Act Annex IV file.
+  **Seventeen of the ninety-six catalog entries are `producible: R`**, and R is a refusal the code
+  enforces rather than a promise the prose makes. `docdna_backfill.py` declines every one of them and
+  prints why, plus the role that must sign it. Ask for the HIPAA risk assessment and it answers: *a
+  security risk assessment is a regulated deliverable under the HIPAA Security Rule and is evidence a
+  covered entity stands behind; docdna writes the inventory that feeds it and refuses the assessment
+  itself. Signed by the covered entity's Security Official.* An R entry may never be raised to `required`
+  by a signal, only by an interview answer (invariant I6), because a grep that finds an IAM role must not
+  make a System Security Plan required. Invariant I1 fails the build if a template ever ships for one.
+  What docdna does write is the inputs, under `docs/assure/inputs/`: the attack surface, the control
+  evidence index with its unknown rows, the PHI inventory, the automated accessibility results. The
+  signature line stays empty. A further thirty-seven entries are `producible: M`, manifest-only: docdna
+  tracks the row, names the signal that selected it, and states what a human has to supply. That is where
+  the threat model, the runbook, the access control inventory, and the data classification register live.
 - **No runbook procedure.** An alert-to-runbook coverage table is derivable and safe. A remediation
   executed at 03:00 by somebody who did not write the system is the highest-consequence hallucination in
   the catalog, so docdna writes the index and leaves the procedure to a human.
@@ -291,7 +336,7 @@ The refusals are the product. A tool that refuses nothing gets asked for everyth
 
 ## How it decides
 
-A 60-entry catalog organized by **lifecycle stage**, not by audience. Audience is not a partition: the
+A 96-entry catalog organized by **lifecycle stage**, not by audience. Audience is not a partition: the
 CTO's architecture view and the engineer's architecture view are one artifact at two zoom levels, and
 tiering by reader guarantees four parallel document sets that drift.
 

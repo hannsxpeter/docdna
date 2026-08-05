@@ -154,6 +154,60 @@
       "force": false
     },
     {
+      "id": "R-COMPLIANCE-ABSENT-ATTESTATIONS-EXCLUDE",
+      "layer": "answer",
+      "when": {
+        "all": [
+          {
+            "signal": "sec.compliance_program",
+            "is": "absent"
+          },
+          {
+            "answer": "q3_authorizer",
+            "in": [
+              "none"
+            ]
+          }
+        ]
+      },
+      "effect": "exclude",
+      "documents": [
+        "assure.acr",
+        "assure.control-inheritance",
+        "assure.pentest",
+        "assure.secure-design-review",
+        "assure.soc2-description",
+        "assure.supplier-reqs",
+        "assure.training-records",
+        "assure.vendor-risk"
+      ],
+      "because": "No compliance program exists in this repository and no external reviewer has been confirmed, so there is no attestation package to assemble.",
+      "cite": [
+        "sec.compliance_program",
+        "q3_authorizer"
+      ],
+      "revisit_when": {
+        "any": [
+          {
+            "signal": "sec.compliance_program",
+            "is": "present"
+          },
+          {
+            "answer": "q3_authorizer",
+            "in": [
+              "customer-security-review",
+              "government-authorizer",
+              "hipaa-covered-entity-or-business-associate",
+              "pci-merchant-or-service-provider",
+              "sector-regulator",
+              "soc2-or-iso-auditor"
+            ]
+          }
+        ]
+      },
+      "force": false
+    },
+    {
       "id": "R-COMPLIANCE-PROGRAM-EVIDENCE",
       "layer": "signal",
       "when": {
@@ -304,6 +358,156 @@
         "supply.artifact_published",
         "sec.artifact_signing"
       ],
+      "force": false
+    },
+    {
+      "id": "R-EU-AI-ABSENT-INSTRUMENTS-EXCLUDE",
+      "layer": "signal",
+      "when": {
+        "all": [
+          {
+            "signal": "ai.inference",
+            "is": "absent"
+          },
+          {
+            "signal": "ai.sdk",
+            "is": "absent"
+          },
+          {
+            "signal": "ai.training",
+            "is": "absent"
+          },
+          {
+            "signal": "ai.rag",
+            "is": "absent"
+          }
+        ]
+      },
+      "effect": "exclude",
+      "documents": [
+        "assure.aiact-annex4",
+        "assure.gpai-docs"
+      ],
+      "because": "No model inference, model SDK, training stack, or retrieval pipeline exists here, so the EU AI instruments do not apply.",
+      "cite": [
+        "ai.inference",
+        "ai.sdk",
+        "ai.training",
+        "ai.rag"
+      ],
+      "revisit_when": {
+        "any": [
+          {
+            "signal": "ai.inference",
+            "is": "present"
+          },
+          {
+            "signal": "ai.sdk",
+            "is": "present"
+          },
+          {
+            "signal": "ai.training",
+            "is": "present"
+          },
+          {
+            "signal": "ai.rag",
+            "is": "present"
+          }
+        ]
+      },
+      "force": false
+    },
+    {
+      "id": "R-EU-MARKET-ABSENT-INSTRUMENTS-EXCLUDE",
+      "layer": "answer",
+      "when": {
+        "all": [
+          {
+            "answer": "q5_markets",
+            "in": [
+              "my-org-only",
+              "canada",
+              "us"
+            ]
+          },
+          {
+            "answer": "q3_authorizer",
+            "in": [
+              "none"
+            ]
+          }
+        ]
+      },
+      "effect": "exclude",
+      "documents": [
+        "assure.a11y-statement",
+        "assure.aiact-annex4",
+        "assure.cra-technical-file",
+        "assure.eu-doc",
+        "assure.gpai-docs",
+        "assure.ropa"
+      ],
+      "because": "No user is in the EU or EEA and no public-sector authorizer has been confirmed, so EU market instruments do not apply.",
+      "cite": [
+        "q5_markets",
+        "q3_authorizer"
+      ],
+      "revisit_when": {
+        "any": [
+          {
+            "answer": "q5_markets",
+            "in": [
+              "eu-eea",
+              "global"
+            ]
+          },
+          {
+            "answer": "q3_authorizer",
+            "in": [
+              "government-authorizer"
+            ]
+          }
+        ]
+      },
+      "force": false
+    },
+    {
+      "id": "R-EU-SHIPPED-PRODUCT-ABSENT-EXCLUDE",
+      "layer": "signal",
+      "when": {
+        "all": [
+          {
+            "signal": "supply.artifact_published",
+            "is": "absent"
+          },
+          {
+            "signal": "arch.firmware",
+            "is": "absent"
+          }
+        ]
+      },
+      "effect": "exclude",
+      "documents": [
+        "assure.cra-technical-file",
+        "assure.eu-doc"
+      ],
+      "because": "This repository publishes no software artifact and contains no firmware, so there is no shipped product for an EU conformity file.",
+      "cite": [
+        "supply.artifact_published",
+        "arch.firmware"
+      ],
+      "revisit_when": {
+        "any": [
+          {
+            "signal": "supply.artifact_published",
+            "is": "present"
+          },
+          {
+            "signal": "arch.firmware",
+            "is": "present"
+          }
+        ]
+      },
       "force": false
     },
     {
@@ -867,7 +1071,9 @@
             "in": [
               "soc2-or-iso-auditor",
               "government-authorizer",
-              "sector-regulator"
+              "sector-regulator",
+              "hipaa-covered-entity-or-business-associate",
+              "pci-merchant-or-service-provider"
             ]
           }
         ]
@@ -1054,6 +1260,29 @@
         "ops.flags",
         "deploy.env_count"
       ],
+      "force": false
+    },
+    {
+      "id": "R-HEALTH-ABSENT-HIPAA-EXCLUDE",
+      "layer": "signal",
+      "when": {
+        "signal": "sec.health",
+        "is": "absent"
+      },
+      "effect": "exclude",
+      "documents": [
+        "assure.baa",
+        "assure.hipaa-sra",
+        "assure.phi-inventory"
+      ],
+      "because": "No health data library or health record vocabulary appears in this repository, so the HIPAA-specific rows do not apply.",
+      "cite": [
+        "sec.health"
+      ],
+      "revisit_when": {
+        "signal": "sec.health",
+        "is": "present"
+      },
       "force": false
     },
     {
@@ -1268,20 +1497,12 @@
       "id": "R-OVERLAY-APP-STORE-DECLARATIONS",
       "layer": "overlay",
       "when": {
-        "any": [
-          {
-            "signal": "arch.mobile",
-            "is": "present"
-          },
-          {
-            "signal": "arch.extension",
-            "is": "present"
-          }
-        ]
+        "overlay": "app-store"
       },
       "effect": "require",
       "documents": [
         "assure.data-classification",
+        "assure.privacy-notice",
         "build.compat-matrix",
         "serve.changelog"
       ],
@@ -1297,8 +1518,7 @@
       "id": "R-OVERLAY-HEALTH-DATA",
       "layer": "overlay",
       "when": {
-        "signal": "sec.health",
-        "is": "present"
+        "overlay": "health"
       },
       "effect": "require",
       "documents": [
@@ -1312,6 +1532,26 @@
         "sec.health",
         "data.special_category",
         "data.pii"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-OVERLAY-HEALTH-LEGAL-INSTRUMENTS",
+      "layer": "overlay",
+      "when": {
+        "overlay": "health"
+      },
+      "effect": "optionalize",
+      "documents": [
+        "assure.baa",
+        "assure.hipaa-sra",
+        "assure.phi-inventory",
+        "assure.training-records"
+      ],
+      "because": "Health data indicators surface the HIPAA legal instruments for confirmation without treating repository evidence as a legal verdict.",
+      "cite": [
+        "sec.health",
+        "q3_authorizer"
       ],
       "force": false
     },
@@ -1348,8 +1588,7 @@
       "id": "R-OVERLAY-PAYMENTS-CARDHOLDER-DATA",
       "layer": "overlay",
       "when": {
-        "signal": "sec.payments",
-        "is": "present"
+        "overlay": "payments"
       },
       "effect": "require",
       "documents": [
@@ -1363,6 +1602,24 @@
         "sec.payments",
         "data.pii",
         "sec.authn"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-OVERLAY-PAYMENTS-LEGAL-INSTRUMENTS",
+      "layer": "overlay",
+      "when": {
+        "overlay": "payments"
+      },
+      "effect": "optionalize",
+      "documents": [
+        "assure.pci-saq",
+        "assure.pentest"
+      ],
+      "because": "Payment indicators surface the PCI validation instruments for confirmation without treating repository evidence as a legal verdict.",
+      "cite": [
+        "sec.payments",
+        "q3_authorizer"
       ],
       "force": false
     },
@@ -1391,11 +1648,7 @@
       "id": "R-OVERLAY-REGULATED-CONTROL-EVIDENCE",
       "layer": "overlay",
       "when": {
-        "answer": "q3_authorizer",
-        "in": [
-          "government-authorizer",
-          "sector-regulator"
-        ]
+        "overlay": "regulated"
       },
       "effect": "require",
       "documents": [
@@ -1418,8 +1671,7 @@
       "id": "R-OVERLAY-SAFETY-CRITICAL-REFUSAL",
       "layer": "overlay",
       "when": {
-        "signal": "arch.safety_std",
-        "is": "present"
+        "overlay": "safety-critical"
       },
       "effect": "note",
       "documents": [
@@ -1503,6 +1755,28 @@
         "proc.codeowners"
       ],
       "force": true
+    },
+    {
+      "id": "R-PAYMENTS-ABSENT-PCI-EXCLUDE",
+      "layer": "signal",
+      "when": {
+        "signal": "sec.payments",
+        "is": "absent"
+      },
+      "effect": "exclude",
+      "documents": [
+        "assure.chd-flow",
+        "assure.pci-saq"
+      ],
+      "because": "No payment processor integration or cardholder data vocabulary appears in this repository, so the PCI-specific rows do not apply.",
+      "cite": [
+        "sec.payments"
+      ],
+      "revisit_when": {
+        "signal": "sec.payments",
+        "is": "present"
+      },
+      "force": false
     },
     {
       "id": "R-PERSONAL-DATA-CLASSIFICATION",
@@ -1811,6 +2085,36 @@
       "force": false
     },
     {
+      "id": "R-Q3-ASK-COMPLIANCE-RELATIONSHIP",
+      "layer": "answer",
+      "when": {
+        "all": [
+          {
+            "signal": "sec.compliance_program",
+            "is": "present"
+          },
+          {
+            "answer": "q3_authorizer",
+            "in": [
+              "none"
+            ]
+          }
+        ]
+      },
+      "effect": "ask",
+      "documents": [
+        "assure.control-mapping",
+        "assure.soc2-description",
+        "assure.training-records"
+      ],
+      "because": "Compliance program files exist, so a person must identify whether they support an auditor, customer review, regulator, or internal program.",
+      "cite": [
+        "sec.compliance_program",
+        "q3_authorizer"
+      ],
+      "force": false
+    },
+    {
       "id": "R-Q3-ASK-GC-SIGNALS",
       "layer": "answer",
       "when": {
@@ -1853,6 +2157,65 @@
         "jur.gc_domain",
         "jur.protected_b",
         "users.gc_design_system",
+        "q3_authorizer"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-Q3-ASK-HEALTH-RELATIONSHIP",
+      "layer": "answer",
+      "when": {
+        "all": [
+          {
+            "signal": "sec.health",
+            "is": "present"
+          },
+          {
+            "answer": "q3_authorizer",
+            "in": [
+              "none"
+            ]
+          }
+        ]
+      },
+      "effect": "ask",
+      "documents": [
+        "assure.baa",
+        "assure.hipaa-sra",
+        "assure.phi-inventory"
+      ],
+      "because": "Health data indicators are present, but only a person can confirm whether the organisation is a HIPAA covered entity or business associate.",
+      "cite": [
+        "sec.health",
+        "q3_authorizer"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-Q3-ASK-PAYMENT-RELATIONSHIP",
+      "layer": "answer",
+      "when": {
+        "all": [
+          {
+            "signal": "sec.payments",
+            "is": "present"
+          },
+          {
+            "answer": "q3_authorizer",
+            "in": [
+              "none"
+            ]
+          }
+        ]
+      },
+      "effect": "ask",
+      "documents": [
+        "assure.chd-flow",
+        "assure.pci-saq"
+      ],
+      "because": "Payment indicators are present, but only a person can confirm whether the organisation is a PCI merchant or service provider.",
+      "cite": [
+        "sec.payments",
         "q3_authorizer"
       ],
       "force": false
@@ -1937,6 +2300,28 @@
       "force": false
     },
     {
+      "id": "R-Q3-CUSTOMER-ASSURANCE-INSTRUMENTS",
+      "layer": "answer",
+      "when": {
+        "answer": "q3_authorizer",
+        "in": [
+          "customer-security-review"
+        ]
+      },
+      "effect": "recommend",
+      "documents": [
+        "assure.pentest",
+        "assure.secure-design-review"
+      ],
+      "because": "A confirmed customer security review commonly asks for independent testing and a recorded security design review.",
+      "cite": [
+        "q3_authorizer",
+        "sec.compliance_program",
+        "sec.scanners"
+      ],
+      "force": false
+    },
+    {
       "id": "R-Q3-CUSTOMER-SECURITY-REVIEW",
       "layer": "answer",
       "when": {
@@ -1958,6 +2343,104 @@
         "q3_authorizer",
         "sec.authn",
         "supply.has_deps"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-Q3-GOVERNMENT-AUTHORIZATION-CONTROLS",
+      "layer": "answer",
+      "when": {
+        "answer": "q3_authorizer",
+        "in": [
+          "government-authorizer"
+        ]
+      },
+      "effect": "require",
+      "documents": [
+        "assure.audit-logging",
+        "assure.control-inheritance",
+        "assure.hardening-baseline",
+        "assure.rbac-matrix",
+        "assure.scanning-index",
+        "assure.threat-model"
+      ],
+      "because": "A confirmed government authorization requires implemented controls to be mapped to reviewable technical evidence.",
+      "cite": [
+        "q3_authorizer",
+        "sec.compliance_program",
+        "sec.scanners"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-Q3-GOVERNMENT-AUTHORIZATION-INSTRUMENTS",
+      "layer": "answer",
+      "when": {
+        "answer": "q3_authorizer",
+        "in": [
+          "government-authorizer"
+        ]
+      },
+      "effect": "require",
+      "documents": [
+        "assure.ato",
+        "assure.impact-screening",
+        "assure.saa-inputs",
+        "assure.ssdf-attestation"
+      ],
+      "because": "A confirmed government authorizer requires the authorization, assessment, impact, and attestation instruments it will sign or accept.",
+      "cite": [
+        "q3_authorizer",
+        "sec.compliance_program"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-Q3-HIPAA-CORE-INSTRUMENTS",
+      "layer": "answer",
+      "when": {
+        "answer": "q3_authorizer",
+        "in": [
+          "hipaa-covered-entity-or-business-associate"
+        ]
+      },
+      "effect": "require",
+      "documents": [
+        "assure.baa",
+        "assure.hipaa-sra",
+        "assure.phi-inventory",
+        "assure.training-records"
+      ],
+      "because": "A person confirmed that this organisation is a HIPAA covered entity or business associate, so its risk, agreement, inventory, and training evidence is required.",
+      "cite": [
+        "q3_authorizer",
+        "sec.health",
+        "data.pii"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-Q3-HIPAA-SAFEGUARDS",
+      "layer": "answer",
+      "when": {
+        "answer": "q3_authorizer",
+        "in": [
+          "hipaa-covered-entity-or-business-associate"
+        ]
+      },
+      "effect": "require",
+      "documents": [
+        "assure.audit-logging",
+        "assure.identity-lifecycle",
+        "assure.privacy-notice",
+        "assure.rbac-matrix",
+        "assure.sec-incident-plan"
+      ],
+      "because": "The confirmed HIPAA relationship requires access, audit, incident, identity, and notice safeguards around protected health information.",
+      "cite": [
+        "q3_authorizer",
+        "sec.health",
+        "sec.authn"
       ],
       "force": false
     },
@@ -1998,7 +2481,9 @@
               "customer-security-review",
               "soc2-or-iso-auditor",
               "government-authorizer",
-              "sector-regulator"
+              "sector-regulator",
+              "hipaa-covered-entity-or-business-associate",
+              "pci-merchant-or-service-provider"
             ]
           },
           {
@@ -2021,6 +2506,129 @@
       "force": false
     },
     {
+      "id": "R-Q3-PCI-CONTROLS",
+      "layer": "answer",
+      "when": {
+        "answer": "q3_authorizer",
+        "in": [
+          "pci-merchant-or-service-provider"
+        ]
+      },
+      "effect": "require",
+      "documents": [
+        "assure.audit-logging",
+        "assure.chd-flow",
+        "assure.hardening-baseline",
+        "assure.key-management",
+        "assure.rbac-matrix"
+      ],
+      "because": "A person confirmed a PCI merchant or service provider relationship, so the cardholder flow and its access, hardening, key, and audit controls are required.",
+      "cite": [
+        "q3_authorizer",
+        "sec.payments",
+        "sec.crypto"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-Q3-PCI-VALIDATION-INSTRUMENTS",
+      "layer": "answer",
+      "when": {
+        "answer": "q3_authorizer",
+        "in": [
+          "pci-merchant-or-service-provider"
+        ]
+      },
+      "effect": "require",
+      "documents": [
+        "assure.pci-saq",
+        "assure.pentest"
+      ],
+      "because": "The confirmed PCI relationship requires a human-owned validation instrument and independent penetration-test evidence.",
+      "cite": [
+        "q3_authorizer",
+        "sec.payments",
+        "sec.compliance_program"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-Q3-SECTOR-REGULATOR-INSTRUMENTS",
+      "layer": "answer",
+      "when": {
+        "answer": "q3_authorizer",
+        "in": [
+          "sector-regulator"
+        ]
+      },
+      "effect": "require",
+      "documents": [
+        "assure.impact-screening",
+        "assure.pentest",
+        "assure.secure-design-review",
+        "assure.training-records"
+      ],
+      "because": "A confirmed sector regulator requires human-owned impact, testing, design-review, and training evidence before release.",
+      "cite": [
+        "q3_authorizer",
+        "sec.compliance_program",
+        "sec.scanners"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-Q3-SOC2-ATTESTATION-INSTRUMENTS",
+      "layer": "answer",
+      "when": {
+        "answer": "q3_authorizer",
+        "in": [
+          "soc2-or-iso-auditor"
+        ]
+      },
+      "effect": "require",
+      "documents": [
+        "assure.pentest",
+        "assure.secure-design-review",
+        "assure.soc2-description",
+        "assure.training-records"
+      ],
+      "because": "A person confirmed an auditor relationship, so the system description and the human-owned testing, review, and training records are required evidence.",
+      "cite": [
+        "q3_authorizer",
+        "sec.compliance_program",
+        "sec.scanners"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-Q3-SOC2-CONTROLS",
+      "layer": "answer",
+      "when": {
+        "answer": "q3_authorizer",
+        "in": [
+          "soc2-or-iso-auditor"
+        ]
+      },
+      "effect": "require",
+      "documents": [
+        "assure.audit-logging",
+        "assure.control-inheritance",
+        "assure.identity-lifecycle",
+        "assure.rbac-matrix",
+        "assure.sec-incident-plan",
+        "assure.secure-sdlc-policy",
+        "assure.supplier-reqs",
+        "assure.vendor-risk"
+      ],
+      "because": "The confirmed auditor relationship requires durable access, change, incident, supplier, and cloud-control evidence across the review period.",
+      "cite": [
+        "q3_authorizer",
+        "sec.compliance_program",
+        "supply.has_deps"
+      ],
+      "force": false
+    },
+    {
       "id": "R-Q4-AFFECTS-PEOPLE",
       "layer": "answer",
       "when": {
@@ -2032,6 +2640,7 @@
       "effect": "require",
       "documents": [
         "assure.data-classification",
+        "assure.impact-screening",
         "assure.threat-model",
         "design.data-model",
         "frame.requirements",
@@ -2197,6 +2806,163 @@
       "force": false
     },
     {
+      "id": "R-Q5-EU-ACCESSIBILITY-INSTRUMENTS",
+      "layer": "answer",
+      "when": {
+        "all": [
+          {
+            "signal": "users.ui",
+            "is": "present"
+          },
+          {
+            "any": [
+              {
+                "answer": "q5_markets",
+                "in": [
+                  "eu-eea",
+                  "global"
+                ]
+              },
+              {
+                "answer": "q3_authorizer",
+                "in": [
+                  "government-authorizer"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "effect": "require",
+      "documents": [
+        "assure.a11y-statement",
+        "assure.acr"
+      ],
+      "because": "A user interface confirmed for the EU market or public-sector authorization requires signed accessibility and conformance instruments.",
+      "cite": [
+        "users.ui",
+        "q5_markets",
+        "q3_authorizer"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-Q5-EU-AI-ACT-INSTRUMENTS",
+      "layer": "answer",
+      "when": {
+        "all": [
+          {
+            "answer": "q5_markets",
+            "in": [
+              "eu-eea",
+              "global"
+            ]
+          },
+          {
+            "any": [
+              {
+                "signal": "ai.inference",
+                "is": "present"
+              },
+              {
+                "signal": "ai.sdk",
+                "is": "present"
+              },
+              {
+                "signal": "ai.training",
+                "is": "present"
+              },
+              {
+                "signal": "ai.rag",
+                "is": "present"
+              }
+            ]
+          }
+        ]
+      },
+      "effect": "require",
+      "documents": [
+        "assure.aiact-annex4"
+      ],
+      "because": "A person confirmed EU or EEA users for a detected AI system, so its Annex IV technical documentation is required.",
+      "cite": [
+        "q5_markets",
+        "ai.inference",
+        "ai.sdk",
+        "ai.training",
+        "ai.rag"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-Q5-EU-CRA-CONFORMITY-INSTRUMENTS",
+      "layer": "answer",
+      "when": {
+        "all": [
+          {
+            "answer": "q5_markets",
+            "in": [
+              "eu-eea",
+              "global"
+            ]
+          },
+          {
+            "any": [
+              {
+                "signal": "supply.artifact_published",
+                "is": "present"
+              },
+              {
+                "signal": "arch.firmware",
+                "is": "present"
+              }
+            ]
+          }
+        ]
+      },
+      "effect": "require",
+      "documents": [
+        "assure.cra-technical-file",
+        "assure.eu-doc"
+      ],
+      "because": "A person confirmed EU or EEA users for shipped software, so the CRA technical file and declaration of conformity are required.",
+      "cite": [
+        "q5_markets",
+        "supply.artifact_published",
+        "arch.firmware"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-Q5-EU-GPAI-INSTRUMENTS",
+      "layer": "answer",
+      "when": {
+        "all": [
+          {
+            "answer": "q5_markets",
+            "in": [
+              "eu-eea",
+              "global"
+            ]
+          },
+          {
+            "signal": "ai.training",
+            "is": "present"
+          }
+        ]
+      },
+      "effect": "require",
+      "documents": [
+        "assure.gpai-docs"
+      ],
+      "because": "A person confirmed EU or EEA users for a repository that trains models, so the GPAI provider documentation is required.",
+      "cite": [
+        "q5_markets",
+        "ai.training"
+      ],
+      "force": false
+    },
+    {
       "id": "R-Q5-EU-MARKET",
       "layer": "answer",
       "when": {
@@ -2221,6 +2987,69 @@
         "jur.eu",
         "data.pii",
         "data.lawful_basis"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-Q5-EU-PRIVACY-EVIDENCE",
+      "layer": "answer",
+      "when": {
+        "all": [
+          {
+            "answer": "q5_markets",
+            "in": [
+              "eu-eea",
+              "global"
+            ]
+          },
+          {
+            "signal": "data.pii",
+            "gte": 1
+          }
+        ]
+      },
+      "effect": "require",
+      "documents": [
+        "assure.data-classification",
+        "assure.dpa-subprocessors",
+        "assure.privacy-notice",
+        "assure.ropa"
+      ],
+      "because": "A person confirmed EU or EEA users and personal data is present, so the processing, notice, subprocessor, and retention records are required.",
+      "cite": [
+        "q5_markets",
+        "data.pii",
+        "users.public_signup"
+      ],
+      "force": false
+    },
+    {
+      "id": "R-Q5-EU-SPECIAL-CATEGORY-IMPACT",
+      "layer": "answer",
+      "when": {
+        "all": [
+          {
+            "answer": "q5_markets",
+            "in": [
+              "eu-eea",
+              "global"
+            ]
+          },
+          {
+            "signal": "data.special_category",
+            "gte": 1
+          }
+        ]
+      },
+      "effect": "require",
+      "documents": [
+        "assure.impact-screening"
+      ],
+      "because": "A person confirmed EU or EEA users and special-category data is present, so a human-owned impact screening is required.",
+      "cite": [
+        "q5_markets",
+        "data.special_category",
+        "data.pii"
       ],
       "force": false
     },
@@ -2275,7 +3104,9 @@
               "customer-security-review",
               "soc2-or-iso-auditor",
               "government-authorizer",
-              "sector-regulator"
+              "sector-regulator",
+              "hipaa-covered-entity-or-business-associate",
+              "pci-merchant-or-service-provider"
             ]
           },
           {
@@ -2773,7 +3604,9 @@
               "customer-security-review",
               "soc2-or-iso-auditor",
               "government-authorizer",
-              "sector-regulator"
+              "sector-regulator",
+              "hipaa-covered-entity-or-business-associate",
+              "pci-merchant-or-service-provider"
             ]
           }
         ]

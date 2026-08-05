@@ -2,6 +2,29 @@
 
 All notable changes to docdna are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-08-05
+
+Compliance. The catalog grows from 60 entries to 96, and for the first time it carries documents docdna refuses to write.
+
+### Added
+
+- **Seventeen `producible: R` entries**, the legal and regulator-facing instruments: HIPAA security risk assessment and business associate agreement, SOC 2 system description, PCI self-assessment, System Security Plan and authority to operate, the impact assessment family, the CRA technical file and EU declaration of conformity, AI Act Annex IV and GPAI documentation, the accessibility conformance report and statement, secure design review, penetration test and training records. R was in the schema since 1.0.0 and had never had a row, so `docdna_backfill.py`'s refusal branch, invariant I1 and invariant I6 were all dead code. They are live now.
+- **`refusal_reason` and `signed_by` on every R entry**, printed verbatim when a user asks for the document. The old refusal said "a qualified human drafts it and signs it"; it now says who. Ask for the HIPAA risk assessment and it names the covered entity's Security Official, and says docdna writes the inventory that feeds it and refuses the assessment itself.
+- Twenty manifest-only rows covering the SOC 2 criteria a codebase can be measured against, among them identity lifecycle (CC6.2), audit logging (CC7.2) and hardening baseline (CC6.6), plus the GDPR, HIPAA and PCI rows that share those artifacts through `satisfies` rather than duplicating them.
+- `assure.phi-inventory`, writable, because an inventory of where health data sits is derivable from a schema and is the honest input to an assessment docdna will not write.
+- Five overlays that had been deferred: health, payments, regulated, safety-critical, app-store.
+- Six `skill/references/regime-facts/*.md` files carrying `verified:` dates, with 47 facts checked against primary sources: eCFR, the AICPA, the PCI SSC, EUR-Lex, NIST, and the Canadian Centre for Cyber Security. Three facts could not be confirmed and sit in an explicit "Unverified, do not rely on" section rather than in the body: the ITSG-33 Annex 1 data-classification anchor, the AIA level-to-requirement matrix in Appendix C, and the NIST AI RMF catalog facts whose endpoint would not open. Vendor summaries, law-firm explainers and third-party mappings hosted by NIST were all rejected as non-primary.
+- `tests/fixtures/health_service` and `tests/fixtures/payments_service`, so the compliance selection is regression-tested rather than argued about.
+
+### Fixed
+
+- **An excluded directory now leaves the signal index, not only the document and drift passes.** A repository that vendors another project under `fixtures/` or `examples/` had that project's manifests read as its own. One demo depending on `fhirclient` made this repository report a health overlay and state that card data crossed it. A repository could have been told it was a HIPAA covered entity because a sample app pulled in an SDK.
+- Ten new rows gated a legal instrument on a jurisdiction signal, and the validator refused all ten: a hint may open a question, it may never set a verdict. A stray `eu-west-1` in a Terraform file must not make a GDPR processing record required. They gate on the markets answer instead.
+
+### Changed
+
+- An R entry selects at `optional` and no higher. Only an interview answer raises one to `required` (invariant I6), because a grep that finds an IAM role must not make a System Security Plan required.
+
 ## [1.1.0] - 2026-08-01
 
 Drift was released as the flagship on the strength of runs against the eight fixture repositories and this one. It was never measured. This release is what five rounds of measurement did to it.

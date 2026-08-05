@@ -211,6 +211,25 @@ threshold use `gte`, which is defined on the magnitude and is therefore correct 
 predicate lives in `rules.json` and is applied at higher precedence. A document with
 `{"always": true}` needs no rule.
 
+### 6.1 Refused entries
+
+A `producible: R` entry is a legal declaration or a regulator-facing instrument. docdna never emits one,
+and never reproduces the regulator's own section structure, because structural fidelity is precisely what
+makes a draft look submittable. It emits a differently-named evidence annex under `docs/assure/inputs/`
+instead, and names who must sign. **Two extra fields are mandatory on every `R` entry.**
+
+| Field | Rule |
+| --- | --- |
+| `refusal_reason` | One or two sentences saying plainly why docdna will not draft this. It is printed verbatim when a user asks for the document, so write it to the user, not to a maintainer. |
+| `signed_by` | The role that must sign, named concretely: "the covered entity's Security Official", "management, attested by the service auditor", "the departmental authorizer". Never a person, never "someone". |
+
+**An `R` entry selects at `baseline_verdict: optional` and no higher.** Its `selects_on` may read signals,
+because naming a probably-relevant instrument is useful, but only an interview answer may raise it to
+`required`, which is invariant I6. The reason is concrete rather than procedural: a grep that finds an IAM
+role must never make a System Security Plan required, and a region string in a Terraform file must never
+make a GDPR processing record required. Both were live defects caught by the validator when the first
+seventeen `R` rows were added.
+
 **Templates.** v0.1 ships none. From v0.2, a `Y` entry may have `templates/<stage>-<slug>.md` and an `M`
 or `R` entry may not. Invariant I1 enforces it.
 

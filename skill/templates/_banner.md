@@ -4,7 +4,7 @@ Normative. Every document docdna generates carries this immediately under the fr
 first heading. It is not decoration and it is not removable by the generator.
 
 ```markdown
-> Backfilled by docdna v1.0.1 from repository evidence at commit 639dfe7 on 2026-07-31.
+> Backfilled by docdna v1.2.0 from repository evidence at commit 639dfe7 on 2026-07-31.
 > Claims are cited to files and symbols. Unknowns are tracked as GAP markers, not filled in.
 > This is derived, not authoritative. Schedule a human review before relying on it.
 ```

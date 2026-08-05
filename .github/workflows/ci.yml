@@ -104,6 +104,33 @@ jobs:
       - name: Documented samples are real stdout
         run: python -m unittest discover -s tests -p test_readme_samples.py -v
 
+      # The regime files assert current legal fact and carry a verified: date. An unmaintained dated
+      # file is worse than none, because it asserts with confidence while being stale. This reports
+      # age and fails only past a year, since a skill that puts itself in permanent red on day 181
+      # has taught its user to ignore its own output.
+      - name: Regulatory references carry a date and are not a year stale
+        run: |
+          python - <<'PY'
+          import datetime, glob, re, sys
+
+          TODAY = datetime.date.today()
+          stale, undated = [], []
+          for path in sorted(glob.glob("skill/references/regime-facts/*.md")):
+              head = open(path, encoding="utf-8").readline()
+              match = re.match(r"verified:\s*(\d{4})-(\d{2})-(\d{2})", head.strip())
+              if match is None:
+                  undated.append(path)
+                  continue
+              age = (TODAY - datetime.date(*[int(g) for g in match.groups()])).days
+              print("%-46s %4d days" % (path, age))
+              if age > 365:
+                  stale.append("%s is %d days old" % (path, age))
+          if undated:
+              sys.exit("no verified: date on %s" % ", ".join(undated))
+          if stale:
+              sys.exit("re-verify against primary sources: %s" % "; ".join(stale))
+          PY
+
       - name: Install ShellCheck
         run: |
           sudo apt-get update

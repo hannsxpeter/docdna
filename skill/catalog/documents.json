@@ -2,6 +2,99 @@
   "schema": 1,
   "documents": [
     {
+      "id": "assure.a11y-statement",
+      "title": "Accessibility statement",
+      "stage": "assure",
+      "durability": "durable",
+      "scope": "product",
+      "producible": "R",
+      "backfillability": "P",
+      "cadence": "P365D",
+      "sensitivity": "public",
+      "path": "docs/assure/inputs/a11y-scope.md",
+      "selects_on": {
+        "all": [
+          {
+            "signal": "users.ui",
+            "is": "present"
+          },
+          {
+            "any": [
+              {
+                "answer": "q5_markets",
+                "in": [
+                  "eu-eea",
+                  "global"
+                ]
+              },
+              {
+                "answer": "q3_authorizer",
+                "in": [
+                  "government-authorizer"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "baseline_verdict": "optional",
+      "satisfies": [
+        "eaa",
+        "en301549"
+      ],
+      "audiences": [
+        "security",
+        "legal"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/assure/inputs/a11y-scope.md"
+      ],
+      "system_of_record": "ask",
+      "refusal_reason": "An accessibility statement is a public commitment about conformance and about the feedback route, and it is enforceable.",
+      "signed_by": "the organisation's accessibility lead"
+    },
+    {
+      "id": "assure.acr",
+      "title": "Accessibility conformance report (VPAT)",
+      "stage": "assure",
+      "durability": "evidence",
+      "scope": "product",
+      "producible": "R",
+      "backfillability": "P",
+      "cadence": "P365D",
+      "sensitivity": "restricted",
+      "path": "docs/assure/inputs/wcag-automated-results.md",
+      "selects_on": {
+        "all": [
+          {
+            "signal": "users.ui",
+            "is": "present"
+          },
+          {
+            "signal": "sec.compliance_program",
+            "is": "present"
+          }
+        ]
+      },
+      "baseline_verdict": "optional",
+      "satisfies": [
+        "vpat",
+        "en301549"
+      ],
+      "audiences": [
+        "security",
+        "legal"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/assure/inputs/wcag-automated-results.md"
+      ],
+      "system_of_record": "ask",
+      "refusal_reason": "An ACR generated from automated tooling covers a minority of the success criteria and zero assistive-technology testing. Handing one to a public-sector buyer misrepresents conformance.",
+      "signed_by": "the accessibility evaluator"
+    },
+    {
       "id": "assure.acr-inputs",
       "title": "Accessibility automated test results",
       "stage": "assure",
@@ -39,6 +132,98 @@
         "reports/axe/"
       ],
       "system_of_record": "ask"
+    },
+    {
+      "id": "assure.aiact-annex4",
+      "title": "AI Act Annex IV technical documentation",
+      "stage": "assure",
+      "durability": "evidence",
+      "scope": "product",
+      "producible": "R",
+      "backfillability": "P",
+      "cadence": "P365D",
+      "sensitivity": "restricted",
+      "path": "docs/assure/inputs/aiact-scope.md",
+      "selects_on": {
+        "all": [
+          {
+            "any": [
+              {
+                "signal": "ai.inference",
+                "is": "present"
+              },
+              {
+                "signal": "ai.sdk",
+                "is": "present"
+              },
+              {
+                "signal": "ai.training",
+                "is": "present"
+              },
+              {
+                "signal": "ai.rag",
+                "is": "present"
+              }
+            ]
+          },
+          {
+            "answer": "q5_markets",
+            "in": [
+              "eu-eea",
+              "global"
+            ]
+          }
+        ]
+      },
+      "baseline_verdict": "optional",
+      "satisfies": [
+        "aiact:art11",
+        "aiact:annexIV"
+      ],
+      "audiences": [
+        "security",
+        "legal"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/assure/inputs/aiact-scope.md"
+      ],
+      "system_of_record": "ask",
+      "refusal_reason": "Annex IV documentation is retained for ten years and inaccuracy is itself an infringement.",
+      "signed_by": "the provider"
+    },
+    {
+      "id": "assure.ato",
+      "title": "Authority to operate",
+      "stage": "assure",
+      "durability": "evidence",
+      "scope": "product",
+      "producible": "R",
+      "backfillability": "N",
+      "cadence": "P365D",
+      "sensitivity": "restricted",
+      "path": "docs/assure/inputs/ato-scope.md",
+      "selects_on": {
+        "answer": "q3_authorizer",
+        "in": [
+          "government-authorizer"
+        ]
+      },
+      "baseline_verdict": "optional",
+      "satisfies": [
+        "tbs:dsm"
+      ],
+      "audiences": [
+        "security",
+        "legal"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/assure/inputs/ato-scope.md"
+      ],
+      "system_of_record": "ask",
+      "refusal_reason": "An authority to operate is a signed acceptance of residual risk by an accountable executive.",
+      "signed_by": "the delegated authorizing official"
     },
     {
       "id": "assure.attack-surface",
@@ -84,6 +269,225 @@
       "system_of_record": "ask"
     },
     {
+      "id": "assure.audit-logging",
+      "title": "Audit logging and retention standard",
+      "stage": "assure",
+      "durability": "durable",
+      "scope": "product",
+      "producible": "M",
+      "backfillability": "P",
+      "cadence": "P365D",
+      "sensitivity": "internal",
+      "path": "docs/assure/audit-logging.md",
+      "selects_on": {
+        "any": [
+          {
+            "signal": "sec.authn",
+            "is": "present"
+          },
+          {
+            "signal": "data.pii",
+            "gte": 1
+          },
+          {
+            "any": [
+              {
+                "signal": "arch.service",
+                "is": "present"
+              },
+              {
+                "signal": "deploy.container",
+                "is": "present"
+              },
+              {
+                "signal": "deploy.kubernetes",
+                "is": "present"
+              },
+              {
+                "signal": "deploy.serverless",
+                "is": "present"
+              },
+              {
+                "signal": "deploy.paas",
+                "is": "present"
+              }
+            ]
+          }
+        ]
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [
+        "iso27001:A.8.15",
+        "soc2:CC7.2",
+        "hipaa:164.312(b)",
+        "itsg33:AU"
+      ],
+      "audiences": [
+        "security"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/assure/audit-logging.md",
+        "docs/operate/logging.md"
+      ],
+      "system_of_record": "ask"
+    },
+    {
+      "id": "assure.baa",
+      "title": "Business associate agreement",
+      "stage": "assure",
+      "durability": "evidence",
+      "scope": "product",
+      "producible": "R",
+      "backfillability": "P",
+      "cadence": "P365D",
+      "sensitivity": "restricted",
+      "path": "docs/assure/inputs/baa-scope.md",
+      "selects_on": {
+        "signal": "sec.health",
+        "is": "present"
+      },
+      "baseline_verdict": "optional",
+      "satisfies": [
+        "hipaa:164.314(a)"
+      ],
+      "audiences": [
+        "security",
+        "legal"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/assure/inputs/baa-scope.md"
+      ],
+      "system_of_record": "ask",
+      "refusal_reason": "A business associate agreement is a contract between two organisations. Drafting a contract is not a documentation task.",
+      "signed_by": "counsel for both parties"
+    },
+    {
+      "id": "assure.build-provenance",
+      "title": "Build provenance and signing",
+      "stage": "assure",
+      "durability": "evidence",
+      "scope": "product",
+      "producible": "M",
+      "backfillability": "H",
+      "cadence": "on-release",
+      "sensitivity": "internal",
+      "path": "docs/assure/build-provenance.md",
+      "selects_on": {
+        "any": [
+          {
+            "signal": "supply.artifact_published",
+            "is": "present"
+          },
+          {
+            "signal": "sec.artifact_signing",
+            "is": "present"
+          }
+        ]
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [
+        "ssdf:PS.2",
+        "slsa"
+      ],
+      "audiences": [
+        "security"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/assure/build-provenance.md"
+      ],
+      "system_of_record": "ask"
+    },
+    {
+      "id": "assure.chd-flow",
+      "title": "Cardholder data flow diagram",
+      "stage": "assure",
+      "durability": "durable",
+      "scope": "product",
+      "producible": "M",
+      "backfillability": "P",
+      "cadence": "P365D",
+      "sensitivity": "restricted",
+      "path": "docs/assure/cardholder-data-flow.md",
+      "selects_on": {
+        "signal": "sec.payments",
+        "is": "present"
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [
+        "pci-dss:1.2",
+        "pci-dss:12.5"
+      ],
+      "audiences": [
+        "security"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/assure/cardholder-data-flow.md"
+      ],
+      "system_of_record": "ask"
+    },
+    {
+      "id": "assure.control-inheritance",
+      "title": "Cloud control inheritance matrix",
+      "stage": "assure",
+      "durability": "durable",
+      "scope": "product",
+      "producible": "M",
+      "backfillability": "P",
+      "cadence": "P365D",
+      "sensitivity": "internal",
+      "path": "docs/assure/control-inheritance.md",
+      "selects_on": {
+        "all": [
+          {
+            "any": [
+              {
+                "signal": "deploy.iac",
+                "is": "present"
+              },
+              {
+                "signal": "deploy.container",
+                "is": "present"
+              },
+              {
+                "signal": "deploy.kubernetes",
+                "is": "present"
+              },
+              {
+                "signal": "deploy.serverless",
+                "is": "present"
+              },
+              {
+                "signal": "deploy.paas",
+                "is": "present"
+              }
+            ]
+          },
+          {
+            "signal": "sec.compliance_program",
+            "is": "present"
+          }
+        ]
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [
+        "fedramp:crm",
+        "itsg33",
+        "soc2:CC3.1"
+      ],
+      "audiences": [
+        "security"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/assure/control-inheritance.md"
+      ],
+      "system_of_record": "ask"
+    },
+    {
       "id": "assure.control-mapping",
       "title": "Control framework mapping register",
       "stage": "assure",
@@ -122,6 +526,86 @@
         "docs/compliance/control-mapping.md",
         "docs/security/controls.md",
         "compliance/controls/"
+      ],
+      "system_of_record": "ask"
+    },
+    {
+      "id": "assure.cra-technical-file",
+      "title": "Cyber Resilience Act technical documentation",
+      "stage": "assure",
+      "durability": "evidence",
+      "scope": "product",
+      "producible": "R",
+      "backfillability": "P",
+      "cadence": "on-release",
+      "sensitivity": "restricted",
+      "path": "docs/assure/inputs/cra-scope.md",
+      "selects_on": {
+        "all": [
+          {
+            "answer": "q5_markets",
+            "in": [
+              "eu-eea",
+              "global"
+            ]
+          },
+          {
+            "any": [
+              {
+                "signal": "supply.artifact_published",
+                "is": "present"
+              },
+              {
+                "signal": "arch.firmware",
+                "is": "present"
+              }
+            ]
+          }
+        ]
+      },
+      "baseline_verdict": "optional",
+      "satisfies": [
+        "cra:annexVII"
+      ],
+      "audiences": [
+        "security",
+        "legal"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/assure/inputs/cra-scope.md"
+      ],
+      "system_of_record": "ask",
+      "refusal_reason": "The technical file is a conformity instrument retained for regulator inspection.",
+      "signed_by": "the manufacturer's authorised representative"
+    },
+    {
+      "id": "assure.crypto-inventory",
+      "title": "Cryptographic inventory",
+      "stage": "assure",
+      "durability": "durable",
+      "scope": "product",
+      "producible": "M",
+      "backfillability": "P",
+      "cadence": "P365D",
+      "sensitivity": "internal",
+      "path": "docs/assure/crypto-inventory.md",
+      "selects_on": {
+        "signal": "sec.crypto",
+        "is": "present"
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [
+        "cbom",
+        "iso27001:A.8.24"
+      ],
+      "audiences": [
+        "security"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/assure/crypto-inventory.md",
+        "docs/security/crypto-inventory.md"
       ],
       "system_of_record": "ask"
     },
@@ -180,6 +664,738 @@
         "docs/security/data-classification.md"
       ],
       "system_of_record": "ask"
+    },
+    {
+      "id": "assure.dpa-subprocessors",
+      "title": "Data processing agreement and subprocessor list",
+      "stage": "assure",
+      "durability": "durable",
+      "scope": "org",
+      "producible": "M",
+      "backfillability": "P",
+      "cadence": "P365D",
+      "sensitivity": "public",
+      "path": "docs/assure/subprocessors.md",
+      "selects_on": {
+        "all": [
+          {
+            "signal": "data.pii",
+            "gte": 1
+          },
+          {
+            "signal": "users.public_signup",
+            "is": "present"
+          }
+        ]
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [
+        "gdpr:art28"
+      ],
+      "audiences": [
+        "security"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/assure/subprocessors.md",
+        "SUBPROCESSORS.md"
+      ],
+      "system_of_record": "ask"
+    },
+    {
+      "id": "assure.eu-doc",
+      "title": "EU declaration of conformity",
+      "stage": "assure",
+      "durability": "evidence",
+      "scope": "product",
+      "producible": "R",
+      "backfillability": "N",
+      "cadence": "on-release",
+      "sensitivity": "restricted",
+      "path": "docs/assure/inputs/conformity-scope.md",
+      "selects_on": {
+        "all": [
+          {
+            "answer": "q5_markets",
+            "in": [
+              "eu-eea",
+              "global"
+            ]
+          },
+          {
+            "signal": "supply.artifact_published",
+            "is": "present"
+          }
+        ]
+      },
+      "baseline_verdict": "optional",
+      "satisfies": [
+        "cra:annexV",
+        "aiact:art47"
+      ],
+      "audiences": [
+        "security",
+        "legal"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/assure/inputs/conformity-scope.md"
+      ],
+      "system_of_record": "ask",
+      "refusal_reason": "A declaration of conformity is a signed legal statement that a product meets EU requirements.",
+      "signed_by": "the manufacturer"
+    },
+    {
+      "id": "assure.gpai-docs",
+      "title": "General purpose AI model documentation",
+      "stage": "assure",
+      "durability": "evidence",
+      "scope": "product",
+      "producible": "R",
+      "backfillability": "P",
+      "cadence": "P365D",
+      "sensitivity": "restricted",
+      "path": "docs/assure/inputs/gpai-scope.md",
+      "selects_on": {
+        "all": [
+          {
+            "signal": "ai.training",
+            "is": "present"
+          },
+          {
+            "answer": "q5_markets",
+            "in": [
+              "eu-eea",
+              "global"
+            ]
+          }
+        ]
+      },
+      "baseline_verdict": "optional",
+      "satisfies": [
+        "aiact:art53"
+      ],
+      "audiences": [
+        "security",
+        "legal"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/assure/inputs/gpai-scope.md"
+      ],
+      "system_of_record": "ask",
+      "refusal_reason": "Model documentation under the GPAI obligations is a regulator-facing instrument.",
+      "signed_by": "the model provider"
+    },
+    {
+      "id": "assure.hardening-baseline",
+      "title": "Configuration hardening baseline",
+      "stage": "assure",
+      "durability": "durable",
+      "scope": "product",
+      "producible": "M",
+      "backfillability": "P",
+      "cadence": "P365D",
+      "sensitivity": "internal",
+      "path": "docs/assure/hardening-baseline.md",
+      "selects_on": {
+        "any": [
+          {
+            "signal": "deploy.iac",
+            "is": "present"
+          },
+          {
+            "signal": "deploy.container",
+            "is": "present"
+          },
+          {
+            "signal": "deploy.kubernetes",
+            "is": "present"
+          },
+          {
+            "signal": "deploy.serverless",
+            "is": "present"
+          },
+          {
+            "signal": "deploy.paas",
+            "is": "present"
+          }
+        ]
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [
+        "iso27001:A.8.9",
+        "soc2:CC6.6",
+        "itsg33:CM",
+        "pci-dss:2.2"
+      ],
+      "audiences": [
+        "security"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/assure/hardening-baseline.md",
+        "docs/operate/hardening.md"
+      ],
+      "system_of_record": "ask"
+    },
+    {
+      "id": "assure.hipaa-sra",
+      "title": "HIPAA security risk assessment",
+      "stage": "assure",
+      "durability": "evidence",
+      "scope": "product",
+      "producible": "R",
+      "backfillability": "P",
+      "cadence": "P365D",
+      "sensitivity": "restricted",
+      "path": "docs/assure/inputs/hipaa-sra-inputs.md",
+      "selects_on": {
+        "signal": "sec.health",
+        "is": "present"
+      },
+      "baseline_verdict": "optional",
+      "satisfies": [
+        "hipaa:164.308(a)(1)(ii)(A)"
+      ],
+      "audiences": [
+        "security",
+        "legal"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/assure/inputs/hipaa-sra-inputs.md"
+      ],
+      "system_of_record": "ask",
+      "refusal_reason": "A security risk assessment is a regulated deliverable under the HIPAA Security Rule and is evidence a covered entity or business associate stands behind. docdna writes the inventory that feeds it and refuses the assessment itself.",
+      "signed_by": "the covered entity's Security Official"
+    },
+    {
+      "id": "assure.identity-lifecycle",
+      "title": "Joiner, mover and leaver procedure",
+      "stage": "assure",
+      "durability": "durable",
+      "scope": "org",
+      "producible": "M",
+      "backfillability": "N",
+      "cadence": "P365D",
+      "sensitivity": "internal",
+      "path": "docs/assure/identity-lifecycle.md",
+      "selects_on": {
+        "all": [
+          {
+            "signal": "sec.authn",
+            "is": "present"
+          },
+          {
+            "any": [
+              {
+                "signal": "sec.compliance_program",
+                "is": "present"
+              },
+              {
+                "signal": "deploy.cd",
+                "is": "present"
+              }
+            ]
+          }
+        ]
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [
+        "soc2:CC6.2",
+        "soc2:CC6.3",
+        "iso27001:A.5.16",
+        "hipaa:164.308(a)(3)"
+      ],
+      "audiences": [
+        "security"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/assure/identity-lifecycle.md",
+        "docs/security/access-reviews.md"
+      ],
+      "system_of_record": "ask"
+    },
+    {
+      "id": "assure.impact-screening",
+      "title": "Impact assessment (DPIA, PIA, AIA or FRIA)",
+      "stage": "assure",
+      "durability": "evidence",
+      "scope": "product",
+      "producible": "R",
+      "backfillability": "P",
+      "cadence": "P365D",
+      "sensitivity": "restricted",
+      "path": "docs/assure/inputs/impact-screening-inputs.md",
+      "selects_on": {
+        "any": [
+          {
+            "answer": "q4_decides_about_people",
+            "in": [
+              "internal-ops-only",
+              "affects-money-services-employment-or-legal-status"
+            ]
+          },
+          {
+            "all": [
+              {
+                "signal": "data.special_category",
+                "gte": 1
+              },
+              {
+                "answer": "q5_markets",
+                "in": [
+                  "eu-eea",
+                  "global"
+                ]
+              }
+            ]
+          },
+          {
+            "all": [
+              {
+                "any": [
+                  {
+                    "signal": "ai.inference",
+                    "is": "present"
+                  },
+                  {
+                    "signal": "ai.sdk",
+                    "is": "present"
+                  },
+                  {
+                    "signal": "ai.training",
+                    "is": "present"
+                  },
+                  {
+                    "signal": "ai.rag",
+                    "is": "present"
+                  }
+                ]
+              },
+              {
+                "answer": "q5_markets",
+                "in": [
+                  "eu-eea",
+                  "global"
+                ]
+              }
+            ]
+          },
+          {
+            "answer": "q3_authorizer",
+            "in": [
+              "government-authorizer"
+            ]
+          }
+        ]
+      },
+      "baseline_verdict": "optional",
+      "satisfies": [
+        "gdpr:art35",
+        "tbs:pia",
+        "aiact:art27",
+        "tbs:aia"
+      ],
+      "audiences": [
+        "security",
+        "legal"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/assure/inputs/impact-screening-inputs.md"
+      ],
+      "system_of_record": "ask",
+      "refusal_reason": "An impact assessment is a legally binding analysis submitted to a regulator. An inadequate one breaches the obligation directly and, worse, stops the organisation doing a real one.",
+      "signed_by": "the privacy officer, and the regulator receives it"
+    },
+    {
+      "id": "assure.key-management",
+      "title": "Key management and rotation procedure",
+      "stage": "assure",
+      "durability": "durable",
+      "scope": "org",
+      "producible": "M",
+      "backfillability": "P",
+      "cadence": "P365D",
+      "sensitivity": "restricted",
+      "path": "docs/assure/key-management.md",
+      "selects_on": {
+        "any": [
+          {
+            "signal": "sec.crypto",
+            "is": "present"
+          },
+          {
+            "signal": "sec.artifact_signing",
+            "is": "present"
+          }
+        ]
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [
+        "iso27001:A.8.24",
+        "soc2:CC6.1",
+        "pci-dss:3.6"
+      ],
+      "audiences": [
+        "security"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/assure/key-management.md",
+        "docs/security/key-management.md"
+      ],
+      "system_of_record": "ask"
+    },
+    {
+      "id": "assure.license-attribution",
+      "title": "Open source attribution notice",
+      "stage": "assure",
+      "durability": "evidence",
+      "scope": "repo",
+      "producible": "M",
+      "backfillability": "H",
+      "cadence": "on-release",
+      "sensitivity": "public",
+      "path": "NOTICE",
+      "selects_on": {
+        "all": [
+          {
+            "signal": "supply.has_deps",
+            "is": "present"
+          },
+          {
+            "any": [
+              {
+                "signal": "users.is_oss",
+                "is": "present"
+              },
+              {
+                "signal": "supply.artifact_published",
+                "is": "present"
+              }
+            ]
+          }
+        ]
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [
+        "spdx"
+      ],
+      "audiences": [
+        "security"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "NOTICE",
+        "NOTICE.md",
+        "THIRD-PARTY-NOTICES.md",
+        "licenses/"
+      ],
+      "system_of_record": "repo"
+    },
+    {
+      "id": "assure.pci-saq",
+      "title": "PCI self-assessment questionnaire or attestation of compliance",
+      "stage": "assure",
+      "durability": "evidence",
+      "scope": "product",
+      "producible": "R",
+      "backfillability": "P",
+      "cadence": "P365D",
+      "sensitivity": "restricted",
+      "path": "docs/assure/inputs/pci-scope.md",
+      "selects_on": {
+        "signal": "sec.payments",
+        "is": "present"
+      },
+      "baseline_verdict": "optional",
+      "satisfies": [
+        "pci-dss:12.5"
+      ],
+      "audiences": [
+        "security",
+        "legal"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/assure/inputs/pci-scope.md"
+      ],
+      "system_of_record": "ask",
+      "refusal_reason": "A self-assessment questionnaire is a signed attestation to an acquirer. docdna records scope and refuses the attestation.",
+      "signed_by": "a qualified security assessor or the merchant's officer"
+    },
+    {
+      "id": "assure.pentest",
+      "title": "Penetration test report",
+      "stage": "assure",
+      "durability": "evidence",
+      "scope": "product",
+      "producible": "R",
+      "backfillability": "P",
+      "cadence": "P365D",
+      "sensitivity": "restricted",
+      "path": "docs/assure/inputs/pentest-scope.md",
+      "selects_on": {
+        "all": [
+          {
+            "signal": "sec.compliance_program",
+            "is": "present"
+          },
+          {
+            "any": [
+              {
+                "signal": "arch.service",
+                "is": "present"
+              },
+              {
+                "signal": "deploy.container",
+                "is": "present"
+              },
+              {
+                "signal": "deploy.kubernetes",
+                "is": "present"
+              },
+              {
+                "signal": "deploy.serverless",
+                "is": "present"
+              },
+              {
+                "signal": "deploy.paas",
+                "is": "present"
+              }
+            ]
+          }
+        ]
+      },
+      "baseline_verdict": "optional",
+      "satisfies": [
+        "ssdf:PW.8",
+        "pci-dss:11.4"
+      ],
+      "audiences": [
+        "security",
+        "legal"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/assure/inputs/pentest-scope.md"
+      ],
+      "system_of_record": "ask",
+      "refusal_reason": "A penetration test report describes tests somebody ran. docdna runs nothing.",
+      "signed_by": "the testing firm"
+    },
+    {
+      "id": "assure.phi-inventory",
+      "title": "Protected health information inventory",
+      "stage": "assure",
+      "durability": "durable",
+      "scope": "product",
+      "producible": "Y",
+      "backfillability": "P",
+      "cadence": "P180D",
+      "sensitivity": "restricted",
+      "path": "docs/assure/inputs/phi-inventory.md",
+      "selects_on": {
+        "all": [
+          {
+            "signal": "sec.health",
+            "is": "present"
+          },
+          {
+            "any": [
+              {
+                "signal": "data.person_entity",
+                "is": "present"
+              },
+              {
+                "signal": "data.pii",
+                "gte": 1
+              }
+            ]
+          }
+        ]
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [
+        "hipaa:164.308(a)(1)(ii)(A)",
+        "hipaa:164.316"
+      ],
+      "audiences": [
+        "security",
+        "engineering"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/assure/inputs/phi-inventory.md",
+        "docs/compliance/phi-inventory.md"
+      ],
+      "system_of_record": "ask"
+    },
+    {
+      "id": "assure.privacy-notice",
+      "title": "Public privacy notice",
+      "stage": "assure",
+      "durability": "durable",
+      "scope": "product",
+      "producible": "M",
+      "backfillability": "P",
+      "cadence": "P365D",
+      "sensitivity": "public",
+      "path": "docs/assure/privacy-notice.md",
+      "selects_on": {
+        "all": [
+          {
+            "signal": "data.pii",
+            "gte": 1
+          },
+          {
+            "any": [
+              {
+                "signal": "users.public_signup",
+                "is": "present"
+              },
+              {
+                "signal": "users.ui",
+                "is": "present"
+              }
+            ]
+          }
+        ]
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [
+        "gdpr:art13",
+        "pipeda:p8",
+        "hipaa:164.520"
+      ],
+      "audiences": [
+        "security"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/assure/privacy-notice.md",
+        "PRIVACY.md",
+        "docs/privacy/notice.md"
+      ],
+      "system_of_record": "ask"
+    },
+    {
+      "id": "assure.rbac-matrix",
+      "title": "Access control inventory",
+      "stage": "assure",
+      "durability": "durable",
+      "scope": "product",
+      "producible": "M",
+      "backfillability": "P",
+      "cadence": "P180D",
+      "sensitivity": "restricted",
+      "path": "docs/assure/access-control.md",
+      "selects_on": {
+        "any": [
+          {
+            "signal": "sec.authn",
+            "is": "present"
+          },
+          {
+            "signal": "sec.authz",
+            "is": "present"
+          }
+        ]
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [
+        "iso27001:A.5.15",
+        "soc2:CC6.1",
+        "itsg33:AC",
+        "hipaa:164.312(a)(1)"
+      ],
+      "audiences": [
+        "security"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/assure/access-control.md",
+        "docs/security/rbac.md"
+      ],
+      "system_of_record": "ask"
+    },
+    {
+      "id": "assure.ropa",
+      "title": "Records of processing activities",
+      "stage": "assure",
+      "durability": "durable",
+      "scope": "product",
+      "producible": "M",
+      "backfillability": "P",
+      "cadence": "P365D",
+      "sensitivity": "internal",
+      "path": "docs/assure/ropa.md",
+      "selects_on": {
+        "all": [
+          {
+            "signal": "data.pii",
+            "gte": 1
+          },
+          {
+            "answer": "q5_markets",
+            "in": [
+              "eu-eea",
+              "global"
+            ]
+          }
+        ]
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [
+        "gdpr:art30"
+      ],
+      "audiences": [
+        "security"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/assure/ropa.md",
+        "docs/privacy/ropa.md"
+      ],
+      "system_of_record": "ask"
+    },
+    {
+      "id": "assure.saa-inputs",
+      "title": "Security assessment and authorization package",
+      "stage": "assure",
+      "durability": "evidence",
+      "scope": "product",
+      "producible": "R",
+      "backfillability": "P",
+      "cadence": "P365D",
+      "sensitivity": "restricted",
+      "path": "docs/assure/inputs/control-evidence-index.md",
+      "selects_on": {
+        "answer": "q3_authorizer",
+        "in": [
+          "government-authorizer"
+        ]
+      },
+      "baseline_verdict": "optional",
+      "satisfies": [
+        "itsg33",
+        "tbs:dsm"
+      ],
+      "audiences": [
+        "security",
+        "legal"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/assure/inputs/control-evidence-index.md"
+      ],
+      "system_of_record": "ask",
+      "refusal_reason": "An SA&A package asserts control implementation and is signed by a departmental authorizer. Drafting 'AC-2 implemented' because a grep found an IAM role is a false control assertion in an authorization package.",
+      "signed_by": "the departmental authorizer"
     },
     {
       "id": "assure.sbom",
@@ -271,6 +1487,67 @@
       "system_of_record": "repo"
     },
     {
+      "id": "assure.sec-incident-plan",
+      "title": "Security incident response plan",
+      "stage": "assure",
+      "durability": "durable",
+      "scope": "org",
+      "producible": "M",
+      "backfillability": "P",
+      "cadence": "P365D",
+      "sensitivity": "internal",
+      "path": "docs/assure/incident-response.md",
+      "selects_on": {
+        "any": [
+          {
+            "signal": "data.pii",
+            "gte": 1
+          },
+          {
+            "any": [
+              {
+                "signal": "arch.service",
+                "is": "present"
+              },
+              {
+                "signal": "deploy.container",
+                "is": "present"
+              },
+              {
+                "signal": "deploy.kubernetes",
+                "is": "present"
+              },
+              {
+                "signal": "deploy.serverless",
+                "is": "present"
+              },
+              {
+                "signal": "deploy.paas",
+                "is": "present"
+              }
+            ]
+          }
+        ]
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [
+        "iso27001:A.5.24",
+        "soc2:CC7.3",
+        "gdpr:art33",
+        "cra:art14",
+        "hipaa:164.308(a)(6)"
+      ],
+      "audiences": [
+        "security"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/assure/incident-response.md",
+        "docs/security/incident-response.md"
+      ],
+      "system_of_record": "ask"
+    },
+    {
       "id": "assure.secrets-policy",
       "title": "Secrets management policy",
       "stage": "assure",
@@ -341,6 +1618,211 @@
       "system_of_record": "ask"
     },
     {
+      "id": "assure.secure-design-review",
+      "title": "Secure design review record",
+      "stage": "assure",
+      "durability": "evidence",
+      "scope": "product",
+      "producible": "R",
+      "backfillability": "P",
+      "cadence": "P365D",
+      "sensitivity": "restricted",
+      "path": "docs/assure/inputs/design-review-scope.md",
+      "selects_on": {
+        "all": [
+          {
+            "signal": "sec.compliance_program",
+            "is": "present"
+          },
+          {
+            "any": [
+              {
+                "signal": "arch.service",
+                "is": "present"
+              },
+              {
+                "signal": "deploy.container",
+                "is": "present"
+              },
+              {
+                "signal": "deploy.kubernetes",
+                "is": "present"
+              },
+              {
+                "signal": "deploy.serverless",
+                "is": "present"
+              },
+              {
+                "signal": "deploy.paas",
+                "is": "present"
+              }
+            ]
+          }
+        ]
+      },
+      "baseline_verdict": "optional",
+      "satisfies": [
+        "ssdf:PW.2.1"
+      ],
+      "audiences": [
+        "security",
+        "legal"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/assure/inputs/design-review-scope.md"
+      ],
+      "system_of_record": "ask",
+      "refusal_reason": "A design review records what reviewers actually concluded. Inventing that record fabricates a human judgement.",
+      "signed_by": "the reviewers named in the record"
+    },
+    {
+      "id": "assure.secure-sdlc-policy",
+      "title": "Secure development policy",
+      "stage": "assure",
+      "durability": "durable",
+      "scope": "org",
+      "producible": "M",
+      "backfillability": "P",
+      "cadence": "P365D",
+      "sensitivity": "internal",
+      "path": "docs/assure/secure-sdlc-policy.md",
+      "selects_on": {
+        "any": [
+          {
+            "signal": "sec.compliance_program",
+            "is": "present"
+          },
+          {
+            "signal": "sec.scanners",
+            "is": "present"
+          },
+          {
+            "signal": "deploy.ci",
+            "is": "present"
+          }
+        ]
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [
+        "ssdf:PO.1",
+        "iso27001:A.8.25",
+        "soc2:CC8.1"
+      ],
+      "audiences": [
+        "security"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/assure/secure-sdlc-policy.md",
+        "docs/security/sdlc.md",
+        "SECURITY-POLICY.md"
+      ],
+      "system_of_record": "ask"
+    },
+    {
+      "id": "assure.soc2-description",
+      "title": "SOC 2 system description",
+      "stage": "assure",
+      "durability": "evidence",
+      "scope": "product",
+      "producible": "R",
+      "backfillability": "P",
+      "cadence": "P365D",
+      "sensitivity": "restricted",
+      "path": "docs/assure/inputs/system-description-inputs.md",
+      "selects_on": {
+        "signal": "sec.compliance_program",
+        "is": "present"
+      },
+      "baseline_verdict": "optional",
+      "satisfies": [
+        "soc2"
+      ],
+      "audiences": [
+        "security",
+        "legal"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/assure/inputs/system-description-inputs.md"
+      ],
+      "system_of_record": "ask",
+      "refusal_reason": "The system description is written by the organisation and attested by a licensed CPA firm. A generated description asserts controls nobody confirmed, in the one document an auditor reads first.",
+      "signed_by": "management, attested by the service auditor"
+    },
+    {
+      "id": "assure.ssdf-attestation",
+      "title": "Secure software development attestation",
+      "stage": "assure",
+      "durability": "evidence",
+      "scope": "product",
+      "producible": "R",
+      "backfillability": "P",
+      "cadence": "P365D",
+      "sensitivity": "restricted",
+      "path": "docs/assure/inputs/ssdf-scope.md",
+      "selects_on": {
+        "all": [
+          {
+            "signal": "sec.compliance_program",
+            "is": "present"
+          },
+          {
+            "answer": "q3_authorizer",
+            "in": [
+              "government-authorizer"
+            ]
+          }
+        ]
+      },
+      "baseline_verdict": "optional",
+      "satisfies": [
+        "ssdf"
+      ],
+      "audiences": [
+        "security",
+        "legal"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/assure/inputs/ssdf-scope.md"
+      ],
+      "system_of_record": "ask",
+      "refusal_reason": "A secure development attestation is signed by a company officer and carries legal consequence for a false statement.",
+      "signed_by": "a company officer"
+    },
+    {
+      "id": "assure.supplier-reqs",
+      "title": "Supplier security requirements",
+      "stage": "assure",
+      "durability": "durable",
+      "scope": "org",
+      "producible": "M",
+      "backfillability": "N",
+      "cadence": "P365D",
+      "sensitivity": "internal",
+      "path": "docs/assure/supplier-requirements.md",
+      "selects_on": {
+        "signal": "sec.compliance_program",
+        "is": "present"
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [
+        "ssdf:PO.1.3",
+        "iso27001:A.5.19",
+        "soc2:CC9.2"
+      ],
+      "audiences": [
+        "security"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/assure/supplier-requirements.md"
+      ],
+      "system_of_record": "ask"
+    },
+    {
       "id": "assure.threat-model",
       "title": "Threat model",
       "stage": "assure",
@@ -387,6 +1869,39 @@
         "docs/design/threat-model.md"
       ],
       "system_of_record": "ask"
+    },
+    {
+      "id": "assure.training-records",
+      "title": "Security training records",
+      "stage": "assure",
+      "durability": "evidence",
+      "scope": "product",
+      "producible": "R",
+      "backfillability": "P",
+      "cadence": "P1095D",
+      "sensitivity": "restricted",
+      "path": "docs/assure/inputs/training-scope.md",
+      "selects_on": {
+        "signal": "sec.compliance_program",
+        "is": "present"
+      },
+      "baseline_verdict": "optional",
+      "satisfies": [
+        "ssdf:PO.2.2",
+        "soc2:CC1.4",
+        "hipaa:164.308(a)(5)"
+      ],
+      "audiences": [
+        "security",
+        "legal"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/assure/inputs/training-scope.md"
+      ],
+      "system_of_record": "ask",
+      "refusal_reason": "Training records assert that named people completed training on named dates.",
+      "signed_by": "the training administrator"
     },
     {
       "id": "assure.vdp",
@@ -457,6 +1972,87 @@
         ".github/SECURITY.md",
         "docs/security/disclosure.md",
         ".well-known/security.txt"
+      ],
+      "system_of_record": "ask"
+    },
+    {
+      "id": "assure.vendor-risk",
+      "title": "Vendor risk assessment",
+      "stage": "assure",
+      "durability": "evidence",
+      "scope": "org",
+      "producible": "M",
+      "backfillability": "P",
+      "cadence": "P365D",
+      "sensitivity": "internal",
+      "path": "docs/assure/vendor-risk.md",
+      "selects_on": {
+        "all": [
+          {
+            "signal": "supply.has_deps",
+            "is": "present"
+          },
+          {
+            "signal": "sec.compliance_program",
+            "is": "present"
+          }
+        ]
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [
+        "iso27001:A.5.19",
+        "soc2:CC9.2"
+      ],
+      "audiences": [
+        "security"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/assure/vendor-risk.md"
+      ],
+      "system_of_record": "ask"
+    },
+    {
+      "id": "assure.vuln-handling",
+      "title": "Vulnerability handling process",
+      "stage": "assure",
+      "durability": "durable",
+      "scope": "org",
+      "producible": "M",
+      "backfillability": "P",
+      "cadence": "P365D",
+      "sensitivity": "internal",
+      "path": "docs/assure/vulnerability-handling.md",
+      "selects_on": {
+        "any": [
+          {
+            "signal": "supply.artifact_published",
+            "is": "present"
+          },
+          {
+            "signal": "users.is_oss",
+            "is": "present"
+          },
+          {
+            "signal": "sec.scanners",
+            "is": "present"
+          }
+        ]
+      },
+      "baseline_verdict": "recommended",
+      "satisfies": [
+        "ssdf:RV.1",
+        "iso30111",
+        "cra:art14",
+        "soc2:CC7.4"
+      ],
+      "audiences": [
+        "security"
+      ],
+      "defers_to": null,
+      "detect_paths": [
+        "docs/assure/vulnerability-handling.md",
+        "docs/security/vulnerability-management.md"
       ],
       "system_of_record": "ask"
     },

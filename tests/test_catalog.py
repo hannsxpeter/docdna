@@ -12,20 +12,10 @@ SELECT_PATH = ROOT / "skill" / "scripts" / "docdna_select.py"
 
 SCHEMA = 1
 
-DOCUMENT_TOTAL = 60
-PRODUCIBLE_TOTALS = {"Y": 41, "M": 19, "R": 0}
-STAGE_TOTALS = {"frame": 4, "decide": 4, "design": 5, "build": 14, "verify": 4, "assure": 9,
-                "operate": 11, "serve": 2, "govern": 6, "retire": 1}
-STAGE_PRODUCIBLE = {("assure", "M"): 4, ("assure", "Y"): 5,
-                    ("build", "M"): 2, ("build", "Y"): 12,
-                    ("decide", "M"): 1, ("decide", "Y"): 3,
-                    ("design", "Y"): 5,
-                    ("frame", "Y"): 4,
-                    ("govern", "M"): 1, ("govern", "Y"): 5,
-                    ("operate", "M"): 9, ("operate", "Y"): 2,
-                    ("retire", "Y"): 1,
-                    ("serve", "M"): 1, ("serve", "Y"): 1,
-                    ("verify", "M"): 1, ("verify", "Y"): 3}
+DOCUMENT_TOTAL = 96
+PRODUCIBLE_TOTALS = {"Y": 42, "M": 37, "R": 17}
+STAGE_TOTALS = {"assure": 45, "build": 14, "decide": 4, "design": 5, "frame": 4, "govern": 6, "operate": 11, "retire": 1, "serve": 2, "verify": 4}
+STAGE_PRODUCIBLE = {("assure", "M"): 22, ("assure", "R"): 17, ("assure", "Y"): 6, ("build", "M"): 2, ("build", "Y"): 12, ("decide", "M"): 1, ("decide", "Y"): 3, ("design", "Y"): 5, ("frame", "Y"): 4, ("govern", "M"): 1, ("govern", "Y"): 5, ("operate", "M"): 9, ("operate", "Y"): 2, ("retire", "Y"): 1, ("serve", "M"): 1, ("serve", "Y"): 1, ("verify", "M"): 1, ("verify", "Y"): 3}
 
 SIGNAL_TOTAL = 132
 FAMILIES = ("a11y", "ai", "arch", "data", "deploy", "docs", "iface", "jur", "ops", "proc",
@@ -34,9 +24,9 @@ FAMILY_TOTALS = {"a11y": 5, "ai": 8, "arch": 10, "data": 11, "deploy": 9, "docs"
                  "jur": 11, "ops": 10, "proc": 8, "qual": 6, "scale": 6, "sec": 12, "supply": 8,
                  "users": 9}
 
-RULE_TOTAL = 88
+RULE_TOTAL = 115
 PRIMARY_TOTAL = 8
-OVERLAY_TOTAL = 5
+OVERLAY_TOTAL = 10
 QUESTION_TOTAL = 8
 
 STAGES = ("frame", "decide", "design", "build", "verify", "assure", "operate", "serve", "govern",
@@ -210,11 +200,11 @@ class ShapeTests(unittest.TestCase):
 
 
 class DocumentCountTests(unittest.TestCase):
-    def test_exactly_sixty_entries(self):
+    def test_the_catalog_is_ninety_six_entries(self):
         self.assertEqual(len(CAT.documents), DOCUMENT_TOTAL)
         self.assertEqual(len(CAT.doc_ids), DOCUMENT_TOTAL)
 
-    def test_producible_split_is_forty_one_y_nineteen_m_zero_r(self):
+    def test_producible_split_is_forty_two_y_thirty_seven_m_seventeen_r(self):
         counts = counted(CAT.documents, lambda doc: doc["producible"])
         self.assertEqual(counts.get("Y", 0), PRODUCIBLE_TOTALS["Y"])
         self.assertEqual(counts.get("M", 0), PRODUCIBLE_TOTALS["M"])

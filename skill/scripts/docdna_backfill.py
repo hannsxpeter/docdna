@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 
 SCHEMA = 1
 TOOL = "docdna_backfill"
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SKILL_ROOT = os.path.normpath(os.path.join(HERE, ".."))
@@ -671,8 +671,13 @@ def required_gaps(doc):
 
 
 def refusal_for(doc, requested):
+    # A catalog entry may carry its own refusal_reason and signed_by. Naming the instrument and the
+    # role that signs it is the difference between a refusal a reader can act on and one that reads
+    # as the tool being unhelpful.
     if doc["producible"] == "R":
-        supply = REFUSAL_R
+        supply = doc.get("refusal_reason") or REFUSAL_R
+        if doc.get("signed_by"):
+            supply = "%s Signed by %s." % (supply, doc["signed_by"])
     else:
         supply = REFUSALS.get(doc["id"], REFUSAL_FALLBACK)
     return {"id": doc["id"], "title": doc["title"], "path": doc["path"],
@@ -1647,7 +1652,9 @@ def check_producible(doc):
     if doc is None or doc["producible"] == "Y":
         return []
     if doc["producible"] == "R":
-        supply = REFUSAL_R
+        supply = doc.get("refusal_reason") or REFUSAL_R
+        if doc.get("signed_by"):
+            supply = "%s Signed by %s." % (supply, doc["signed_by"])
     else:
         supply = REFUSALS.get(doc["id"], REFUSAL_FALLBACK)
     return [finding("blocker", "producible", 1,

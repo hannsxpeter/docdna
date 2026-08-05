@@ -6,7 +6,7 @@ allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 
 # DocDNA
 
-Version: 1.1.0
+Version: 1.2.0
 
 ## What this is
 
@@ -16,10 +16,10 @@ it does not owe and on what evidence, sets an expiry tripwire on every one of th
 the ones the code can prove. Linters, doc generators and link checkers all check what already exists;
 deciding what should exist and then defending an absence is the job here.
 
-**Say what "decides" means.** The registry holds 132 signals; across 51 repositories the count coming back
-present ranged from 4 to 46, median 19. No corpus figure exists for how many come back `unknown`, so quote
-the run in hand, printed under `not looked at, or refused`, never a median for it. docdna decides what the
-code can settle and shows the user what it assumed about the rest. Never narrate it as more than that.
+**Say what "decides" means.** Of 132 signals, the count coming back present ranged 4 to 46 across 51
+repositories, median 19. No corpus figure exists for `unknown`, so quote the run in hand, printed under
+`not looked at, or refused`, never a median. docdna decides what the code can settle and shows what it
+assumed about the rest. Never narrate it as more.
 
 **The one rule, and everything else follows from it:** nothing is asserted that the repository cannot
 prove. Every claim carries a citation or a GAP marker. There is no third state.
@@ -186,8 +186,7 @@ answer, and the refusals name their reasons.
 
 ## Script flags
 
-The whole CLI surface. Every helper takes a positional `repo` (default `.`) and `--json`; `docdna_llms.py`
-takes nothing else.
+The whole CLI surface. Every helper takes a positional `repo` (default `.`) and `--json`; `llms` takes no more.
 
 | Script | Other flags |
 | --- | --- |
@@ -214,18 +213,17 @@ a `human:` one is shape-checked. Every line after the frontmatter is read, headi
 included, and the banner and control table answer to what docdna derived, not to a citation.
 
 **An exhaustive or negative claim needs a `run` citation.** "Every declared key has a read site", "no flag
-guards a write path", "there are no collisions": a `code` citation resolves one symbol in one file and
-cannot carry any of them. Run the search and cite the command with its output, narrow the claim to the set
-you inspected, or emit an `unverifiable` GAP. The verifier cannot catch this one; the anchor does resolve.
+guards a write path": a `code` citation resolves one symbol in one file and carries neither. Cite the
+search command with its output, narrow the claim to the set you inspected, or emit an `unverifiable` GAP.
+The verifier cannot catch this one, because the anchor does resolve.
 
 **Substitution test.** Swap the project name for a competitor's and the stack for a different one. If the
 sentence survives it is not documentation: "the system follows a layered architecture" survives.
 
-**Every selected document names what selected it.** One selected by a signal cites that signal with the
-file carrying it; one selected by the catalog baseline, by an interview answer, or by a signal's absence
-names which instead and has no path, none of the three being a place in the code. Read the row's
-`evidence` before promising a path: 13 of the 48 rows here have none, `govern.manifest` (required) among
-them, and a row that names no signal is not thereby unrequired.
+**Every selected document names what selected it.** A signal-selected row cites that signal and its file;
+one selected by the catalog baseline, an interview answer, or a signal's absence names which instead and
+has no path, none of the three being a place in the code. Read the row's `evidence` before promising a
+path, and note a row naming no signal is not thereby unrequired: `govern.manifest` is required with none.
 
 **Every exclusion carries a reason, a citation, and a tripwire.** An unexplained exclusion is worse than a
 missing document, because it launders a gap into a decision.
@@ -241,10 +239,13 @@ State these when asked, rather than attempting them.
    repository's own commands (non-goal 7), so a `run:` number is never observed.
 3. **Does not certify, attest, or sign.** No authority to operate, CE marking, declaration of conformity,
    or completed VPAT. It produces the inputs an assessor needs and names who must sign, empty.
-4. **Does not draft legal or regulator-facing instruments.** No System Security Plan, PIA, DPIA, AIA,
-   FRIA, ACR, or AI Act Annex IV file. It emits an evidence annex under `docs/assure/inputs/` and names
-   who must sign. No such instrument is in the catalog, so there is no id to ask for; `producible: R` and
-   invariant I1 hold the line, and the nineteen `producible: M` entries name what a human must write.
+4. **Does not draft legal or regulator-facing instruments.** No SSP, HIPAA risk assessment, BAA, SOC 2
+   system description, PCI attestation, PIA, DPIA, AIA, FRIA, ACR, or AI Act Annex IV file. **Seventeen
+   entries are `producible: R`**, so each is ruled on rather than absent: backfill declines it and prints
+   its `refusal_reason` and `signed_by` role, which quote verbatim, since naming the signer is what makes
+   a refusal actionable. Only an interview answer may raise an R entry to `required`, never a signal
+   (I6); I1 fails the build if a template ships for one. It emits an evidence annex under
+   `docs/assure/inputs/` instead, and the thirty-seven `M` entries name what a human must write.
 5. **Does not give legal advice or assert that a regime applies.** It reports the signal, names the regime
    that signal might trigger, and says to confirm with counsel.
 6. **Does not generate an SBOM.** Real dependency resolution is not a stdlib job. It detects the ecosystem,
@@ -272,9 +273,8 @@ python3 "<skill-dir>/scripts/docdna_wire.py" <target-dir>
 ```
 
 Creates or updates `AGENTS.md` as the portable baseline and updates tool-specific files that already
-exist. The block coexists with any other tool's block in the same file.
-
-If you cannot run the helper, add this block by hand to `AGENTS.md`, and to `CLAUDE.md` for Claude Code:
+exist. The block coexists with any other tool's block in the same file. Without the helper, add this by
+hand to `AGENTS.md`, and to `CLAUDE.md` for Claude Code:
 
 ```
 <!-- docdna:start -->
@@ -284,7 +284,7 @@ The documentation set for this repo is indexed in [DOCDNA.md](DOCDNA.md): which 
 <!-- docdna:end -->
 ```
 
-Without that last sentence a pointer block makes stale documentation authoritative.
+Keep the last sentence: without it, a pointer block makes stale documentation authoritative.
 
 ## Reference files
 
@@ -293,7 +293,7 @@ Load on demand, by name. Do not read them all.
 | File | When |
 | --- | --- |
 | `catalog/SCHEMA.md` | Changing the catalog, or interpreting a predicate |
-| `catalog/documents.json` | Every Survey. One read replaces sixty document lookups. |
+| `catalog/documents.json` | Every Survey. One read replaces ninety-six document lookups. |
 | `references/evidence.md` | Every Backfill, before writing |
 | `templates/_frontmatter.md`, `_gap.md`, `_banner.md`, `_document-control.md` | Every Backfill |
 | `templates/<stage>-<slug>.md` | Only for the entry being written |

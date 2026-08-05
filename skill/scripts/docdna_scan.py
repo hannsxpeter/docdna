@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 
 SCHEMA = 1
 TOOL = "docdna_scan"
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SIGNALS_PATH = os.path.normpath(os.path.join(HERE, "..", "catalog", "signals.json"))
@@ -1428,6 +1428,18 @@ def normalize_excludes(values):
     return out
 
 
+def prune_index(index, excludes):
+    keep = lambda rel: not excluded_path(rel, excludes)
+    paths = [rel for rel in index["paths"] if keep(rel)]
+    pruned = dict(index)
+    pruned["paths"] = paths
+    pruned["pathset"] = set(paths)
+    pruned["dirs"] = set(rel for rel in index["dirs"] if keep(rel))
+    pruned["entries"] = [rel for rel in index["entries"] if keep(rel)]
+    pruned["basenames"] = set(os.path.basename(rel) for rel in paths)
+    return pruned
+
+
 def excluded_path(rel, excludes):
     for prefix in excludes:
         if rel == prefix or rel.startswith(prefix + "/"):
@@ -2393,6 +2405,13 @@ def scan(root, families, deep, max_evidence, excludes=None):
     index = build_index(root)
     denied = [rel for rel in index["paths"] if denied_read(rel)]
     excludes = normalize_excludes(excludes)
+    # An excluded directory leaves the SIGNAL index too, not only the document and drift passes. A
+    # repository that vendors another project under fixtures/ or examples/ otherwise has that
+    # project's manifests read as its own: one demo depending on fhirclient made this repository
+    # report a health overlay and claim that card data crossed it. Naming a directory as not part of
+    # this project has to mean the archetype stops reading it.
+    if excludes:
+        index = prune_index(index, excludes)
     ctx = {"root": root, "paths": index["paths"], "pathset": index["pathset"],
            "dirs": index["dirs"], "entries": index["entries"], "basenames": index["basenames"],
            "cache": {}, "results": {}, "docs": [], "doc_lag": {}, "deep": deep,
