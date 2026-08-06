@@ -2,9 +2,11 @@
 """Scan a repository for documentation signals, existing documents, and drift."""
 
 import argparse
+import hashlib
 import json
 import os
 import re
+import stat
 import subprocess
 import sys
 from collections import Counter
@@ -12,7 +14,7 @@ from datetime import datetime, timedelta, timezone
 
 SCHEMA = 1
 TOOL = "docdna_scan"
-VERSION = "1.2.0"
+VERSION = "1.2.1"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
@@ -20,6 +22,7 @@ if HERE not in sys.path:
 from docdna_fs import (FileTooLarge, bind_root as safe_bind_root,
                        file_size as safe_file_size, listdir as safe_listdir,
                        open_root as safe_open_root, read_text as safe_read_text,
+                       path_stat as safe_path_stat,
                        root_identity as safe_root_identity,
                        root_is_current as safe_root_is_current,
                        walk_paths as safe_walk_paths)
@@ -43,6 +46,7 @@ DENY_READ_ALLOW = (".example", ".sample", ".template")
 # command strings it is reporting, so re-reading it turns every run into a new finding about the
 # previous run.
 SELF_GENERATED = ("DOCDNA.md", "llms.txt")
+FINGERPRINT_IGNORES = SELF_GENERATED + (".docdna/manifest.json",)
 
 FAMILIES = ["a11y", "ai", "arch", "data", "deploy", "docs", "iface", "jur", "ops", "proc",
             "qual", "scale", "sec", "supply", "users"]
@@ -676,6 +680,25 @@ def build_index(root):
             "source": source, "pruned": sorted(pruned)}
 
 
+def content_fingerprint(root, index):
+    """Bind an exported scan to the indexed paths and their observable file state."""
+    digest = hashlib.sha256()
+    for rel in sorted(index["paths"]):
+        if rel in FINGERPRINT_IGNORES or rel.startswith(".docdna/meta/"):
+            continue
+        details = safe_path_stat(root, rel)
+        if details is None:
+            fields = (rel, "missing")
+        else:
+            kind = "file" if stat.S_ISREG(details.st_mode) else "other"
+            fields = (rel, kind, details.st_size, details.st_mtime_ns,
+                      stat.S_IMODE(details.st_mode))
+        encoded = json.dumps(fields, ensure_ascii=False, separators=(",", ":"))
+        digest.update(encoded.encode("utf-8", "replace"))
+        digest.update(b"\n")
+    return "sha256:" + digest.hexdigest()
+
+
 def read_text(ctx, rel):
     if rel in ctx["cache"]:
         return ctx["cache"][rel]
@@ -768,7 +791,7 @@ def manifest_flat(rel, text):
     if base.endswith(".json"):
         try:
             flatten_json(json.loads(text), "", flat)
-        except ValueError:
+        except (ValueError, RecursionError):
             return {}
         return flat
     if base.endswith(".toml"):
@@ -2315,7 +2338,7 @@ def openapi_routes(ctx):
         if base.endswith(".json"):
             try:
                 data = json.loads(text)
-            except ValueError:
+            except (ValueError, RecursionError):
                 continue
             count = len(data.get("paths") or {})
         else:
@@ -2495,6 +2518,7 @@ def scan_bound(root, families, deep, max_evidence, excludes=None):
     # this project has to mean the archetype stops reading it.
     if excludes:
         index = prune_index(index, excludes)
+    fingerprint = content_fingerprint(root, index)
     ctx = {"root": root, "paths": index["paths"], "pathset": index["pathset"],
            "dirs": index["dirs"], "entries": index["entries"], "basenames": index["basenames"],
            "cache": {}, "results": {}, "docs": [], "doc_lag": {}, "deep": deep,
@@ -2527,6 +2551,7 @@ def scan_bound(root, families, deep, max_evidence, excludes=None):
         doc.pop("top_author", None)
     return {"schema": SCHEMA, "tool": TOOL, "version": VERSION, "generated": now_utc(),
             "root": root, "root_identity": {"device": device, "inode": inode},
+            "content_fingerprint": fingerprint,
             "commit": ctx["git"]["head"], "dirty": ctx["git"]["dirty"],
             "scan": ctx["scan"], "signals": emitted, "inventory": inventory, "drift": drift,
             "ownership": build_ownership(ctx),
@@ -2604,7 +2629,7 @@ def main(argv=None):
     try:
         report = scan(args.repo, set(args.family or []), args.deep, max(1, args.max_evidence),
                       args.exclude_dir)
-    except (OSError, ValueError) as error:
+    except (OSError, ValueError, RecursionError) as error:
         sys.stderr.write("docdna_scan: %s\n" % error)
         return 2
     if args.json:

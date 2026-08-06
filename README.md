@@ -54,7 +54,7 @@ them decides what should exist, and none of them will defend an absence. That ga
 ## Get started in two minutes
 
 ```sh
-git clone https://github.com/hannsxpeter/docdna.git
+git clone --branch v1.2.1 --depth 1 https://github.com/hannsxpeter/docdna.git
 cd docdna
 ./install.sh claude      # or: all | codex | cursor | windsurf
 ```
@@ -63,8 +63,9 @@ Restart your assistant, then ask it, in plain English:
 
 > survey the documentation for this repo
 
-That is the whole first run. It asks you **zero questions**, writes no documents, and changes no code. You
-get a one-screen report and a file called `DOCDNA.md` you can read or hand to somebody else.
+That is the whole first run. It asks you **zero questions**, writes no project documentation, and changes
+no code. It writes the decision ledger at `.docdna/manifest.json` and a one-screen `DOCDNA.md` report you
+can read or hand to somebody else.
 
 New to it? [docs/QUICKSTART.md](docs/QUICKSTART.md) walks through the same run line by line and
 defines every term.
@@ -266,10 +267,10 @@ year. Full posture in [docs/COMPLIANCE.md](docs/COMPLIANCE.md).
 
 ## Does it stand alone?
 
-Yes. docdna needs Python 3.8 on a POSIX host with descriptor-relative, no-follow filesystem support,
-which includes current Linux and macOS releases. It needs no third-party Python package and assumes no
-relationship to any other tool. Windows is not supported because Python does not expose equivalent
-race-safe filesystem primitives there.
+Yes. docdna needs Python 3.8 on a POSIX host. Its filesystem layer checks for descriptor-relative,
+no-follow primitives before using them and refuses the operation when the host cannot provide them. It
+needs no third-party Python package and assumes no relationship to any other tool.
+Windows is not supported because Python does not expose equivalent race-safe filesystem primitives there.
 
 If you also use [codedna](https://github.com/hannsxpeter/codedna), which fingerprints how a repository
 writes code, the two run side by side: separate projects, separate installs, no shared code, and their

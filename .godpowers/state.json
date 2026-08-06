@@ -1,0 +1,16 @@
+{
+  "$schema": "https://godpowers.dev/schema/state.v1.json",
+  "version": "1.0.0",
+  "project": {
+    "name": "docdna",
+    "started": "2026-08-05T00:00:00Z"
+  },
+  "tiers": {
+    "tier-3": {
+      "harden": {
+        "status": "done",
+        "updated": "2026-08-06T01:02:17Z"
+      }
+    }
+  }
+}

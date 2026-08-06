@@ -538,6 +538,41 @@ class CheckTests(unittest.TestCase):
             self.assertIn("does not match repository", process.stderr)
             self.assertNotIn(marker, process.stdout)
 
+    def test_check_rejects_a_scan_after_repository_contents_change(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            repo = base / "repo"
+            repo.mkdir()
+            (repo / "README.md").write_text("original\n", encoding="utf-8")
+            scan_path = base / "scan.json"
+            with scan_path.open("w", encoding="utf-8") as handle:
+                subprocess.run([sys.executable, str(SCAN_PATH), "--json", str(repo)],
+                               stdout=handle, check=True)
+            (repo / "package.json").write_text('{"dependencies":{"stripe":"1.0.0"}}\n',
+                                               encoding="utf-8")
+
+            process = cli(repo, "--json", "--scan", str(scan_path))
+
+            self.assertEqual(process.returncode, 2)
+            self.assertIn("current repository contents", process.stderr)
+            self.assertNotIn("Traceback", process.stderr)
+
+    def test_check_fails_closed_on_a_symlinked_config(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            repo = base / "repo"
+            metadata = repo / ".docdna"
+            metadata.mkdir(parents=True)
+            outside = base / "config.json"
+            outside.write_text('{"assurance_set":["build.readme"]}', encoding="utf-8")
+            os.symlink(str(outside), str(metadata / "config.json"))
+
+            process = cli(repo, "--json")
+
+            self.assertEqual(process.returncode, 2)
+            self.assertIn("config.json", process.stderr)
+            self.assertNotIn("Traceback", process.stderr)
+
     def test_check_rejects_a_null_inventory_path_concisely(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)

@@ -14,8 +14,9 @@ SCAN_PATH = ROOT / "skill" / "scripts" / "docdna_scan.py"
 SIGNALS_PATH = ROOT / "skill" / "catalog" / "signals.json"
 FIXTURES = ROOT / "tests" / "fixtures"
 
-TOP_KEYS = ["commit", "dirty", "drift", "generated", "inventory", "ownership", "root",
-            "root_identity", "scan", "schema", "signals", "tool", "unknown", "version"]
+TOP_KEYS = ["commit", "content_fingerprint", "dirty", "drift", "generated", "inventory",
+            "ownership", "root", "root_identity", "scan", "schema", "signals", "tool",
+            "unknown", "version"]
 
 
 def load_scan():
@@ -484,8 +485,29 @@ class ScanTests(unittest.TestCase):
             self.assertEqual(payload["tool"], "docdna_scan")
             self.assertEqual(payload["schema"], self.scan.SCHEMA)
             self.assertEqual(payload["version"], self.scan.VERSION)
+            self.assertRegex(payload["content_fingerprint"], r"^sha256:[0-9a-f]{64}$")
             self.assertTrue(payload["signals"])
             self.assertEqual(payload["root"], os.path.abspath(tmp))
+
+    def test_content_fingerprint_changes_when_the_repository_changes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            write(tmp, "README.md", "# original\n")
+            before = self.scan.scan(tmp, set(), False, 5)["content_fingerprint"]
+            write(tmp, "package.json", '{"dependencies":{"stripe":"1.0.0"}}\n')
+            after = self.scan.scan(tmp, set(), False, 5)["content_fingerprint"]
+
+            self.assertNotEqual(before, after)
+
+    def test_deeply_nested_repository_json_is_ignored_without_a_traceback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            write(tmp, "package.json", "[" * 1500 + "0" + "]" * 1500)
+
+            process = subprocess.run([sys.executable, str(SCAN_PATH), "--json", tmp],
+                                     capture_output=True, text=True)
+
+            self.assertEqual(process.returncode, 0, process.stderr)
+            self.assertNotIn("Traceback", process.stderr)
+            self.assertEqual(json.loads(process.stdout)["tool"], "docdna_scan")
 
     def test_text_cli_runs_clean(self):
         proc = subprocess.run(

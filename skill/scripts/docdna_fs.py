@@ -248,9 +248,13 @@ def require_scan(value, source, schema):
     require_shape(value, source, schema,
                   mapping_fields=("inventory", "ownership", "scan", "root_identity"),
                   object_list_fields=("signals", "drift", "unknown"),
-                  string_fields=("root", "tool", "commit", "generated"))
+                  string_fields=("root", "tool", "commit", "generated", "content_fingerprint"))
     if value.get("tool") != "docdna_scan" or not isinstance(value.get("root"), str):
         raise ValueError("%s does not carry a valid docdna_scan root" % source)
+    fingerprint = value.get("content_fingerprint")
+    if (not isinstance(fingerprint, str)
+            or not fingerprint.startswith("sha256:") or len(fingerprint) != 71):
+        raise ValueError("%s does not carry a valid content fingerprint" % source)
     inventory = require_shape(value.get("inventory"), "%s inventory" % source,
                               mapping_fields=("counts",),
                               object_list_fields=("docs", "opaque"))
@@ -497,6 +501,41 @@ def path_exists(root, candidate):
     return path_stat(root, candidate) is not None
 
 
+def control_file_exists(root, candidate):
+    """Return False only for an absent control file, and reject every unsafe shape."""
+    _require_read_support()
+    descriptor = open_root(root)
+    try:
+        _, parts = _parts(root, candidate)
+        if not parts:
+            raise ValueError("repository control-file path is empty: %s" % candidate)
+        flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+        for part in parts[:-1]:
+            try:
+                child = os.open(part, flags, dir_fd=descriptor)
+            except FileNotFoundError:
+                return False
+            except OSError as error:
+                raise ValueError("refused unsafe repository control file %s: %s"
+                                 % (candidate, error))
+            os.close(descriptor)
+            descriptor = child
+        try:
+            details = os.stat(parts[-1], dir_fd=descriptor, follow_symlinks=False)
+        except FileNotFoundError:
+            return False
+        except OSError as error:
+            raise ValueError("refused unsafe repository control file %s: %s"
+                             % (candidate, error))
+        if not stat.S_ISREG(details.st_mode):
+            raise ValueError("repository control file is not a regular file: %s" % candidate)
+        if details.st_nlink != 1:
+            raise ValueError("refused multiply linked repository control file: %s" % candidate)
+        return True
+    finally:
+        os.close(descriptor)
+
+
 def is_file(root, candidate):
     details = path_stat(root, candidate)
     return (details is not None and stat.S_ISREG(details.st_mode)
@@ -624,6 +663,7 @@ def write_text(root, candidate, text, encoding="utf-8", root_descriptor=None):
             handle.flush()
             os.fsync(handle.fileno())
         os.rename(temp_name, name, src_dir_fd=parent, dst_dir_fd=parent)
+        os.fsync(parent)
         temp_name = None
     except OSError as error:
         raise ValueError("refused unsafe repository output %s: %s" % (candidate, error))

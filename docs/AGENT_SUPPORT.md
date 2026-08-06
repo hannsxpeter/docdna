@@ -90,9 +90,10 @@ the document is stale; say so.
 The closing sentence is not decoration. A pointer block that does not state precedence makes stale
 documentation authoritative to every agent that reads it, which is worse than having no block at all.
 
-## Degrading without Bash
+## Installing without the shell script
 
-Only `docdna_scan.py` is required for the Survey happy path. A host that cannot run Bash degrades to a
-manual Survey: the agent reads `catalog/documents.json` and evaluates the predicates itself, which is
-slower and coarser but produces the same manifest shape. Wiring degrades to editing the instruction files
-by hand with the block above.
+`install.sh` is a POSIX shell convenience, not part of the Python runtime. On a supported POSIX host that
+cannot run it, copy the complete `skill/` directory to one of the install targets above. Survey then runs
+`docdna_select.py`, which invokes `docdna_scan.py` with the active Python interpreter and writes the same
+manifest and report as a shell-installed copy. Wiring can be done by running `docdna_wire.py` or by adding
+the block above by hand.

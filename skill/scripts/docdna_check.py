@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 
 SCHEMA = 1
 TOOL = "docdna_check"
-VERSION = "1.2.0"
+VERSION = "1.2.1"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CATALOG_DIR = os.path.normpath(os.path.join(HERE, "..", "catalog"))
@@ -23,6 +23,7 @@ if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
 from docdna_fs import (FileTooLarge, MAX_CONTROL_BYTES, bind_root as safe_bind_root,
+                       control_file_exists as safe_control_file_exists,
                        is_dir as safe_is_dir, is_file as safe_is_file,
                        listdir as safe_listdir, open_root as safe_open_root,
                        path_exists as safe_path_exists,
@@ -949,13 +950,8 @@ def load_config(root, manifest):
         config["regulated"] = True
     if answers.get("q6_downtime") == "revenue-or-safety-minutes":
         config["safety_critical"] = True
-    if safe_path_exists(root, CONFIG_REL):
-        try:
-            text = safe_read_text(root, CONFIG_REL, max_bytes=MAX_CONTROL_BYTES)
-        except FileTooLarge:
-            raise
-        except (OSError, ValueError):
-            return config
+    if safe_control_file_exists(root, CONFIG_REL):
+        text = safe_read_text(root, CONFIG_REL, max_bytes=MAX_CONTROL_BYTES)
         raw = safe_parse_json(text, CONFIG_REL)
         safe_require_config(raw, CONFIG_REL)
         config["source"] = CONFIG_REL
@@ -969,14 +965,9 @@ def load_config(root, manifest):
 
 def config_excludes(repo):
     root = repo
-    if not safe_path_exists(root, CONFIG_REL):
+    if not safe_control_file_exists(root, CONFIG_REL):
         return []
-    try:
-        text = safe_read_text(root, CONFIG_REL, max_bytes=MAX_CONTROL_BYTES)
-    except FileTooLarge:
-        raise
-    except (OSError, ValueError):
-        return []
+    text = safe_read_text(root, CONFIG_REL, max_bytes=MAX_CONTROL_BYTES)
     raw = safe_parse_json(text, CONFIG_REL)
     safe_require_config(raw, CONFIG_REL)
     return [item for item in as_list(raw.get("exclude_dirs")) if isinstance(item, str)]
@@ -2523,6 +2514,13 @@ def check_bound(root, passes, fail_on, scan_path, write, exclude_dirs=None):
         raise ValueError("scan root %s does not match repository %s"
                          % (scan["root"], root))
     safe_require_root_identity(root, scan.get("root_identity"), "scan")
+    if scan_path:
+        current = run_scan(root, excludes)
+        safe_require_scan(current, "current scan", SCHEMA)
+        if scan.get("content_fingerprint") != current.get("content_fingerprint"):
+            raise ValueError("imported scan does not match the current repository contents")
+        current["generated"] = scan["generated"]
+        scan = current
     manifest = load_manifest(root)
     catalog = load_catalog_documents()
     config = load_config(root, manifest)
@@ -2738,7 +2736,7 @@ def main(argv=None):
     parser.add_argument("--only", action="append", choices=PASSES,
                         help="run only this pass, repeatable")
     parser.add_argument("--scan", metavar="PATH",
-                        help="read scanner JSON from this file instead of running the scanner")
+                        help="validate scanner JSON, reproduce a fresh scan, and reject changed contents")
     parser.add_argument("--no-write", action="store_true",
                         help="never touch DOCDNA.md, even when the gaps pass runs")
     parser.add_argument("--exclude-dir", action="append", metavar="DIR",

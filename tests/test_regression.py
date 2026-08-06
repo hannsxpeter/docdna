@@ -6,7 +6,6 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from datetime import date
 from pathlib import Path
 
 
@@ -559,7 +558,7 @@ class DeleteGuardRegressionTests(unittest.TestCase):
         return self.backfill.body_hash(lines, body_start)
 
     def run_verify(self, derivation="derived", content_hash=None):
-        stamp = date.today().isoformat()
+        stamp = self.backfill.today()
         base = [("derivation", derivation), ("generated_by", "docdna v%s" % self.backfill.VERSION),
                 ("generated_on", stamp), ("content_hash", "sha256:%s" % ("0" * 64))]
         settled = self.body_hash_of(self.stub_text(base))
@@ -608,7 +607,7 @@ class DeleteGuardRegressionTests(unittest.TestCase):
         self.assertIn("edited after docdna wrote it", reasons[0])
 
     def run_verify_with(self, extra_front):
-        stamp = date.today().isoformat()
+        stamp = self.backfill.today()
         base = [("derivation", "derived"), ("generated_by", "docdna v%s" % self.backfill.VERSION),
                 ("generated_on", stamp), ("content_hash", "sha256:%s" % ("0" * 64))]
         settled = self.body_hash_of(self.stub_text(base))
@@ -648,7 +647,7 @@ class DeleteGuardRegressionTests(unittest.TestCase):
             self.assertTrue(report["retained"], label)
 
     def test_a_human_authored_document_survives_the_cli_with_delete_stub(self):
-        stamp = date.today().isoformat()
+        stamp = self.backfill.today()
         extra = [("derivation", "human-authored"),
                  ("generated_by", "docdna v%s" % self.backfill.VERSION),
                  ("generated_on", stamp), ("content_hash", "sha256:%s" % ("0" * 64))]

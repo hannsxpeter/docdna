@@ -1,0 +1,91 @@
+# Docs Update Log
+
+Date: 2026-08-05
+Owner: god-docs-writer
+
+## Inventory
+
+### Docs reviewed
+
+- [DECISION] `CHANGELOG.md`, `README.md`, `CONTRIBUTING.md`, and `skill/SKILL.md` were reviewed against `v1.2.0..HEAD` and the current release surface.
+- [DECISION] All eight Markdown files under `docs/` were inventoried; the four new audience-layered pages and the trust-boundary addition to `docs/design/DOCDNA-DESIGN.md` were checked against code and tests.
+- [DECISION] `docs/design/DOCDNA-DESIGN.md` and `docs/design/HANDOFF.md` are dated design records, not current CLI references.
+- [DECISION] No `.godpowers/domain/GLOSSARY.mdx` exists in this repository.
+
+### Template and workflow surfaces reviewed
+
+- [DECISION] `skill/templates/` version examples and `.github/workflows/ci.yml` were inspected to verify release claims. Release remediation updated the template versions and pinned the workflow dependencies.
+- [DECISION] The committed CI workflow compiles all seven Python helpers, tests Python 3.8 and current Python, compares generated artifacts, runs the full pipeline, and performs an isolated install smoke test.
+
+### Code surface
+
+- [DECISION] Supported import APIs: 0; docdna documents command-line helpers rather than a stable Python import API.
+- [DECISION] CLI commands: 6 (`scan`, `select`, `backfill`, `check`, `wire`, and `llms`), plus one shared filesystem module.
+- [DECISION] Installer override environment variables: 5.
+- [DECISION] Catalog surface: 132 signals, 96 documents, 8 primary archetypes, 10 overlays, and 8 interview questions.
+- [DECISION] Host guarantee status: full on a POSIX host that passes the descriptor-relative, no-follow capability checks; Windows is unsupported.
+- [DECISION] Dogfood status: the full suite passes 401 of 401 tests on current Python and Python 3.8 after the UTC date-boundary and release-hardening regressions were added.
+
+## Verified Claims
+
+| Scope | Claims checked | Result | Evidence |
+| --- | ---: | --- | --- |
+| v1.2.1 hardening | 16 | Passed | `skill/scripts/docdna_fs.py`; boundary tests in `tests/test_docs.py`, `tests/test_scan.py`, `tests/test_select.py`, `tests/test_check.py`, and `tests/test_regression.py` |
+| Release version surface | 3 | Corrected | `skill/SKILL.md`, helper `VERSION` constants, and isolated `install.sh all` output agree on 1.2.1 |
+| Documentation layering | 6 | Passed | `README.md`, `CONTRIBUTING.md`, and the four new top-level guides under `docs/` |
+| Catalog counts and refusal split | 6 | Passed | Catalog JSON and 102 passing catalog/docs/sample tests; split is 42 `Y`, 37 `M`, and 17 `R` |
+| Compliance fixture outcomes | 9 | Passed | Fresh unattended surveys reproduced 41/55, 35/61, and 33/63 selected/excluded counts and the documented HIPAA, PCI, and SOC 2 verdicts |
+| Survey outputs and samples | 6 | Corrected and passed | `docdna_select.py`, `docdna_llms.py`, and byte-identical README/SKILL sample tests |
+| Imported scan integrity | 6 | Corrected and passed | `root_identity`, repository fingerprinting, fresh scan reproduction, selector/checker rejection, and repository-swap tests |
+| Historical measurement figures | 7 | Qualified | Current code behavior is tested; the absence of a committed raw corpus prevents independent reproduction of the historic totals |
+
+## Drift Found
+
+| Doc | Claim | Reality | Action |
+| --- | --- | --- | --- |
+| `CHANGELOG.md` | v1.2.1 work remained under Unreleased | Release date is 2026-08-05 | Added 1.2.1 and retained an empty Unreleased section |
+| `skill/SKILL.md` | Version 1.2.0 | Release helpers and installer surface are 1.2.1 | Updated the skill version |
+| `README.md` and `CONTRIBUTING.md` | Platform prose implied a fixed host list or unconditional filesystem support | The runtime checks specific POSIX capabilities before each operation | Rephrased the runtime contract around the checks |
+| `docs/QUICKSTART.md` | Python and an agent were the complete requirement; Survey only read and left exactly two files | The runtime requires POSIX filesystem capabilities; Survey writes its ledger/report and may emit the agent index | Corrected requirements and outputs |
+| `docs/AGENT_SUPPORT.md` | A host without Bash manually evaluated the catalog | `install.sh` uses POSIX `sh`; Survey runs `docdna_select.py`, which invokes `docdna_scan.py` with Python | Replaced the unsupported fallback with manual directory-copy guidance |
+| `docs/MEASUREMENT.md` | Historical corpus figures lacked a local reproducibility boundary | The raw corpus and adjudication records are not committed | Added an explicit boundary |
+| `README.md` and `docs/QUICKSTART.md` | Installation cloned the mutable default branch | A release install should select immutable source | Pinned examples to the v1.2.1 tag |
+| `skill/SKILL.md` | The imported-scan description implied no rescan and the agent index trust boundary was unstated | Selector and checker reproduce a fresh scan; the index never copies repository prose | Corrected both CLI and index contracts |
+
+## Updated
+
+- [DECISION] `CHANGELOG.md`: promoted the verified release notes to 1.2.1 dated 2026-08-05 and opened a fresh Unreleased section.
+- [DECISION] `skill/SKILL.md`: aligned the installed skill version and clarified Survey output wording.
+- [DECISION] `README.md`, `CONTRIBUTING.md`, and `docs/QUICKSTART.md`: aligned the runtime and Survey contracts with current code.
+- [DECISION] `docs/AGENT_SUPPORT.md`: replaced the obsolete Bash-degradation description with the supported manual install path.
+- [DECISION] `docs/MEASUREMENT.md`: distinguished code-verified behavior from historical measurements that this checkout cannot reproduce.
+- [DECISION] `README.md` and `docs/QUICKSTART.md`: changed installation examples from the default branch to the v1.2.1 tag.
+- [DECISION] `skill/SKILL.md`: documented fresh scan reproduction and trusted-only `llms.txt` descriptions.
+- [DECISION] `.github/workflows/ci.yml`: pinned both actions to reviewed commits and restricted permissions to read-only repository contents.
+
+## Created
+
+- [DECISION] `.godpowers/docs/UPDATE-LOG.mdx`: records the v1.2.1 documentation verification and corrections.
+- [DECISION] `.godpowers/harden/FINDINGS.mdx`: records the resolved release-hardening findings and final launch gate.
+
+## Verified Examples
+
+| Doc | Example | Result |
+| --- | --- | --- |
+| `README.md` and `skill/SKILL.md` | Marked scanner and selector output blocks | Passed byte-for-byte regeneration tests |
+| `docs/COMPLIANCE.md` | Three fixture selection tables | Reproduced from fresh unattended surveys |
+| `README.md` and `docs/QUICKSTART.md` | Isolated `install.sh all` flow | Installed 1.2.1 to all four temporary targets |
+| `CONTRIBUTING.md` | Seven `py_compile` commands | Passed |
+
+## Have-Nots Checklist
+
+- [x] Every release-affected code claim was verified or explicitly qualified.
+- [x] Drift was documented and corrected.
+- [x] Runnable examples were executed in temporary directories.
+- [x] Substitution test passed for all new prose.
+- [x] Three-label test passed for all new prose.
+- [x] The dated design records were not presented as current runtime architecture.
+- [x] No runbook was changed, so runbook execution is not applicable.
+- [x] Repository documentation sync ran with no changes; its Godpowers-specific stale checks do not apply to this Python skill repository.
+- [x] Repository surface sync ran read-only; its Godpowers package-shape findings do not apply to this repository.
+- [x] Host guarantee and dogfood claims match the verification recorded above.
