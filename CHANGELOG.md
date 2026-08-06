@@ -4,6 +4,22 @@ All notable changes to docdna are documented in this file. The format is based o
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-08-05
+
+### Fixed
+
+- **Agent-facing indexes no longer copy repository prose.** `llms.txt` uses trusted catalog titles,
+  static state notes, and encoded repository-relative paths. A document or edited manifest cannot move
+  instruction-like text into the generated agent index.
+- **Unsafe control files and stale imported scans now fail closed.** A symlinked, hardlinked, or otherwise
+  unsafe `.docdna/config.json` stops selection and checking. Imported scans are reproduced against a fresh
+  repository fingerprint before their results are used.
+- **Exceptional writes and inputs leave a consistent boundary.** Deeply nested repository JSON is ignored
+  without a traceback, both selector outputs are preflighted before either is written, the human report is
+  written before the authoritative manifest, and atomic replacement syncs the containing directory.
+- **Release inputs are immutable.** CI actions are pinned to reviewed commits with read-only repository
+  permissions, and installation examples select the v1.2.1 tag instead of the mutable default branch.
+
 ### Changed
 
 - **Repository access now requires a POSIX host with descriptor-relative, no-follow filesystem

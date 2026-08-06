@@ -405,6 +405,26 @@ class SecurityBoundaryTests(unittest.TestCase):
             self.assertNotIn("Traceback", process.stderr)
             self.assertFalse((repo / "DOCDNA.md").exists())
 
+    def test_selector_rejects_a_scan_after_repository_contents_change(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            repo = base / "repo"
+            repo.mkdir()
+            (repo / "README.md").write_text("original\n", encoding="utf-8")
+            scan_path = base / "scan.json"
+            with scan_path.open("w", encoding="utf-8") as handle:
+                subprocess.run([sys.executable, str(SCAN_PATH), "--json", str(repo)],
+                               stdout=handle, check=True)
+            (repo / "package.json").write_text('{"dependencies":{"stripe":"1.0.0"}}\n',
+                                               encoding="utf-8")
+
+            process = subprocess.run([sys.executable, str(SELECT_PATH), "--scan", str(scan_path),
+                                      str(repo)], capture_output=True, text=True)
+
+            self.assertEqual(process.returncode, 2)
+            self.assertIn("current repository contents", process.stderr)
+            self.assertFalse((repo / "DOCDNA.md").exists())
+
     def test_selector_rejects_boolean_root_identity_values(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
@@ -547,6 +567,16 @@ class SecurityBoundaryTests(unittest.TestCase):
 
                 self.assertEqual(marker_path.read_text(encoding="utf-8"), "untouched\n")
 
+    def test_selector_preflights_both_outputs_before_writing_either_one(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            (repo / "DOCDNA.md").mkdir()
+
+            with self.assertRaises(ValueError):
+                SELECT.write_outputs(str(repo), {"schema": 1}, "report\n")
+
+            self.assertFalse((repo / ".docdna" / "manifest.json").exists())
+
     def test_selector_write_resists_a_parent_symlink_swap_after_validation(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
@@ -675,7 +705,7 @@ class SecurityBoundaryTests(unittest.TestCase):
             self.assertEqual((repo / "DOCDNA.md").read_text(encoding="utf-8"),
                              "generated report\n")
 
-    def test_selector_refuses_hardlinked_prior_state_and_config_inputs(self):
+    def test_selector_refuses_hardlinked_config_and_ignores_hardlinked_prior_state(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
             repo = base / "repo"
@@ -690,7 +720,25 @@ class SecurityBoundaryTests(unittest.TestCase):
             os.link(str(config), str(metadata / "config.json"))
 
             self.assertEqual(SELECT.read_prior(str(repo)), {})
-            self.assertEqual(SELECT.config_excludes(str(repo)), [])
+            with self.assertRaises(ValueError):
+                SELECT.config_excludes(str(repo))
+
+    def test_selector_fails_closed_on_a_symlinked_config(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            repo = base / "repo"
+            metadata = repo / ".docdna"
+            metadata.mkdir(parents=True)
+            outside = base / "config.json"
+            outside.write_text('{"exclude_dirs":["third_party"]}', encoding="utf-8")
+            os.symlink(str(outside), str(metadata / "config.json"))
+
+            process = subprocess.run([sys.executable, str(SELECT_PATH), str(repo)],
+                                     capture_output=True, text=True)
+
+            self.assertEqual(process.returncode, 2)
+            self.assertIn("config.json", process.stderr)
+            self.assertNotIn("Traceback", process.stderr)
 
 
 class ManifestTests(unittest.TestCase):

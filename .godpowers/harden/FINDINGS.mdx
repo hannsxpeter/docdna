@@ -1,0 +1,120 @@
+# Security Findings
+
+Date: 2026-08-06T00:58:59Z
+Reviewer: god-harden-auditor with release-owner remediation
+Scope: docdna v1.2.1 release worktree, including repository reads and writes, imported control data,
+subprocess calls, generated agent-facing files, CI dependencies, installation instructions, resource
+limits, atomic replacement, and exceptional conditions.
+
+## Summary
+
+| Open severity | Count |
+| --- | ---: |
+| Critical | 0 |
+| High | 0 |
+| Medium | 0 |
+| Low | 0 |
+
+Resolved in this release: 1 High, 5 Medium, and 1 Low finding.
+
+**Launch gate**: PASSED
+
+No Critical, High, Medium, or Low finding remains open.
+
+## Resolved Findings
+
+### HIGH-001: Repository prose crossed into the agent-facing index
+
+- **Category**: OWASP A05:2025 Injection
+- **Resolution**: `docdna_llms.py` no longer copies prose or manifest-supplied titles into `llms.txt`.
+  It uses titles and stages from the installed catalog, static state notes, and percent-encoded paths.
+- **Regression evidence**: `test_llms_index_never_copies_repository_prose_or_manifest_titles` and the
+  internal-symlink index test.
+- **Status**: Resolved
+
+### MEDIUM-001: Unsafe configuration files failed open
+
+- **Category**: OWASP A02:2025 Security Misconfiguration
+- **Resolution**: the shared filesystem layer now distinguishes an absent control file from a symlink,
+  hardlink, special file, or unsafe parent. Selector and checker configuration reads fail closed.
+- **Regression evidence**: selector and checker symlink tests plus the hardlinked-config test.
+- **Status**: Resolved
+
+### MEDIUM-002: CI and installation used mutable release inputs
+
+- **Category**: OWASP A03:2025 Software Supply Chain Failures
+- **Resolution**: GitHub Actions are pinned to reviewed 40-character commit identifiers, workflow token
+  permissions are read-only, and installation examples select the immutable v1.2.1 tag.
+- **Regression evidence**: `test_ci_dependencies_are_immutable_and_permissions_are_read_only` and
+  `test_installation_examples_select_the_release_tag`.
+- **Status**: Resolved
+
+### MEDIUM-003: Imported scans could be replayed after repository changes
+
+- **Category**: OWASP A08:2025 Software or Data Integrity Failures
+- **Resolution**: scanner output carries a repository content fingerprint. Selector and checker validate
+  imported data, run a fresh scan, reject a fingerprint mismatch, and use the freshly reproduced result.
+- **Regression evidence**: selector and checker stale-content tests plus fingerprint-change coverage.
+- **Status**: Resolved
+
+### MEDIUM-004: Deeply nested JSON escaped the CLI error boundary
+
+- **Category**: OWASP A10:2025 Mishandling of Exceptional Conditions
+- **Resolution**: repository JSON and OpenAPI parsing catch recursion failures, and the scanner CLI keeps
+  the same concise exception boundary as other invalid input.
+- **Regression evidence**: `test_deeply_nested_repository_json_is_ignored_without_a_traceback`.
+- **Status**: Resolved
+
+### MEDIUM-005: Selector output failures could publish a mixed generation
+
+- **Category**: OWASP A10:2025 Mishandling of Exceptional Conditions
+- **Resolution**: both destinations are preflighted before either write. The human report is written first
+  and the machine-readable manifest is written last as the authoritative generation marker.
+- **Regression evidence**: `test_selector_preflights_both_outputs_before_writing_either_one` and the
+  existing root-swap, parent-swap, symlink, and hardlink tests.
+- **Status**: Resolved
+
+### LOW-001: Atomic replacement did not sync the containing directory
+
+- **Category**: OWASP A10:2025 Mishandling of Exceptional Conditions
+- **Resolution**: the shared atomic writer syncs the parent directory after rename.
+- **Regression evidence**: `test_atomic_replacement_syncs_the_file_and_parent_directory`.
+- **Status**: Resolved
+
+## OWASP Web Top 10:2025 Coverage
+
+| Category | Result | Evidence |
+| --- | --- | --- |
+| A01 Broken Access Control | Pass | Descriptor-bound traversal, symlink, hardlink, FIFO, and root-swap tests |
+| A02 Security Misconfiguration | Pass | Unsafe control files fail closed |
+| A03 Software Supply Chain Failures | Pass | Pinned CI actions, read-only permissions, versioned installation |
+| A04 Cryptographic Failures | Not Applicable | No credential, encryption, session, or remote transport feature |
+| A05 Injection | Pass | Subprocess arrays and trusted-only agent index rendering |
+| A06 Insecure Design | Pass | Read, file, evidence, drift, and write caps remain enforced |
+| A07 Authentication Failures | Not Applicable | Same-user local CLI delegates identity to host ACLs |
+| A08 Software or Data Integrity Failures | Pass | Fresh scan reproduction and content fingerprint validation |
+| A09 Security Logging and Alerting Failures | Pass | Local failures return concise stderr and nonzero status |
+| A10 Mishandling of Exceptional Conditions | Pass | Recursion boundary, output preflight, authoritative write order, directory sync |
+
+## Verification
+
+```text
+python3 -m unittest discover -s tests
+Ran 401 tests
+OK
+
+python3.8 -m unittest discover -s tests
+Ran 401 tests
+OK
+```
+
+The release pipeline, generated-artifact byte-stability check, number-rule dogfood gate, and isolated
+installer smoke test are required again immediately before publication.
+
+## Have-Nots Checklist
+
+- [x] Manual adversarial review performed in addition to the test suite
+- [x] Every OWASP category has evidence or a product-specific Not Applicable reason
+- [x] Every identified finding has a code or workflow remediation and regression coverage
+- [x] No unresolved Critical finding remains
+- [x] No unresolved High, Medium, or Low finding remains

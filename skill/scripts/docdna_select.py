@@ -5,6 +5,7 @@ import argparse
 import json
 import os
 import re
+import stat
 import subprocess
 import sys
 import tempfile
@@ -13,17 +14,19 @@ from datetime import datetime, timezone
 
 SCHEMA = 1
 TOOL = "docdna_select"
-VERSION = "1.2.0"
+VERSION = "1.2.1"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 from docdna_fs import (FileTooLarge, MAX_CONTROL_BYTES,
                        bind_root as safe_bind_root, file_size as safe_file_size,
+                       control_file_exists as safe_control_file_exists,
                        is_dir as safe_is_dir,
                        is_file as safe_is_file, listdir as safe_listdir,
                        open_root as safe_open_root,
                        parse_json as safe_parse_json,
+                       path_stat as safe_path_stat,
                        path_exists as safe_exists, read_bounded_path as safe_read_bounded_path,
                        read_text as safe_read_text,
                        require_config as safe_require_config,
@@ -1621,28 +1624,25 @@ def run_scan(repo, exclude_dirs=None):
 
 
 def write_outputs(root, manifest, report):
+    for rel in (REPORT_REL, MANIFEST_REL):
+        output_path(root, rel)
+        details = safe_path_stat(root, rel)
+        if details is not None and not stat.S_ISREG(details.st_mode):
+            raise ValueError("refused unsafe repository output %s" % rel)
+    # The manifest is the authoritative generation marker. Write the human report first so a
+    # failure cannot publish a new machine-readable decision ledger beside an old report.
+    write_repository_text(root, REPORT_REL, report)
     manifest_path = output_path(root, MANIFEST_REL)
-    output_path(root, REPORT_REL)
     write_repository_text(root, MANIFEST_REL,
                           json.dumps(manifest, indent=2, sort_keys=True) + "\n")
-    write_repository_text(root, REPORT_REL, report)
     return manifest_path
 
 
 def config_excludes(repo):
     root = repo
-    try:
-        output_path(root, CONFIG_REL)
-    except ValueError:
+    if not safe_control_file_exists(root, CONFIG_REL):
         return []
-    if not safe_exists(root, CONFIG_REL):
-        return []
-    try:
-        text = safe_read_text(root, CONFIG_REL, max_bytes=MAX_CONTROL_BYTES)
-    except FileTooLarge:
-        raise
-    except ValueError:
-        return []
+    text = safe_read_text(root, CONFIG_REL, max_bytes=MAX_CONTROL_BYTES)
     raw = safe_parse_json(text, CONFIG_REL)
     safe_require_config(raw, CONFIG_REL)
     return [item for item in (raw.get("exclude_dirs") or []) if isinstance(item, str)]
@@ -1669,6 +1669,13 @@ def select_bound(root, scan_path, answer_pairs, unattended, exclude_dirs=None):
     if os.path.realpath(scan_root) != os.path.realpath(root):
         raise ValueError("scan root %s does not match repository %s" % (scan_root, root))
     safe_require_root_identity(root, scan.get("root_identity"), "scan")
+    if scan_path:
+        current = run_scan(root, excludes)
+        safe_require_scan(current, "current scan", SCHEMA)
+        if scan.get("content_fingerprint") != current.get("content_fingerprint"):
+            raise ValueError("imported scan does not match the current repository contents")
+        current["generated"] = scan["generated"]
+        scan = current
     overrides = parse_answers(catalog, answer_pairs)
     prior = read_prior(root)
     states, found = document_states(catalog, scan, root)
@@ -1703,7 +1710,7 @@ def main(argv=None):
     parser.add_argument("--unattended", action="store_true",
                         help="never surface a question; take every unanswered question at its default")
     parser.add_argument("--scan", metavar="PATH",
-                        help="read scanner JSON from this file instead of running the scanner")
+                        help="validate scanner JSON, reproduce a fresh scan, and reject changed contents")
     parser.add_argument("--exclude-dir", action="append", metavar="DIR",
                         help="keep a directory out of the document inventory and drift pass, "
                              "for vendored or fixture repositories that carry their own "

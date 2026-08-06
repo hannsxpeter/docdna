@@ -5,7 +5,7 @@ allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 ---
 
 # DocDNA
-Version: 1.2.0
+Version: 1.2.1
 Runtime: Python 3.8+ on a POSIX host with descriptor-relative, no-follow filesystem support; Windows is not supported.
 
 ## What this is
@@ -28,8 +28,9 @@ prove. Every claim carries a citation or a GAP marker. There is no third state.
 
 Read the user's intent and pick one.
 
-- **Survey** (default): scan, decide the document set, report drift leads, write the manifest. Writes no
-  documents. Triggered by "what docs does this need", "survey the documentation", "docdna".
+- **Survey** (default): scan, decide the document set, report drift leads, write the manifest and report,
+  but no selected project documentation. Triggered by "what docs does this need", "survey the
+  documentation", "docdna".
 - **Backfill**: write selected documents from code evidence. Triggered by "backfill the docs", "write the
   config reference", "document this repo".
 - **Check**: drift, lint, GAP rollup, stale exclusions. The CI gate. Triggered by "check the docs against
@@ -99,8 +100,8 @@ python3 "<skill-dir>/scripts/docdna_select.py" --answer q2_operator=separate-ops
 ```
 
 **6. Emit the agent index** when the repository has documents worth pointing an agent at. It writes
-`llms.txt` plus its sidecar at `.docdna/meta/build.llms-txt.yml`, since `llms.txt` has nowhere to put
-frontmatter. It indexes only what is present, and says so when the profile needs none.
+`llms.txt` plus its sidecar at `.docdna/meta/build.llms-txt.yml`. It indexes only present catalog titles
+and static state notes, never repository prose, and says so when the profile needs none.
 
 ```sh
 python3 "<skill-dir>/scripts/docdna_llms.py" <target-dir>
@@ -190,9 +191,9 @@ The whole CLI surface. Every helper takes a positional `repo` (default `.`) and 
 | Script | Other flags |
 | --- | --- |
 | `docdna_scan.py` | `--family <f>` limit gated passes to one signal family, repeatable; `--deep` per-document git metrics; `--exclude-dir <dir>` repeatable; `--max-evidence <n>` evidence records kept per signal |
-| `docdna_select.py` | `--answer key=value` record an interview answer, repeatable; `--unattended` take every unanswered question at its default and never ask; `--scan <path>` read scanner JSON instead of rescanning; `--exclude-dir <dir>` repeatable |
+| `docdna_select.py` | `--answer key=value` record an interview answer, repeatable; `--unattended` take every unanswered question at its default and never ask; `--scan <path>` validate scanner JSON, reproduce it with a fresh scan, and reject changed contents; `--exclude-dir <dir>` repeatable |
 | `docdna_backfill.py` | `--only <id>` plan this catalog id instead of the derivable ten, repeatable; `--all` lift the five-document cap, prints an estimate and waits; `--yes` answer that confirmation; `--limit <n>` never above 5; `--branch` own branch, one commit per document; `--verify <path>` re-read a written document and check every claim, see Backfill step 6; refused stubs are retained by default; `--delete-stub` remove only a guarded stub written in this run; `--keep` explicitly retain it for compatibility; `--confirm-sensitive` below |
-| `docdna_check.py` | `--fail-on blocker\|major\|minor\|never` default `major`; `--only drift\|lint\|gaps\|spine\|tripwires\|orphans` repeatable; `--scan <path>`; `--no-write` never touch `DOCDNA.md`; `--exclude-dir <dir>` repeatable |
+| `docdna_check.py` | `--fail-on blocker\|major\|minor\|never` default `major`; `--only drift\|lint\|gaps\|spine\|tripwires\|orphans` repeatable; `--scan <path>` validates and reproduces a fresh scan before use; `--no-write` never touch `DOCDNA.md`; `--exclude-dir <dir>` repeatable |
 | `docdna_wire.py` | `--agent agents\|claude\|gemini\|copilot\|cursor\|cascade` repeatable; `--all` create or update every supported target |
 
 **`--confirm-sensitive` is a decision, not a lever.** It records that a person knows this repository is

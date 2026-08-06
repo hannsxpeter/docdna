@@ -9,10 +9,11 @@ import subprocess
 import sys
 import textwrap
 from datetime import datetime, timezone
+from urllib.parse import quote
 
 SCHEMA = 1
 TOOL = "docdna_llms"
-VERSION = "1.2.0"
+VERSION = "1.2.1"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
@@ -28,6 +29,7 @@ from docdna_fs import (MAX_CONTROL_BYTES, bind_root as safe_bind_root,
                        write_text as safe_write_text)
 
 SELECT_SCRIPT = os.path.join(HERE, "docdna_select.py")
+DOCUMENTS_PATH = os.path.normpath(os.path.join(HERE, "..", "catalog", "documents.json"))
 
 MANIFEST_REL = os.path.join(".docdna", "manifest.json")
 META_REL = os.path.join(".docdna", "meta")
@@ -60,19 +62,10 @@ STATE_NOTES = {"present-drifted": ("Lead: at least one path or command in it did
                                    "against the code, at low confidence and for a human to read."),
                "present-stub": "Stub: under 400 bytes, so treat it as a placeholder."}
 
-PROSE_EXT = (".md", ".markdown", ".rst", ".adoc", ".txt")
 DENY_READ = (".env",)
 DENY_READ_ALLOW = (".example", ".sample", ".template")
-SKIP_PREFIX = ("#", ">", "|", "<!--", "---", "===", "```", "![", "_Confidence")
-SKIP_BULLET = ("- ", "* ", "+ ", "1. ")
-EMPHASIS = ("**", "__", "*", "_", "`")
-LINK = re.compile(r"\[([^\]]+)\]\([^)]*\)")
-
-SUMMARY_LIMIT = 180
-SUMMARY_SOURCE_BYTES = 1000000
 LINE_WIDTH = 100
 MAX_DIR_FILES = 500
-VOWELS = "aeiou"
 
 PRECEDENCE = ("If a document below contradicts the code, the code is correct and the document is "
               "stale; say so rather than repeating it.")
@@ -244,56 +237,12 @@ def read_manifest(root):
     return safe_require_manifest(manifest, MANIFEST_REL, SCHEMA)
 
 
-def strip_frontmatter(lines):
-    if not lines or lines[0].strip() != "---":
-        return lines
-    for index in range(1, len(lines)):
-        if lines[index].strip() in ("---", "..."):
-            return lines[index + 1:]
-    return lines
-
-
-def article(word):
-    return "an" if word[:1].lower() in VOWELS else "a"
-
-
 def plural(count, word, suffix="s"):
     return "%d %s%s" % (count, word, "" if count == 1 else suffix)
 
 
 def stage_rank(stage):
     return STAGES.index(stage) if stage in STAGES else len(STAGES)
-
-
-def flatten(text):
-    text = LINK.sub(r"\1", text)
-    for marker in EMPHASIS:
-        text = text.replace(marker, "")
-    return text.strip()
-
-
-def summarize(text):
-    text = " ".join(flatten(text).split())
-    if len(text) <= SUMMARY_LIMIT:
-        return text
-    cut = text.rfind(" ", 0, SUMMARY_LIMIT)
-    if cut <= 0:
-        cut = SUMMARY_LIMIT
-    return text[:cut].rstrip(" ,;:") + "..."
-
-
-def first_paragraph(root, path):
-    try:
-        lines = safe_read_text(root, path, errors="replace",
-                               max_bytes=SUMMARY_SOURCE_BYTES).splitlines()
-    except (OSError, ValueError):
-        return ""
-    for raw in strip_frontmatter(lines):
-        line = raw.strip()
-        if not line or line.startswith(SKIP_PREFIX) or line.startswith(SKIP_BULLET):
-            continue
-        return summarize(line)
-    return ""
 
 
 def count_files(root, path, paths):
@@ -333,9 +282,13 @@ def summary_for(root, full, paths):
         if count > MAX_DIR_FILES:
             return "over %d files in this directory." % MAX_DIR_FILES
         return "%s in this directory." % plural(count, "file")
-    if full.lower().endswith(PROSE_EXT):
-        return first_paragraph(root, full)
     return ""
+
+
+def trusted_documents():
+    with open(DOCUMENTS_PATH, encoding="utf-8") as handle:
+        rows = json.load(handle)["documents"]
+    return dict((row["id"], {"title": row["title"], "stage": row["stage"]}) for row in rows)
 
 
 def describe(entry):
@@ -371,12 +324,17 @@ def collect(root, manifest):
     skipped = {"not_present": 0, "elsewhere": 0, "missing_file": 0, "self": 0, "duplicate_path": 0}
     rows = []
     paths = tracked_paths(root)
+    catalog = trusted_documents()
     for row in manifest.get("documents") or []:
         state = row.get("state")
         if state == "present-elsewhere":
             skipped["elsewhere"] += 1
             continue
         if state not in PRESENT_STATES:
+            skipped["not_present"] += 1
+            continue
+        trusted = catalog.get(row["id"])
+        if trusted is None:
             skipped["not_present"] += 1
             continue
         rel = entry_path(root, row)
@@ -387,7 +345,8 @@ def collect(root, manifest):
         if full is None or not safe_exists(root, full):
             skipped["missing_file"] += 1
             continue
-        rows.append({"id": row["id"], "title": row["title"], "stage": row["stage"], "state": state,
+        rows.append({"id": row["id"], "title": trusted["title"],
+                     "stage": trusted["stage"], "state": state,
                      "path": rel.replace(os.sep, "/"),
                      "summary": summary_for(root, full, paths), "also": [],
                      "kind": "directory" if safe_is_dir(root, full) else "file"})
@@ -409,12 +368,9 @@ def collect(root, manifest):
 
 def blockquote(root, manifest, listed, name=None):
     name = name or repository_name(root)
-    primary = (manifest.get("archetype") or {}).get("primary") or "unknown"
-    shape = "" if primary == "unknown" else ", %s %s repository" % (article(primary), primary)
-    text = ("Documentation index for %s%s. It lists %s committed to this repository, grouped by "
-            "lifecycle stage. Generated by %s from %s."
-            % (name, shape, plural(listed, "document"), manifest.get("generated_by", TOOL),
-               MANIFEST_REL))
+    text = ("Documentation index for %s. It lists %s committed to this repository, grouped by "
+            "lifecycle stage. Generated by docdna v%s from %s."
+            % (name, plural(listed, "document"), VERSION, MANIFEST_REL))
     return ["> " + line for line in textwrap.wrap(text, LINE_WIDTH - 2)]
 
 
@@ -457,7 +413,8 @@ def render(root, manifest, sections, skipped):
         lines.append("## %s" % STAGE_TITLES[stage])
         lines.append("")
         for row in rows:
-            bullet = "- [%s](%s)" % (row["title"], row["path"])
+            target = quote(row["path"], safe="/._~-")
+            bullet = "- [%s](%s)" % (row["title"], target)
             if row["description"]:
                 bullet += ": %s" % row["description"]
             lines.append(bullet)

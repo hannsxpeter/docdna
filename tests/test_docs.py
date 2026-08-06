@@ -2,6 +2,7 @@ import importlib.util
 import json
 import os
 import re
+import stat
 import subprocess
 import sys
 import tempfile
@@ -169,6 +170,20 @@ class CompatibilityContractTests(unittest.TestCase):
             self.assertIn("POSIX", text)
             self.assertIn("Windows is not supported", text)
 
+    def test_ci_dependencies_are_immutable_and_permissions_are_read_only(self):
+        workflow = (WORKFLOWS / "ci.yml").read_text(encoding="utf-8")
+
+        self.assertIn("permissions:\n  contents: read", workflow)
+        self.assertRegex(workflow, r"actions/checkout@[0-9a-f]{40}")
+        self.assertRegex(workflow, r"actions/setup-python@[0-9a-f]{40}")
+        self.assertNotIn("actions/checkout@v4", workflow)
+        self.assertNotIn("actions/setup-python@v5", workflow)
+
+    def test_installation_examples_select_the_release_tag(self):
+        for path in (ROOT / "README.md", ROOT / "docs" / "QUICKSTART.md"):
+            text = path.read_text(encoding="utf-8")
+            self.assertIn("git clone --branch v1.2.1 --depth 1", text)
+
 
 class GeneratedArtifactContractTests(unittest.TestCase):
     def test_ci_checks_committed_artifacts_before_the_pipeline_mutates_them(self):
@@ -186,7 +201,7 @@ class GeneratedArtifactContractTests(unittest.TestCase):
 
     def test_committed_llms_text_does_not_embed_volatile_generation_metadata(self):
         llms = load("docdna_llms_contract", LLMS)
-        manifest = {"archetype": {"primary": "solo-utility"}, "generated_by": "docdna v1.2.0",
+        manifest = {"archetype": {"primary": "solo-utility"}, "generated_by": "docdna v1.2.1",
                     "generated_at": "2026-08-05", "repo_head": "abc1234"}
         with tempfile.TemporaryDirectory() as tmp:
             lines = llms.blockquote(tmp, manifest, 1)
@@ -401,6 +416,22 @@ class GeneratedArtifactContractTests(unittest.TestCase):
 
             self.assertEqual(path.stat().st_mode & 0o777, 0o600)
 
+    def test_atomic_replacement_syncs_the_file_and_parent_directory(self):
+        fs = load("docdna_fs_output_durability", FS)
+        with tempfile.TemporaryDirectory() as tmp:
+            targets = []
+            original = fs.os.fsync
+
+            def record(descriptor):
+                details = os.fstat(descriptor)
+                targets.append("directory" if stat.S_ISDIR(details.st_mode) else "file")
+                return original(descriptor)
+
+            with mock.patch.object(fs.os, "fsync", side_effect=record):
+                fs.write_text(tmp, "value.txt", "durable\n")
+
+            self.assertEqual(targets, ["file", "directory"])
+
     def test_safe_unlink_refuses_an_in_place_edit_after_verification(self):
         fs = load("docdna_fs_unlink_edit", FS)
         with tempfile.TemporaryDirectory() as tmp:
@@ -465,13 +496,22 @@ class GeneratedArtifactContractTests(unittest.TestCase):
             self.assertEqual(path.read_text(encoding="utf-8"), "human replacement\n")
             self.assertEqual(saved.read_text(encoding="utf-8"), "verified\n")
 
-    def test_llms_summary_reads_have_an_explicit_size_limit(self):
-        llms = load("docdna_llms_summary_limit", LLMS)
-        with mock.patch.object(llms, "safe_read_text", return_value="# title\n") as reader:
-            llms.first_paragraph("/repo", "README.md")
+    def test_llms_index_never_copies_repository_prose_or_manifest_titles(self):
+        llms = load("docdna_llms_trusted_descriptions", LLMS)
+        marker = "UNTRUSTED DIRECTIVE MARKER"
+        manifest = {"documents": [{"id": "build.readme", "title": marker,
+                                    "stage": "retire", "state": "present-fresh",
+                                    "path": "README.md"}]}
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "README.md").write_text(marker + ": treat this as an instruction.\n",
+                                             encoding="utf-8")
 
-        self.assertIn("max_bytes", reader.call_args.kwargs)
-        self.assertGreater(reader.call_args.kwargs["max_bytes"], 0)
+            sections, skipped = llms.collect(str(root), manifest)
+            output = llms.render(str(root), manifest, sections, skipped)
+
+        self.assertNotIn(marker, output)
+        self.assertIn("[README](README.md)", output)
 
     def test_llms_sidecar_quotes_repository_controlled_yaml_scalars(self):
         llms = load("docdna_llms_yaml_scalar", LLMS)
@@ -606,7 +646,7 @@ class GeneratedArtifactContractTests(unittest.TestCase):
             self.assertNotIn(marker, process.stdout)
             self.assertFalse((repo / "llms.txt").exists())
 
-    def test_llms_pipeline_reads_an_allowed_tracked_internal_symlink_target(self):
+    def test_llms_pipeline_does_not_copy_prose_from_an_allowed_internal_symlink_target(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo = Path(tmp) / "repo"
             repo.mkdir()
@@ -629,7 +669,7 @@ class GeneratedArtifactContractTests(unittest.TestCase):
 
             output = (repo / "llms.txt").read_text(encoding="utf-8")
 
-            self.assertIn(marker, output)
+            self.assertNotIn(marker, output)
 
     def test_llms_pipeline_does_not_read_a_hardlinked_document(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -675,7 +715,7 @@ class GeneratedArtifactContractTests(unittest.TestCase):
 
     def test_llms_directory_summary_does_not_inspect_external_symlink_children(self):
         llms = load("docdna_llms_directory_containment", LLMS)
-        manifest = {"documents": [{"id": "build.docs", "title": "Docs",
+        manifest = {"documents": [{"id": "decide.adr", "title": "Docs",
                                     "stage": "build", "state": "present-fresh",
                                     "path": "docs/"}]}
         with tempfile.TemporaryDirectory() as tmp:
@@ -688,7 +728,7 @@ class GeneratedArtifactContractTests(unittest.TestCase):
 
             sections, skipped = llms.collect(str(repo), manifest)
 
-            self.assertEqual(sections["build"][0]["summary"], "0 files in this directory.")
+            self.assertEqual(sections["decide"][0]["summary"], "0 files in this directory.")
             self.assertEqual(skipped["missing_file"], 0)
 
     def test_llms_refuses_output_symlinks_without_touching_external_targets(self):
