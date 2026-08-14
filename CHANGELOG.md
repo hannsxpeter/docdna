@@ -4,6 +4,25 @@ All notable changes to docdna are documented in this file. The format is based o
 
 ## [Unreleased]
 
+### Added
+
+- **Deterministic Unicode hygiene is now part of Check.** The new `hygiene` pass reports exact paths,
+  lines, columns, codepoints, Unicode names, and classes for invisible format characters and space
+  lookalikes in repository documentation. Terminal controls, bidirectional controls, and Unicode tag characters gate at the
+  default `major` threshold; lower-risk findings warn unless `--fail-on minor` is selected. Legitimate
+  emoji ZWJ, VS15, and VS16 sequences are preserved. Exact totals remain available while detailed rows
+  cap at 1,000 to bound report memory. Its Unicode classes and emoji-glue handling are
+  adapted from `watermarks-remover` 0.4.0 under the MIT license recorded in
+  `skill/references/third-party-notices.md`.
+
+### Changed
+
+- **Generated human-facing text is cleaned before its existing race-safe write.** `DOCDNA.md`, `llms.txt`,
+  its sidecar prose, and regenerated gap summaries strip suspicious format controls and normalize exotic
+  spaces. Manifest JSON and user-authored documents are never rewritten by this pass. Statistical
+  token-sampling watermarks, file-container metadata, media marks, and human-authorship claims remain out
+  of scope.
+
 ## [1.2.1] - 2026-08-05
 
 ### Fixed

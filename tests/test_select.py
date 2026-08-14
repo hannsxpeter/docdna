@@ -577,6 +577,19 @@ class SecurityBoundaryTests(unittest.TestCase):
 
             self.assertFalse((repo / ".docdna" / "manifest.json").exists())
 
+    def test_selector_cleans_generated_report_but_not_manifest_values(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            manifest = {"schema": 1, "root": "repo\u202ename"}
+
+            SELECT.write_outputs(str(repo), manifest, "left\ud800\u202eright\u00a0space\n")
+
+            self.assertEqual((repo / "DOCDNA.md").read_text(encoding="utf-8"),
+                             "leftright space\n")
+            written = json.loads((repo / ".docdna" / "manifest.json").read_text(
+                encoding="utf-8"))
+            self.assertEqual(written["root"], "repo\u202ename")
+
     def test_selector_write_resists_a_parent_symlink_swap_after_validation(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)

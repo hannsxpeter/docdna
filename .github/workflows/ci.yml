@@ -30,6 +30,7 @@ jobs:
       - name: Compile helpers
         run: |
           python -m py_compile skill/scripts/docdna_fs.py
+          python -m py_compile skill/scripts/docdna_unicode.py
           python -m py_compile skill/scripts/docdna_scan.py
           python -m py_compile skill/scripts/docdna_select.py
           python -m py_compile skill/scripts/docdna_backfill.py

@@ -27,6 +27,7 @@ from docdna_fs import (MAX_CONTROL_BYTES, bind_root as safe_bind_root,
                        require_manifest as safe_require_manifest,
                        root_is_current as safe_root_is_current,
                        write_text as safe_write_text)
+from docdna_unicode import clean_generated_text
 
 SELECT_SCRIPT = os.path.join(HERE, "docdna_select.py")
 DOCUMENTS_PATH = os.path.normpath(os.path.join(HERE, "..", "catalog", "documents.json"))
@@ -424,7 +425,8 @@ def render(root, manifest, sections, skipped):
 
 def write_output(root, text):
     path = output_path(root, OUTPUT_REL)
-    write_repository_text(root, OUTPUT_REL, text)
+    clean_text, _stats = clean_generated_text(text)
+    write_repository_text(root, OUTPUT_REL, clean_text)
     return path
 
 
@@ -491,8 +493,8 @@ def write_sidecar(root, manifest):
     for key, value in sidecar_fields(manifest, stamp):
         lines.append("%s: %s" % (key, yaml_scalar(value)))
     lines.append("---")
-    write_repository_text(root, os.path.join(META_REL, OUTPUT_ID + ".yml"),
-                          "\n".join(lines) + "\n")
+    clean_text, _stats = clean_generated_text("\n".join(lines) + "\n")
+    write_repository_text(root, os.path.join(META_REL, OUTPUT_ID + ".yml"), clean_text)
     return path
 
 

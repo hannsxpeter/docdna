@@ -33,7 +33,7 @@ Read the user's intent and pick one.
   documentation", "docdna".
 - **Backfill**: write selected documents from code evidence. Triggered by "backfill the docs", "write the
   config reference", "document this repo".
-- **Check**: drift, lint, GAP rollup, stale exclusions. The CI gate. Triggered by "check the docs against
+- **Check**: drift, lint, Unicode hygiene, GAP rollup, stale exclusions. The CI gate. Triggered by "check the docs against
   the code", "are our docs still true".
 
 **Routing, three rules in order:**
@@ -166,7 +166,7 @@ python3 "<skill-dir>/scripts/docdna_check.py" <target-dir>
 python3 "<skill-dir>/scripts/docdna_check.py" --fail-on blocker --only drift <target-dir>
 ```
 
-Six passes over one walk: drift, frontmatter lint, GAP rollup, traceability spine, **tripwires**, orphans.
+Seven passes over one walk: drift, frontmatter lint, Unicode hygiene, GAP rollup, traceability spine, **tripwires**, orphans.
 
 **Lead with tripwires when any fire.** A tripwire is an exclusion whose `revisit_when` predicate has become
 true: a document correctly skipped last quarter that the code now requires. It is the reason to re-run.
@@ -175,8 +175,8 @@ true on `users.is_oss` and `q1_users`. Every firing so far, there and in tests, 
 the predicate already true when first checked. Unobserved is the temporal case the feature rests on, one
 flipping across elapsed time under an older manifest. Report a predicate true now, not one watched turn.
 
-Drift is a **warning** by default. It gates CI only for documents the user names in `assurance_set` in
-`.docdna/config.json`, typically three to five. A gate that turns everything red gets disabled in week two.
+Drift is a **warning** by default and gates only for documents in `assurance_set`. Unicode hygiene reports exact
+codepoints and locations, gates terminal, bidi, and tag controls at `major`, preserves emoji glue, and never rewrites user documents. Totals stay exact while detail caps at 1,000 rows. Generated prose is cleaned; manifests, statistical marks, and metadata are not.
 
 **Exit codes.** Every helper exits 0 after a successful run and 2 when invalid or unsafe input prevents
 the run. `docdna_check.py` exits 1 on a gated finding. `docdna_backfill.py` exits 3 for `--all` without
@@ -193,7 +193,7 @@ The whole CLI surface. Every helper takes a positional `repo` (default `.`) and 
 | `docdna_scan.py` | `--family <f>` limit gated passes to one signal family, repeatable; `--deep` per-document git metrics; `--exclude-dir <dir>` repeatable; `--max-evidence <n>` evidence records kept per signal |
 | `docdna_select.py` | `--answer key=value` record an interview answer, repeatable; `--unattended` take every unanswered question at its default and never ask; `--scan <path>` validate scanner JSON, reproduce it with a fresh scan, and reject changed contents; `--exclude-dir <dir>` repeatable |
 | `docdna_backfill.py` | `--only <id>` plan this catalog id instead of the derivable ten, repeatable; `--all` lift the five-document cap, prints an estimate and waits; `--yes` answer that confirmation; `--limit <n>` never above 5; `--branch` own branch, one commit per document; `--verify <path>` re-read a written document and check every claim, see Backfill step 6; refused stubs are retained by default; `--delete-stub` remove only a guarded stub written in this run; `--keep` explicitly retain it for compatibility; `--confirm-sensitive` below |
-| `docdna_check.py` | `--fail-on blocker\|major\|minor\|never` default `major`; `--only drift\|lint\|gaps\|spine\|tripwires\|orphans` repeatable; `--scan <path>` validates and reproduces a fresh scan before use; `--no-write` never touch `DOCDNA.md`; `--exclude-dir <dir>` repeatable |
+| `docdna_check.py` | `--fail-on blocker\|major\|minor\|never` default `major`; `--only drift\|lint\|hygiene\|gaps\|spine\|tripwires\|orphans` repeatable; `--scan <path>` validates and reproduces a fresh scan before use; `--no-write` never touch `DOCDNA.md`; `--exclude-dir <dir>` repeatable |
 | `docdna_wire.py` | `--agent agents\|claude\|gemini\|copilot\|cursor\|cascade` repeatable; `--all` create or update every supported target |
 
 **`--confirm-sensitive` is a decision, not a lever.** It records that a person knows this repository is

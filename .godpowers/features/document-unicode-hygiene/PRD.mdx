@@ -1,0 +1,30 @@
+# Document Unicode Hygiene
+
+## Objective
+
+DocDNA must identify invisible or misleading Unicode in repository documentation and keep its own generated prose free of those characters without silently rewriting user-authored documents.
+
+## Requirements
+
+- `P-MUST-01`: `docdna_check.py` exposes a `hygiene` pass and includes it in the default check set.
+- `P-MUST-02`: The pass inspects only documentation already admitted by the scanner inventory and therefore inherits ignored paths, excluded directories, denied reads, size limits, and repository containment.
+- `P-MUST-03`: Every finding reports the repository-relative path, line, column, Unicode codepoint, Unicode name, and class.
+- `P-MUST-04`: Bidirectional controls and Unicode tag characters are major findings and gate at the default `--fail-on major` threshold. Other invisible format characters and space lookalikes are minor findings.
+- `P-MUST-05`: Emoji presentation sequences retain legitimate ZWJ, VS15, and VS16 glue and do not produce hygiene findings.
+- `P-MUST-06`: Existing user-authored documents are never changed by the check pass.
+- `P-MUST-07`: Generated prose outputs pass through the same deterministic cleaner before a race-safe write. Machine-readable manifests are not cleaned wholesale because doing so could corrupt repository paths and identifiers.
+- `P-MUST-08`: The cleaner is deterministic, standard-library only, compatible with Python 3.8, and does not perform statistical rewriting, homoglyph substitution, NFKC normalization, or metadata removal.
+- `P-MUST-09`: JSON and text reports state the inspected-document count, exact finding count, class breakdown, and the boundary between deterministic Unicode hygiene and statistical watermark detection.
+- `P-MUST-10`: Unit, CLI, integration, and generated-artifact tests cover detection, gating, emoji preservation, exclusions, safe writes, and clean output.
+- `P-MUST-11`: README, quickstart, skill instructions, CLI reference, and changelog document the pass and its limits.
+
+## Non-goals
+
+- Statistical or token-sampling watermark detection or rewriting.
+- C2PA, EXIF, XMP, PDF, DOCX, image, audio, or video processing.
+- Proving that content was written by a human.
+- Automatic modification of repository documentation authored outside DocDNA's generated prose paths.
+
+## Acceptance
+
+The full test suite passes on Python 3.8 and the current Python runtime. The end-to-end pipeline passes, committed generated artifacts are byte-stable, the default checker gates a bidirectional override, ignored and excluded files stay unread, legitimate emoji sequences remain byte-identical, CI compiles the new helper, and the repository is clean after shipping.

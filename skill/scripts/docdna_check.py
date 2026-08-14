@@ -36,6 +36,7 @@ from docdna_fs import (FileTooLarge, MAX_CONTROL_BYTES, bind_root as safe_bind_r
                        root_is_current as safe_root_is_current,
                        walk_paths as safe_walk_paths,
                        write_text as safe_write_text)
+from docdna_unicode import clean_generated_text, iter_findings as inspect_unicode
 
 MANIFEST_REL = os.path.join(".docdna", "manifest.json")
 CONFIG_REL = os.path.join(".docdna", "config.json")
@@ -45,7 +46,7 @@ REPORT_REL = "DOCDNA.md"
 GAPS_START = "<!-- docdna:gaps:start -->"
 GAPS_END = "<!-- docdna:gaps:end -->"
 
-PASSES = ("drift", "lint", "gaps", "spine", "tripwires", "orphans")
+PASSES = ("drift", "lint", "hygiene", "gaps", "spine", "tripwires", "orphans")
 FAIL_ON = ("blocker", "major", "minor", "never")
 SEVERITY_RANK = {"info": 0, "minor": 1, "major": 2, "blocker": 3}
 GATE_RANK = {"blocker": 3, "major": 2, "minor": 1, "never": 99}
@@ -98,6 +99,8 @@ SOURCE_EXT = {".c", ".cfg", ".cjs", ".conf", ".cpp", ".cs", ".css", ".ex", ".exs
 MAX_SOURCE_FILES = 4000
 MAX_FILE_BYTES = 1000000
 MARKDOWN_EXT = (".md", ".markdown")
+TEXT_DOC_EXT = MARKDOWN_EXT + (".rst", ".adoc", ".txt")
+MAX_HYGIENE_FINDINGS = 1000
 
 ANNOTATION = re.compile(r"@covers\s+([A-Za-z][A-Za-z0-9_:@/#.\-]*)")
 SPINE_ID = re.compile(r"^(?:bc|prd|req|adr|rsk|thr|ctl|tc|pm|inc|abuse-case|waiver)-[\w.\-]+$"
@@ -1204,6 +1207,8 @@ def gates(ctx, pass_name, severity, ident):
         return False
     if pass_name == "lint":
         return True
+    if pass_name == "hygiene":
+        return True
     if pass_name == "spine":
         return SEVERITY_RANK[severity] >= SEVERITY_RANK["major"]
     if pass_name == "drift":
@@ -1211,9 +1216,9 @@ def gates(ctx, pass_name, severity, ident):
     return False
 
 
-def finding(ctx, pass_name, kind, severity, detail, path=None, ident=None, line=None):
+def finding(ctx, pass_name, kind, severity, detail, path=None, ident=None, line=None, column=None):
     row = {"pass": pass_name, "kind": kind, "severity": severity, "detail": detail,
-           "path": path, "id": ident, "line": line,
+           "path": path, "id": ident, "line": line, "column": column,
            "gating": gates(ctx, pass_name, severity, ident)}
     ctx["findings"].append(row)
     return row
@@ -2221,7 +2226,8 @@ def write_gaps_block(ctx):
         updated = text.rstrip() + "\n\n" + block
     else:
         updated = block
-    safe_write_text(ctx["root"], REPORT_REL, updated)
+    clean_report, _stats = clean_generated_text(updated)
+    safe_write_text(ctx["root"], REPORT_REL, clean_report)
     return True
 
 
@@ -2482,6 +2488,66 @@ def pass_orphans(ctx):
     ctx["report"]["orphans"] = {"items": rows, "note": None}
 
 
+def pass_hygiene(ctx):
+    records = []
+    seen = set()
+    for doc in ctx["documents"] + ctx["prose"]:
+        if doc["path"] in seen:
+            continue
+        seen.add(doc["path"])
+        records.append(doc)
+    for row in ctx["scan"]["inventory"]["docs"]:
+        rel = row["path"]
+        if rel in seen or not rel.lower().endswith(TEXT_DOC_EXT):
+            continue
+        if row.get("bytes") is None:
+            continue
+        text = read_text(ctx["root"], rel)
+        if text is None:
+            continue
+        seen.add(rel)
+        records.append({"path": rel, "id": ctx["path_ids"].get(rel), "text": text})
+    counts = Counter()
+    total = 0
+    major_details = []
+    minor_details = []
+    sequence = 0
+    for doc in records:
+        for hit in inspect_unicode(doc["text"]):
+            counts[hit["kind"]] += 1
+            total += 1
+            sequence += 1
+            bucket = major_details if hit["severity"] == "major" else minor_details
+            if len(bucket) >= MAX_HYGIENE_FINDINGS:
+                continue
+            detail = ("column %d contains %s %s (%s); deterministic Unicode hygiene can %s "
+                      "it, but check never rewrites user-authored documentation"
+                      % (hit["column"], hit["codepoint"], hit["name"], hit["kind"],
+                         hit["action"]))
+            row = {"sequence": sequence - 1, "kind": "unicode-" + hit["kind"],
+                   "severity": hit["severity"], "detail": detail, "path": doc["path"],
+                   "id": doc.get("id"), "line": hit["line"], "column": hit["column"]}
+            bucket.append(row)
+    detail_rows = major_details[:MAX_HYGIENE_FINDINGS]
+    detail_rows.extend(minor_details[:MAX_HYGIENE_FINDINGS - len(detail_rows)])
+    detail_rows.sort(key=lambda row: row["sequence"])
+    for row in detail_rows:
+        finding(ctx, "hygiene", row["kind"], row["severity"], row["detail"],
+                path=row["path"], ident=row["id"], line=row["line"], column=row["column"])
+    emitted = len(detail_rows)
+    ctx["report"]["hygiene"] = {
+        "inspected": len(records),
+        "findings": total,
+        "emitted": emitted,
+        "omitted": total - emitted,
+        "by_kind": dict(sorted(counts.items())),
+        "boundary": ("deterministic inspection covers invisible format characters and space "
+                     "lookalikes; it does not detect statistical token-sampling watermarks, "
+                     "prove human authorship, or inspect file-container metadata"),
+        "writes": "check reports user-authored documents and never rewrites them",
+    }
+
+
 def staleness_summary(ctx):
     counts = Counter()
     for record in (ctx["report"].get("drift") or {}).get("digest") or []:
@@ -2556,6 +2622,8 @@ def check_bound(root, passes, fail_on, scan_path, write, exclude_dirs=None):
         pass_drift(ctx)
     if "lint" in passes:
         pass_lint(ctx)
+    if "hygiene" in passes:
+        pass_hygiene(ctx)
     if "gaps" in passes:
         pass_gaps(ctx)
     if "spine" in passes:
@@ -2583,7 +2651,7 @@ def check_bound(root, passes, fail_on, scan_path, write, exclude_dirs=None):
               "summary": {"findings": len(ctx["findings"]), "gating": len(gating),
                           "fail_on": fail_on, "by_severity": dict(severities),
                           "exit": 1 if gating else 0}}
-    for key in ("drift", "gaps", "spine", "tripwires", "orphans"):
+    for key in ("drift", "hygiene", "gaps", "spine", "tripwires", "orphans"):
         report[key] = ctx["report"].get(key)
     return report
 
@@ -2647,6 +2715,8 @@ def print_findings(report, pass_name, title, limit=12):
         where = row["path"] or row["id"] or "-"
         if row.get("line"):
             where = "%s:%d" % (where, row["line"])
+        if row.get("column"):
+            where = "%s:%d" % (where, row["column"])
         print("  %-9s: %s -> %s" % (row["severity"], clip(where, 34), clip(row["detail"], 60)))
     if len(rows) > limit:
         print("  %-9s: %d more" % ("...", len(rows) - limit))
@@ -2687,6 +2757,16 @@ def print_text(report):
     print_tripwires(report)
     print_findings(report, "drift", "drift, warning unless the document is in assurance_set")
     print_findings(report, "lint", "lint")
+    hygiene = report.get("hygiene")
+    if hygiene is not None:
+        print("\nunicode hygiene, deterministic text inspection")
+        print("  %-9s: %d documents, %d findings" %
+              ("checked", hygiene["inspected"], hygiene["findings"]))
+        if hygiene["omitted"]:
+            print("  %-9s: %d rows emitted, %d omitted from detail" %
+                  ("bounded", hygiene["emitted"], hygiene["omitted"]))
+        print("  %-9s: %s" % ("boundary", clip(hygiene["boundary"], 92)))
+        print_findings(report, "hygiene", "unicode hygiene findings")
     print_findings(report, "spine", "spine")
     gaps = report.get("gaps")
     if gaps is not None:
@@ -2728,7 +2808,8 @@ def print_text(report):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Check documentation against the code: drift, "
-                                                 "lint, gaps, spine, tripwires, orphans.")
+                                                 "lint, Unicode hygiene, gaps, spine, tripwires, "
+                                                 "orphans.")
     parser.add_argument("repo", nargs="?", default=".")
     parser.add_argument("--json", action="store_true", help="emit JSON instead of text")
     parser.add_argument("--fail-on", choices=FAIL_ON, default="major",

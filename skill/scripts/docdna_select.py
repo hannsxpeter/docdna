@@ -35,6 +35,7 @@ from docdna_fs import (FileTooLarge, MAX_CONTROL_BYTES,
                        require_scan as safe_require_scan,
                        root_is_current as safe_root_is_current,
                        write_text as safe_write_text)
+from docdna_unicode import clean_generated_text
 
 CATALOG_DIR = os.path.normpath(os.path.join(HERE, "..", "catalog"))
 TEMPLATE_DIR = os.path.normpath(os.path.join(HERE, "..", "templates"))
@@ -1631,7 +1632,8 @@ def write_outputs(root, manifest, report):
             raise ValueError("refused unsafe repository output %s" % rel)
     # The manifest is the authoritative generation marker. Write the human report first so a
     # failure cannot publish a new machine-readable decision ledger beside an old report.
-    write_repository_text(root, REPORT_REL, report)
+    clean_report, _stats = clean_generated_text(report)
+    write_repository_text(root, REPORT_REL, clean_report)
     manifest_path = output_path(root, MANIFEST_REL)
     write_repository_text(root, MANIFEST_REL,
                           json.dumps(manifest, indent=2, sort_keys=True) + "\n")
