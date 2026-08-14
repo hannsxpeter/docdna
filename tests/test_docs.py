@@ -763,6 +763,25 @@ class GeneratedArtifactContractTests(unittest.TestCase):
 
                 self.assertFalse((outside / (llms.OUTPUT_ID + ".yml")).exists())
 
+    def test_llms_cleans_generated_index_and_sidecar_prose(self):
+        llms = load("docdna_llms_unicode_hygiene", LLMS)
+        manifest = {"documents": [{"id": llms.OUTPUT_ID,
+                                    "title": "Index\u202ehidden\u00a0space"}],
+                    "excluded": []}
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+
+            llms.write_output(str(repo), "Index\u202ehidden\u00a0space\n")
+            llms.write_sidecar(str(repo), manifest)
+
+            self.assertEqual((repo / "llms.txt").read_text(encoding="utf-8"),
+                             "Indexhidden space\n")
+            sidecar = (repo / ".docdna" / "meta" /
+                       (llms.OUTPUT_ID + ".yml")).read_text(encoding="utf-8")
+            self.assertNotIn("\u202e", sidecar)
+            self.assertNotIn("\u00a0", sidecar)
+            self.assertIn("Indexhidden space", sidecar)
+
     def test_llms_sidecar_write_resists_a_parent_symlink_swap_after_validation(self):
         llms = load("docdna_llms_sidecar_race", LLMS)
         manifest = {"documents": [], "excluded": []}

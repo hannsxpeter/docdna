@@ -54,6 +54,7 @@ Run the automated checks before opening a pull request:
 
 ```sh
 python3 -m py_compile skill/scripts/docdna_fs.py
+python3 -m py_compile skill/scripts/docdna_unicode.py
 python3 -m py_compile skill/scripts/docdna_scan.py
 python3 -m py_compile skill/scripts/docdna_select.py
 python3 -m py_compile skill/scripts/docdna_backfill.py

@@ -1,0 +1,26 @@
+# Document Unicode Hygiene Plan
+
+## Slice 1: Deterministic Unicode core
+
+1. Add failing unit tests in `tests/test_hygiene.py` for classified findings, exact positions, cleaning, and emoji glue preservation.
+2. Add `skill/scripts/docdna_unicode.py` with Python 3.8-compatible inspection and generated-text cleaning functions.
+3. Compile and run the focused tests.
+
+## Slice 2: Check integration
+
+1. Add failing checker tests for the `hygiene` pass, default execution, default major gating, minor warnings, ignored paths, excluded directories, and text and JSON output.
+2. Extend `skill/scripts/docdna_check.py` with the pass and its report summary.
+3. Run `tests/test_check.py` and `tests/test_hygiene.py`.
+
+## Slice 3: Generated output hygiene
+
+1. Add failing tests that inject suspicious Unicode into generated human-facing output.
+2. Clean generated `DOCDNA.md`, `llms.txt`, and sidecar prose at their existing safe-write boundaries. Do not rewrite manifest JSON or user-authored documents.
+3. Regenerate committed outputs and verify byte stability.
+
+## Slice 4: Documentation and delivery
+
+1. Update `README.md`, `docs/QUICKSTART.md`, `skill/SKILL.md`, `CONTRIBUTING.md`, and `CHANGELOG.md`.
+2. Add the helper to CI compilation and validate documented CLI choices.
+3. Run the full suite on current Python and Python 3.8, then run the complete local CI-equivalent pipeline.
+4. Review the new trust boundary and Unicode cases, address all findings, commit on the feature branch, merge with `--no-ff` into `main`, push `main`, delete the local feature branch, and verify `main == origin/main` with an empty worktree.

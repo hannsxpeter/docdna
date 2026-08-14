@@ -1,0 +1,22 @@
+# Document Unicode Hygiene Review
+
+## Spec verdict
+
+PASS. `P-MUST-01` through `P-MUST-11` are implemented and covered by focused tests. The checker exposes a default `hygiene` pass, uses the scanner inventory and existing safe readers, reports structured paths and positions, applies severity-based gating, preserves emoji glue, never rewrites user documents, cleans only generated prose, remains standard-library Python 3.8 code, publishes exact bounded summaries, and updates the user contract.
+
+## Quality verdict
+
+PASS. The feature is isolated in `docdna_unicode.py`; check integration is one pass over already bounded document text; output cleaning happens immediately before existing safe-write functions; manifest values are deliberately unchanged; code follows repository style; the upstream MIT notice ships with installed copies; and focused, integration, CLI, adversarial-cap, safe-write, generated-artifact, and compatibility tests pass.
+
+## Hardening findings resolved
+
+1. A first-1,000 detail cap could have hidden a late major finding behind minor rows. Major rows are now retained preferentially, exact totals remain available, and a regression test proves the default gate still fails.
+2. Control characters outside tab, newline, and carriage return were not initially classified. Terminal controls, surrogate codepoints, and Unicode noncharacters are now major findings and are removed from generated UTF-8 prose.
+3. A document containing only suspicious characters could force unbounded detail storage. Major and minor candidate lists are each bounded at 1,000 while the streaming pass retains exact totals and class counts.
+4. Whole-manifest cleaning could corrupt valid repository paths and identifiers. Manifest JSON is never passed through the cleaner; tests pin this boundary.
+
+## Residual risks
+
+- Legitimate directional controls in multilingual documentation still produce major findings and require human review.
+- Homoglyph substitution, compatibility normalization, statistical token watermarks, container metadata, and media marks remain explicit non-goals.
+- Detailed rows cap at 1,000. Totals and class counts remain exact, and major rows take precedence within the cap.

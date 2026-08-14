@@ -178,6 +178,23 @@ Survey needs nothing at all to run. The other two run a survey first if one is m
 know what you want, say so: "write the config reference for this repo" goes straight to writing that one
 document, because being told exactly what to do should never be answered with a questionnaire.
 
+## Invisible Unicode hygiene
+
+Check also audits the documentation inventory for invisible Unicode that can break diffs, search, review,
+or visual ordering. Every row names the file, line, column, codepoint, Unicode name, and class. Terminal
+controls, bidirectional controls, and Unicode tag characters are `major`; zero-width format characters, variation selectors, and
+space lookalikes are `minor`. Legitimate emoji ZWJ, VS15, and VS16 sequences are preserved. Exact totals
+and class counts are retained; detailed rows are capped at 1,000 to bound report memory.
+
+```sh
+python3 skill/scripts/docdna_check.py --only hygiene /path/to/repo
+```
+
+The checker never rewrites user-authored documentation. DocDNA cleans only its generated human-facing
+prose before the existing race-safe write, and it leaves manifest paths and identifiers untouched. This is
+deterministic text hygiene, not statistical watermark detection, metadata removal, or evidence that a
+person wrote the text.
+
 ## What it will write for you
 
 Ten documents that are read off the code rather than reasoned about, which is why they are safe to

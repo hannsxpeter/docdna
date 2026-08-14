@@ -622,6 +622,144 @@ class CheckTests(unittest.TestCase):
             self.assertEqual(outside.read_text(encoding="utf-8"),
                              "external report marker\n")
 
+    def test_hygiene_pass_reports_and_gates_bidirectional_controls_by_default(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = write_repo(tmp, {"README.md": "# App\n\nleft\u202eright\n"})
+
+            report = self.check_repo(repo)
+            rows = kinds(report, "unicode-bidi")
+
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["pass"], "hygiene")
+            self.assertEqual(rows[0]["severity"], "major")
+            self.assertEqual(rows[0]["line"], 3)
+            self.assertEqual(rows[0]["column"], 5)
+            self.assertTrue(rows[0]["gating"])
+            self.assertIn("column 5", rows[0]["detail"])
+            self.assertIn("U+202E RIGHT-TO-LEFT OVERRIDE", rows[0]["detail"])
+            self.assertEqual(report["hygiene"]["inspected"], 1)
+            self.assertEqual(report["hygiene"]["findings"], 1)
+            self.assertEqual(report["hygiene"]["by_kind"], {"bidi": 1})
+            self.assertEqual(report["summary"]["exit"], 1)
+
+    def test_minor_hygiene_findings_warn_by_default_and_gate_at_minor(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = write_repo(tmp, {"README.md": "# App\n\nzero\u200bwidth\n"})
+
+            default = self.check_repo(repo)
+            strict = self.check_repo(repo, fail_on="minor")
+
+            self.assertEqual(default["summary"]["exit"], 0)
+            self.assertEqual(strict["summary"]["exit"], 1)
+            self.assertTrue(kinds(default, "unicode-zero-width")[0]["gating"])
+
+    def test_hygiene_preserves_legitimate_emoji_glue(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            emoji = "\u2764\ufe0f\u200d\U0001f525"
+            repo = write_repo(tmp, {"README.md": "# App\n\n" + emoji + "\n"})
+
+            report = self.check_repo(repo)
+
+            self.assertEqual(report["hygiene"]["findings"], 0)
+            self.assertEqual([row for row in report["findings"]
+                              if row["pass"] == "hygiene"], [])
+
+    def test_hygiene_inherits_excluded_directory_boundaries(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = write_repo(tmp, {"README.md": "# App\n",
+                                    "vendor/README.md": "hidden\u202etext\n"})
+
+            report = self.check.check(str(repo), {"hygiene"}, "major", None, False,
+                                      ["vendor"])
+
+            self.assertEqual(report["hygiene"]["inspected"], 1)
+            self.assertEqual(report["hygiene"]["findings"], 0)
+
+    def test_hygiene_covers_every_text_format_in_the_document_inventory(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = write_repo(tmp, {"README.md": "# App\n",
+                                    "docs/guide.rst": "Guide\n=====\nleft\u202eright\n",
+                                    "docs/notes.txt": "zero\u200bwidth\n"})
+
+            report = self.check.check(str(repo), {"hygiene"}, "major", None, False)
+
+            self.assertEqual(report["hygiene"]["inspected"], 3)
+            self.assertEqual(report["hygiene"]["findings"], 2)
+            self.assertEqual({row["path"] for row in report["findings"]
+                              if row["pass"] == "hygiene"},
+                             {"docs/guide.rst", "docs/notes.txt"})
+
+    def test_hygiene_bounds_emitted_rows_but_keeps_exact_totals(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            total = self.check.MAX_HYGIENE_FINDINGS + 5
+            repo = write_repo(tmp, {"README.md": "# App\n",
+                                    "docs/controls.txt": "\u202e" * total})
+
+            report = self.check.check(str(repo), {"hygiene"}, "never", None, False)
+
+            self.assertEqual(report["hygiene"]["findings"], total)
+            self.assertEqual(report["hygiene"]["emitted"], self.check.MAX_HYGIENE_FINDINGS)
+            self.assertEqual(report["hygiene"]["omitted"], 5)
+            self.assertEqual(report["hygiene"]["by_kind"], {"bidi": total})
+            self.assertEqual(len([row for row in report["findings"]
+                                  if row["pass"] == "hygiene"]),
+                             self.check.MAX_HYGIENE_FINDINGS)
+
+    def test_hygiene_cap_never_hides_a_late_major_finding_from_the_gate(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            text = "\u00a0" * self.check.MAX_HYGIENE_FINDINGS + "\u202e"
+            repo = write_repo(tmp, {"README.md": "# App\n",
+                                    "docs/controls.txt": text})
+
+            report = self.check.check(str(repo), {"hygiene"}, "major", None, False)
+
+            self.assertEqual(report["hygiene"]["findings"],
+                             self.check.MAX_HYGIENE_FINDINGS + 1)
+            self.assertEqual(report["hygiene"]["emitted"],
+                             self.check.MAX_HYGIENE_FINDINGS)
+            self.assertEqual(report["summary"]["exit"], 1)
+            self.assertEqual(len(kinds(report, "unicode-bidi")), 1)
+
+    def test_hygiene_only_cli_emits_text_and_json_reports(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = write_repo(tmp, {"README.md": "# App\n\nleft\u202eright\n"})
+
+            text_report = cli(repo, "--only", "hygiene")
+            json_report = cli(repo, "--json", "--only", "hygiene")
+
+            self.assertEqual(text_report.returncode, 1)
+            self.assertIn("unicode hygiene", text_report.stdout)
+            self.assertIn("U+202E", text_report.stdout)
+            self.assertEqual(json_report.returncode, 1)
+            payload = json.loads(json_report.stdout)
+            self.assertEqual(payload["passes"], ["hygiene"])
+            self.assertEqual(payload["hygiene"]["findings"], 1)
+
+    def test_hygiene_never_rewrites_user_authored_documents(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            body = "# App\n\nleft\u202eright\n"
+            repo = write_repo(tmp, {"README.md": body})
+
+            self.check.check(str(repo), {"hygiene"}, "never", None, True)
+
+            self.assertEqual((repo / "README.md").read_text(encoding="utf-8"), body)
+
+    def test_gap_rollup_cleans_only_the_generated_docdna_report(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            report = "# Report\n\nunsafe\u202etext\n\n" + self.check.GAPS_START + "\nold\n" + \
+                self.check.GAPS_END + "\n"
+            repo = write_repo(tmp, {"README.md": "# App\n" + GAP_PAIR,
+                                    "DOCDNA.md": report})
+
+            self.check.check(str(repo), {"gaps"}, "never", None, True)
+
+            written = (repo / "DOCDNA.md").read_text(encoding="utf-8")
+            self.assertNotIn("\u202e", written)
+            self.assertIn("unsafetext", written)
+            self.assertIn("## Open gaps", written)
+            self.assertEqual((repo / "README.md").read_text(encoding="utf-8"),
+                             "# App\n" + GAP_PAIR)
+
 
 if __name__ == "__main__":
     unittest.main()

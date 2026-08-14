@@ -109,9 +109,17 @@ The third mode re-checks documents against the code, and is the one to put in co
 
 > check the docs against the code
 
-By default it warns rather than fails. You choose a small set of documents, usually three to five, that are
-important enough to break the build over. A gate that turns everything red gets switched off in week two,
-so it does not do that by default.
+Drift warns unless you choose a small assurance set, usually three to five documents. Unicode hygiene is
+also included: terminal controls, bidirectional controls, and Unicode tag characters fail at the default `major` threshold,
+while other invisible format characters warn. Inspect that pass alone with:
+
+```sh
+python3 skill/scripts/docdna_check.py --only hygiene .
+```
+
+It reports exact codepoints and locations but never rewrites your documents. Only DocDNA's generated
+human-facing prose is cleaned before writing. Statistical text watermarks and file metadata are outside
+this check.
 
 ## Glossary
 
