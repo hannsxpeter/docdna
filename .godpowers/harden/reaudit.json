@@ -1,0 +1,11 @@
+{
+  "lastAuditAt": "2026-08-19T12:15:46.648Z",
+  "cadenceDays": 30,
+  "scope": [
+    "connectors",
+    "automations",
+    "credentials",
+    "permissions"
+  ],
+  "findings": "0 Critical, 0 High, 3 Medium, 0 Low"
+}

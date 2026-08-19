@@ -1,0 +1,178 @@
+# DocDNA 1.4.0 GitHub Release Launch Runbook
+
+Date: 2026-08-19
+Owner: DocDNA release maintainer
+Scope: Public GitHub repository release of a local POSIX Python CLI and coding-agent skill
+Readiness: Local launch preparation PASS; public activation pending exact-commit CI and a fresh
+hash-bound prepublication pass
+
+## Source Record
+
+| Claim | Source |
+| --- | --- |
+| DocDNA is a local, standard-library Python agent skill with no account, server, or upload. | `README.md:21-26` |
+| The target users are engineering leads, handoff owners, audit or review preparers, and engineers writing documentation. | `README.md:28-39` |
+| Version 1.4.0 adds Doctor, Status, fresh-context packets, and evidence-class-aware Proof. | `CHANGELOG.md:7-18` |
+| CI validates both registries, Python 3.8 and current Python, installed flows, and stable generated artifacts. | `CHANGELOG.md:20-27`; `.github/workflows/ci.yml:12-55` |
+| The bounded increment defines `P-MUST-01` through `P-MUST-05` because no canonical PRD exists. | `.godpowers/build/PLAN.mdx:3-30` |
+| Local build evidence records 527 passing tests plus Doctor, Proof, stable sample, shell syntax, and isolated installed-consumer checks. | `.godpowers/state.json`, `tiers.tier-2.build.verification` |
+| Hardening records 0 Critical, 0 High, 3 open Medium, and a passed launch gate. | `.godpowers/harden/FINDINGS.mdx:15-27` |
+| The only verified public origin is the Git remote. | `git remote get-url origin` returned `https://github.com/hannsxpeter/docdna.git` at 2026-08-19T12:16:32Z. |
+
+## Gate Decision
+
+- [DECISION] Hardening permits launch preparation and public activation after the remaining release checks.
+  There is no unresolved or accepted Critical finding. The three Medium findings remain disclosed follow-up
+  work.
+- [DECISION] `.godpowers/REQUIREMENTS.mdx` does not exist. The accepted bounded-increment plan defines the
+  only P-MUST set, `P-MUST-01` through `P-MUST-05`; build state is `done` and records the release-surface
+  harness. This is the documented no-PRD gate exception, not an assertion about a missing canonical file.
+- [DECISION] Local readiness passes. Public activation remains pending until GitHub Actions passes the exact
+  release commit on Python 3.8 and current Python, including ShellCheck, and the fresh prepublication record
+  and check both pass immediately before the first public write.
+- [DECISION] The existing `.godpowers/launch/PREPUBLICATION.mdx` predates the current hardening update and is
+  stale. This runbook does not modify or rely on it.
+
+## Launch Surface
+
+The launch surface is the repository README plus the GitHub release page discovered from the verified
+remote. There is no deployed application, website, staging origin, signup flow, or custom web metadata
+surface.
+
+Landing-page implementation is Not Applicable. The README already supplies the evergreen hero, audience,
+specific value proposition, differentiator, installation path, real output, and proof boundary. Its central
+claim is substitution-tested: replacing DocDNA with a generic documentation tool breaks the promise to rule
+documents in or out from repository evidence, cite every generated claim, and mark every unresolved claim as
+a gap.
+
+A custom OG card is Not Applicable. No owned web page or image metadata surface exists to receive or render
+one, and the release is not claiming a custom social preview. GitHub owns the rendering of its repository and
+release pages. The release owner must not record an OG render or card-debugger pass for this release.
+
+The public release body is `.godpowers/launch/RELEASE-NOTES-1.4.0.md`. It uses product-specific claims from
+the changelog and README, separates the three release values, includes the immutable tag install command,
+and discloses the installed-byte and installer rollback limits from the Medium findings.
+
+## Channels And Attribution
+
+| Channel | Timing | Owner | Message and attribution |
+| --- | --- | --- | --- |
+| GitHub Release | D-Day, after CI and the fresh prepublication pass | Release maintainer | Publish the prepared release notes against `v1.4.0`. GitHub is the canonical source, so the release tag, commit, publication time, and release URL are the attribution record. |
+| Show HN | D+1, only after a fresh tagged install passes | Release maintainer | Use a separate developer-facing note: `Show HN: DocDNA decides which documents a repository owes, cites the evidence, and marks the gaps`. Obtain the target from `gh release view v1.4.0 --json url -q .url`, then append `utm_source=hackernews&utm_medium=community&utm_campaign=docdna_1_4_0`. Do not guess the release URL before that command returns it. |
+
+Product Hunt, LinkedIn, Indie Hackers, dev.to, X, and Reddit are not scheduled because the local sources do
+not establish an audience or owner for those channels. This is a bounded GitHub release, not a broad campaign.
+
+There are no accounts or signups, and the CLI has no telemetry. A conversion dashboard, real-time signup
+dashboard, anonymous-signup attribution, and client tracking are Not Applicable. Launch evidence is limited
+to GitHub's release identity, exact tag and commit, CI result, tagged-install smoke, and issue reports. The
+optional Show HN link is source-attributed with UTM parameters without adding tracking to the CLI.
+
+## Success Criteria
+
+Launch is complete only when all of the following are true:
+
+1. GitHub Actions passes the exact release commit on Python 3.8 and current Python, including registry JSON,
+   registry-declared compilation, 527 tests, stable artifacts, ShellCheck, and the isolated installed
+   consumer flows.
+2. Immediately after every other readiness check, both prepublication commands return `verdict: pass` for
+   the current hardening hash and timestamp.
+3. Annotated tag `v1.4.0` resolves to the exact merged release commit and exists on `origin`.
+4. The GitHub release exists for `v1.4.0`, uses the prepared notes, and reports a URL returned by GitHub.
+5. A fresh temporary clone of `v1.4.0` installs the skill and passes installed Doctor, Proof, Status, packet,
+   Check, llms, and Wire smoke checks.
+6. Local `main` equals `origin/main`, and the final worktree is clean after release-evidence closure.
+
+No adoption count is invented. At D+1 and D+7, record GitHub release availability, issue reports, and any
+available repository traffic without treating absent provider data as zero usage.
+
+## Exact Activation Sequence
+
+After the candidate is merged, run from the repository root. Stop at the first failure.
+
+```sh
+git checkout main
+git pull --ff-only origin main
+git status --short
+release_commit=$(git rev-parse main)
+gh run list --workflow CI --commit "$release_commit"
+```
+
+Confirm the exact-commit run passed both matrix jobs. Do not substitute a branch-only or older green run.
+
+```sh
+node /Users/hprincivil/.codex/godpowers-runtime/lib/prepublication-gate.js --record --project=.
+node /Users/hprincivil/.codex/godpowers-runtime/lib/prepublication-gate.js --check --project=.
+```
+
+Continue only when the second command returns `verdict: pass`. Any later hardening edit invalidates the
+record and requires a fresh record and check.
+
+With `main` clean and synchronized:
+
+```sh
+git tag -a v1.4.0 "$release_commit" -m "DocDNA 1.4.0"
+git push origin v1.4.0
+gh release create v1.4.0 --verify-tag --title "DocDNA 1.4.0" \
+  --notes-file .godpowers/launch/RELEASE-NOTES-1.4.0.md
+gh release view v1.4.0 --json url,tagName,targetCommitish,publishedAt
+```
+
+Then run the tagged-install smoke against the remote already verified above:
+
+```sh
+smoke_root=$(mktemp -d)
+git clone --branch v1.4.0 --depth 1 https://github.com/hannsxpeter/docdna.git "$smoke_root/src"
+skill_dest="$smoke_root/skills"
+consumer_repo="$smoke_root/consumer"
+CLAUDE_SKILLS_DIR="$skill_dest" "$smoke_root/src/install.sh" claude
+cp -R "$smoke_root/src/tests/fixtures/internal_service" "$consumer_repo"
+python3 "$skill_dest/docdna/scripts/docdna_doctor.py" --json
+python3 "$skill_dest/docdna/scripts/docdna_proof.py" --json
+python3 "$skill_dest/docdna/scripts/docdna_scan.py" --json "$consumer_repo" > /dev/null
+python3 "$skill_dest/docdna/scripts/docdna_select.py" "$consumer_repo" > /dev/null
+python3 "$skill_dest/docdna/scripts/docdna_status.py" --json "$consumer_repo" > /dev/null
+python3 "$skill_dest/docdna/scripts/docdna_backfill.py" --only build.api-reference --json "$consumer_repo" > /dev/null
+python3 "$skill_dest/docdna/scripts/docdna_check.py" "$consumer_repo" > /dev/null
+python3 "$skill_dest/docdna/scripts/docdna_llms.py" "$consumer_repo" > /dev/null
+python3 "$skill_dest/docdna/scripts/docdna_wire.py" --json "$consumer_repo" > /dev/null
+```
+
+Record the command and result in launch state. Finally verify:
+
+```sh
+git rev-parse main
+git rev-parse origin/main
+git rev-list -n 1 v1.4.0
+git status --short
+```
+
+## Rollback
+
+Before publication, any CI, smoke, or prepublication failure stops the sequence. Do not create or push the
+tag.
+
+After publication, a tagged-install failure, release-commit mismatch, or new Critical security finding
+triggers withdrawal of launch announcements and a prominent GitHub issue or release warning. Preserve the
+immutable `v1.4.0` tag and failed evidence, stop recommending that version, fix forward as `1.4.1`, rerun
+hardening, CI, the installed-consumer smoke, and a fresh prepublication gate, then publish the patch. Do not
+move or reuse `v1.4.0`.
+
+## D-7 To D+7
+
+| Date | Window | Owner | Action |
+| --- | --- | --- | --- |
+| 2026-08-12 | D-7 | Release maintainer | Prepare changelog, README install path, release notes, success criteria, and rollback rule. Completed during the compressed release cycle. |
+| 2026-08-16 | D-3 | Release maintainer | Confirm hardening ownership and the GitHub-only launch surface. Completed during the compressed release cycle. |
+| 2026-08-18 | D-1 | Release maintainer | Run the full local harness and verify the isolated installed consumer. Completed with 527 tests and the recorded command checks. |
+| 2026-08-19 | D-Day | Release maintainer | Merge the exact candidate, require exact-commit CI, record and check the fresh gate, tag, create the GitHub release, and run the tagged-install smoke. |
+| 2026-08-20 to 2026-08-22 | D+1 to D+3 | Release maintainer | Respond to every actionable release comment or issue, record install failures, and publish the optional Show HN note only after tagged-install proof. |
+| 2026-08-26 | D+7 | Release maintainer | Review release availability, issue reports, available GitHub traffic, and the three Medium findings. Record a retrospective and decide whether 1.4.1 is required. |
+
+## Current Verdict
+
+Local launch readiness: PASS.
+
+Public activation blocker: exact-commit GitHub CI has not yet supplied Python 3.8 and ShellCheck evidence,
+and the current prepublication artifact is stale. After CI passes, the root agent must run the two fresh
+prepublication commands immediately before the tag push and GitHub release write.
