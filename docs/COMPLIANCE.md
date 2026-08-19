@@ -1,5 +1,7 @@
 # Compliance, and every refusal
 
+<!-- Implements: P-MUST-05 -->
+
 The short version: docdna will help you assemble the evidence an assessor asks for, and it will not write
 the document you sign. That line is enforced in code, not promised in prose.
 
@@ -110,6 +112,28 @@ papered over:
 Those limits are structural, not a backlog item, and
 [../skill/references/evidence.md](../skill/references/evidence.md) names all four classes in its second
 section.
+
+### Product proof states
+
+Version 1.4.0 exposes the product-claim registry with
+`python3 skill/scripts/docdna_proof.py --json`. The terms remain deliberately separate:
+
+- **Verified** means a deterministic repository-local check observed the registered evidence.
+- **Attested** means a person supplied a shape-checked `human:` statement that DocDNA did not independently
+  establish.
+- **Self-attested** means a `run:` command and output were recorded together, but DocDNA did not execute
+  the target repository's command.
+- **Refused** means the requested evidence class, unsafe input, or proof promotion is outside the
+  verifier's authority.
+
+The registry's shipped, unit-tested, install-tested, artifact-proven, replay-tested, measured,
+adjudicated, host-capture-ready, host-captured, and external-tool-dependent levels do not collapse into
+"verified." Source-checkout mode can inspect registered evidence paths and golden replay IDs. Installed
+mode is read-only and validates promotion structure only, because checkout-only evidence and replay
+fixtures are not shipped. Neither result proves host parity, certification, legal sufficiency, or a host
+run. Exit code 0 means the requested validation completed, 1 means a replayed outcome failed, and 2 means
+invalid or unsafe control data prevented validation. Recovery is to inspect the named registry error or
+reinstall trusted release bytes.
 
 ### No legal instrument
 

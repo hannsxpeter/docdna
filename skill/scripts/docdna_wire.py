@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Wire DOCDNA.md into common coding-agent instruction files."""
+"""Wire DOCDNA.md into registered coding-agent instruction files."""
+
+# Implements: P-MUST-05
 
 import argparse
 import json
@@ -13,13 +15,14 @@ if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
 from docdna_fs import (MAX_CONTROL_BYTES, bind_root as safe_bind_root,
+                       control_file_exists as safe_control_file_exists,
                        is_dir as safe_is_dir,
-                       is_symlink as safe_is_symlink,
                        open_root as safe_open_root,
                        path_exists as safe_path_exists,
                        read_text as safe_read_text, write_text as safe_write_text)
+from docdna_runtime import RuntimeRegistryError, load_registry, wiring_target_ids
 
-VERSION = "1.3.0"
+VERSION = "1.4.0"
 
 START = "<!-- docdna:start -->"
 END = "<!-- docdna:end -->"
@@ -48,16 +51,19 @@ trigger: always_on
 
 """
 
-PLAIN_TARGETS = {
-    "agents": Path("AGENTS.md"),
-    "claude": Path("CLAUDE.md"),
-    "gemini": Path("GEMINI.md"),
-    "copilot": Path(".github/copilot-instructions.md"),
-}
+SKILL_ROOT = os.path.normpath(os.path.join(HERE, ".."))
+WIRING_SURFACES = {}
+ALL_TARGETS = ()
 
-ALL_TARGETS = ["agents", "claude", "gemini", "copilot", "cursor", "cascade"]
 
-RULE_BASENAME = "docdna"
+def load_wiring_surfaces(skill_root=SKILL_ROOT):
+    """Load the validated registry without running at module import time."""
+    registry = load_registry(skill_root)
+    surfaces = dict((row["id"], row) for row in registry["wiring_surfaces"])
+    global WIRING_SURFACES, ALL_TARGETS
+    WIRING_SURFACES = surfaces
+    ALL_TARGETS = tuple(wiring_target_ids(registry))
+    return surfaces
 
 
 def foreign_markers(span, start_marker, end_marker):
@@ -106,93 +112,137 @@ def replace_block(text, block, start_marker, end_marker):
     return block
 
 
-def write_target(root, path, body, prefix="", start_marker=START, end_marker=END):
+def preflight_write_target(root, path, body, prefix="", start_marker=START, end_marker=END):
     rel = os.path.relpath(str(path), str(root))
+    existed = safe_control_file_exists(root, rel)
+    text = safe_read_text(root, rel, max_bytes=MAX_CONTROL_BYTES) if existed else ""
+    if existed and locate_block(text, start_marker, end_marker)[2] == "conflict":
+        return {"path": path, "relative": rel, "updated": None, "action": "skipped"}
+    if not text.strip() and prefix:
+        updated = prefix + body
+    else:
+        updated = replace_block(text, body, start_marker, end_marker)
+        if not existed and prefix:
+            updated = prefix + updated
+    return {"path": path, "relative": rel, "updated": updated,
+            "action": "updated" if existed else "created"}
+
+
+def apply_write_target(root, plan):
+    if plan["updated"] is None:
+        return plan["action"]
     descriptor = safe_open_root(root)
     try:
-        if safe_is_symlink(root, rel):
-            raise ValueError("refused symlinked wiring target: %s" % rel)
-        existed = safe_path_exists(root, rel)
-        text = safe_read_text(root, rel, max_bytes=MAX_CONTROL_BYTES) if existed else ""
-        if existed and locate_block(text, start_marker, end_marker)[2] == "conflict":
-            return "skipped"
-        if not text.strip() and prefix:
-            updated = prefix + body
-        else:
-            updated = replace_block(text, body, start_marker, end_marker)
-            if not existed and prefix:
-                updated = prefix + updated
-        safe_write_text(root, rel, updated, root_descriptor=descriptor)
-        return "updated" if existed else "created"
+        safe_write_text(root, plan["relative"], plan["updated"], root_descriptor=descriptor)
     finally:
         os.close(descriptor)
+    return plan["action"]
 
 
-def cascade_path(root):
+def write_target(root, path, body, prefix="", start_marker=START, end_marker=END):
+    plan = preflight_write_target(root, path, body, prefix, start_marker, end_marker)
+    return apply_write_target(root, plan)
+
+
+def rule_path(root, paths):
     root_path = Path(str(root))
-    devin = root_path / ".devin/rules"
-    windsurf = root_path / ".windsurf/rules"
-    if safe_is_dir(root, ".windsurf/rules") and not safe_is_dir(root, ".devin/rules"):
-        return windsurf / (RULE_BASENAME + ".md")
-    return devin / (RULE_BASENAME + ".md")
+    primary, alternate = (root_path / path for path in paths)
+    primary_parent = os.path.dirname(paths[0])
+    alternate_parent = os.path.dirname(paths[1])
+    if safe_is_dir(root, alternate_parent) and not safe_is_dir(root, primary_parent):
+        return alternate
+    return primary
 
 
-def target_path(root, target):
+def cascade_path(root, surfaces=None):
+    surfaces = surfaces or load_wiring_surfaces()
+    candidates = [row for row in surfaces.values() if row["renderer"] == "cascade-rule"]
+    if len(candidates) != 1:
+        raise ValueError("registry must declare exactly one cascade-rule wiring surface")
+    return rule_path(root, candidates[0]["paths"])
+
+
+def target_path(root, target, surfaces=None):
+    surfaces = surfaces or load_wiring_surfaces()
+    surface = surfaces.get(target)
+    if surface is None:
+        raise ValueError("unknown target: %s" % target)
+    renderer = surface["renderer"]
     root_path = Path(str(root))
-    if target in PLAIN_TARGETS:
-        return root_path / PLAIN_TARGETS[target], "", PLAIN_BLOCK
-    if target == "cursor":
-        return root_path / (".cursor/rules/" + RULE_BASENAME + ".mdc"), CURSOR_FRONTMATTER, PLAIN_BLOCK
-    if target == "cascade":
-        return cascade_path(root), CASCADE_FRONTMATTER, PLAIN_BLOCK
-    raise ValueError("unknown target: %s" % target)
+    if renderer in ("plain-default", "plain-existing"):
+        return root_path / surface["paths"][0], "", PLAIN_BLOCK
+    if renderer == "cursor-rule":
+        return root_path / surface["paths"][0], CURSOR_FRONTMATTER, PLAIN_BLOCK
+    if renderer == "cascade-rule":
+        return rule_path(root, surface["paths"]), CASCADE_FRONTMATTER, PLAIN_BLOCK
+    raise ValueError("unknown wiring renderer: %s" % renderer)
 
 
-def existing_targets(root):
-    targets = ["agents"]
-    for name, rel in PLAIN_TARGETS.items():
-        if name != "agents" and safe_path_exists(root, str(rel)):
-            targets.append(name)
-    if safe_is_dir(root, ".cursor/rules"):
-        targets.append("cursor")
-    if safe_is_dir(root, ".devin/rules") or safe_is_dir(root, ".windsurf/rules"):
-        targets.append("cascade")
+def existing_targets(root, surfaces=None):
+    surfaces = surfaces or load_wiring_surfaces()
+    targets = []
+    for target, surface in surfaces.items():
+        renderer = surface["renderer"]
+        paths = surface["paths"]
+        if renderer == "plain-default":
+            targets.append(target)
+        elif renderer == "plain-existing" and safe_path_exists(root, paths[0]):
+            targets.append(target)
+        elif renderer == "cursor-rule" and safe_is_dir(root, os.path.dirname(paths[0])):
+            targets.append(target)
+        elif renderer == "cascade-rule" and any(
+                safe_is_dir(root, os.path.dirname(path)) for path in paths):
+            targets.append(target)
     return targets
 
 
-def wire(root, targets=None, all_targets=False):
+def wire(root, targets=None, all_targets=False, surfaces=None):
+    surfaces = surfaces or load_wiring_surfaces()
     root = safe_bind_root(os.path.abspath(str(root)))
     try:
-        return wire_bound(root, targets, all_targets)
+        return wire_bound(root, targets, all_targets, surfaces)
     finally:
         root.close()
 
 
-def wire_bound(root, targets=None, all_targets=False):
-    selected = list(ALL_TARGETS if all_targets else (targets or existing_targets(root)))
+def wire_bound(root, targets=None, all_targets=False, surfaces=None):
+    surfaces = surfaces or load_wiring_surfaces()
+    selected = list(surfaces if all_targets else (targets or existing_targets(root, surfaces)))
     seen = set()
-    results = []
+    plans = []
     for target in selected:
         if target in seen:
             continue
         seen.add(target)
-        path, prefix, body = target_path(root, target)
-        action = write_target(root, path, body, prefix, START, END)
-        results.append({"target": target, "path": str(path), "action": action})
+        path, prefix, body = target_path(root, target, surfaces)
+        plan = preflight_write_target(root, path, body, prefix, START, END)
+        plan["target"] = target
+        plans.append(plan)
+    results = []
+    for plan in plans:
+        action = apply_write_target(root, plan)
+        results.append({"target": plan["target"], "path": str(plan["path"]),
+                        "action": action})
     return results
 
 
 def main(argv=None):
+    try:
+        surfaces = load_wiring_surfaces()
+    except (RuntimeRegistryError, OSError, ValueError) as error:
+        sys.stderr.write("docdna_wire: %s\n" % error)
+        return 2
     parser = argparse.ArgumentParser(description="Wire DOCDNA.md into agent instruction files.")
     parser.add_argument("repo", nargs="?", default=".")
-    parser.add_argument("--agent", action="append", choices=ALL_TARGETS, help="agent target to create or update")
+    parser.add_argument("--agent", action="append", choices=tuple(surfaces),
+                        help="agent target to create or update")
     parser.add_argument("--all", action="store_true", help="create or update every supported target")
     parser.add_argument("--json", action="store_true", help="emit JSON")
     args = parser.parse_args(argv)
 
     try:
-        results = wire(args.repo, targets=args.agent, all_targets=args.all)
-    except ValueError as error:
+        results = wire(args.repo, targets=args.agent, all_targets=args.all, surfaces=surfaces)
+    except (OSError, ValueError) as error:
         sys.stderr.write("docdna_wire: %s\n" % error)
         return 2
     if args.json:

@@ -1,0 +1,102 @@
+{
+  "schema": 1,
+  "workflows": [
+    {
+      "id": "golden.survey",
+      "mode": "survey",
+      "command": [
+        "skill/scripts/docdna_scan.py",
+        "--json",
+        "tests/fixtures/internal_service"
+      ],
+      "expected_exit": 0,
+      "assertions": [
+        {
+          "path": "tool",
+          "equals": "docdna_scan"
+        },
+        {
+          "path": "inventory.counts.total",
+          "equals": 3
+        },
+        {
+          "path": "drift",
+          "length": 2
+        }
+      ]
+    },
+    {
+      "id": "golden.backfill",
+      "mode": "backfill",
+      "command": [
+        "skill/scripts/docdna_backfill.py",
+        "--json",
+        "--verify",
+        "docs/build/dev-setup.md",
+        "tests/fixtures/documented_repo"
+      ],
+      "expected_exit": 1,
+      "assertions": [
+        {
+          "path": "tool",
+          "equals": "docdna_backfill"
+        },
+        {
+          "path": "mode",
+          "equals": "verify"
+        },
+        {
+          "path": "verdict",
+          "equals": "blocked"
+        }
+      ]
+    },
+    {
+      "id": "golden.check",
+      "mode": "check",
+      "command": [
+        "skill/scripts/docdna_check.py",
+        "--json",
+        "--no-write",
+        "--fail-on",
+        "never",
+        "tests/fixtures/documented_repo"
+      ],
+      "expected_exit": 0,
+      "assertions": [
+        {
+          "path": "tool",
+          "equals": "docdna_check"
+        },
+        {
+          "path": "summary.exit",
+          "equals": 0
+        },
+        {
+          "path": "documents",
+          "length": 3
+        }
+      ]
+    },
+    {
+      "id": "golden.runtime",
+      "mode": "runtime",
+      "builtin": "proof-registry",
+      "expected_exit": 0,
+      "assertions": [
+        {
+          "path": "registry_exists",
+          "equals": true
+        },
+        {
+          "path": "registry_schema",
+          "equals": 1
+        },
+        {
+          "path": "workflows_exists",
+          "equals": true
+        }
+      ]
+    }
+  ]
+}

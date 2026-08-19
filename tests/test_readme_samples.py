@@ -19,12 +19,17 @@ stdout, for the blocks that quote a single section rather than a whole run. The 
 whole, from its header to the blank line that closes it, so a row cannot be dropped out of the
 middle or off the end of one either.
 
+An optional json_path="a.0.b" selects one value from JSON stdout and renders it with the same
+stable indentation and key order as the helpers. This lets documentation capture a complete bounded
+object without copying volatile absolute paths from its siblings.
+
 A fence with no marker is prose and is skipped, which is the only way a reader-typed shell command
 can sit in the same document. The one thing an unmarked fence may not do is carry a line that the
 report renderers emit as a section header, because that is the fabricated sample this file exists
 to forbid, wearing a disguise.
 """
 
+import json
 import os
 import re
 import shlex
@@ -35,6 +40,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+
+# Implements: P-MUST-05
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "skill" / "scripts"
@@ -47,7 +54,7 @@ FENCE = re.compile(r"^(\s*)(```|~~~)(.*)$")
 TARGET_TOKEN = "TARGET"
 INTERPRETER = "python3"
 REQUIRED_KEYS = ("cmd", "target")
-OPTIONAL_KEYS = ("section",)
+OPTIONAL_KEYS = ("section", "json_path")
 MINIMUM_SAMPLES = 2
 
 # Section headers the two renderers emit. An unmarked fence carrying one of these is a sample of
@@ -221,6 +228,14 @@ def expected_output(marker):
     if code != 0:
         return None, "the command exited %d: %s" % (code, stderr.strip() or "no stderr")
     body = stdout[:-1] if stdout.endswith("\n") else stdout
+    if marker.get("json_path"):
+        try:
+            value = json.loads(body)
+            for part in marker["json_path"].split("."):
+                value = value[int(part)] if isinstance(value, list) else value[part]
+        except (IndexError, KeyError, TypeError, ValueError):
+            return None, "stdout has no JSON value at %r" % marker["json_path"]
+        return json.dumps(value, indent=2, sort_keys=True), None
     if not marker.get("section"):
         return body, None
     return section_of(body, marker["section"])
@@ -370,6 +385,16 @@ class SampleTests(unittest.TestCase):
                 problems.append(problem)
 
         self.assertGreaterEqual(checked, MINIMUM_SAMPLES)
+        self.assertEqual(problems, [], "\n".join(problems))
+
+    def test_documented_1_4_0_samples_are_real_stdout(self):
+        blocks = all_marked_blocks()
+        commands = [block["marker"]["cmd"] for block in blocks]
+
+        for helper in ("docdna_doctor.py", "docdna_status.py", "docdna_backfill.py"):
+            self.assertTrue(any(helper in command for command in commands), helper)
+        problems = [problem for problem in (compare(block) for block in blocks)
+                    if problem is not None]
         self.assertEqual(problems, [], "\n".join(problems))
 
     def test_no_unmarked_fence_prints_a_report_section(self):

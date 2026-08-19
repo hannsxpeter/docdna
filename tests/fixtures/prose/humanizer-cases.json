@@ -1,0 +1,82 @@
+{
+  "cases": [
+    {
+      "id": "explicit-signposting",
+      "path": "docs/guide.md",
+      "text": "In this section, we will explore cache invalidation.\n",
+      "expected_kinds": ["signposting"]
+    },
+    {
+      "id": "recurrent-transitions",
+      "path": "docs/guide.md",
+      "text": "Furthermore, the cache owns these records.\nMoreover, the worker removes expired records.\n",
+      "expected_kinds": ["signposting", "signposting"]
+    },
+    {
+      "id": "chat-contamination",
+      "path": "docs/guide.md",
+      "text": "Would you like me to provide a deployment example?\n",
+      "expected_kinds": ["chat-contamination"]
+    },
+    {
+      "id": "knowledge-cutoff",
+      "path": "docs/guide.md",
+      "text": "As of my last knowledge update, the command has no timeout.\n",
+      "expected_kinds": ["knowledge-cutoff-disclaimer"]
+    },
+    {
+      "id": "training-update-cutoff",
+      "path": "docs/guide.md",
+      "text": "Up to my last training update, the command had no timeout.\n",
+      "expected_kinds": ["knowledge-cutoff-disclaimer"]
+    },
+    {
+      "id": "steady-state-diff-language",
+      "path": "docs/guide.md",
+      "text": "A registry check was added to the command.\n",
+      "expected_kinds": ["diff-anchored-prose"]
+    },
+    {
+      "id": "clustered-lexical-language",
+      "path": "docs/guide.md",
+      "text": "The guide delves into an intricate tapestry of configuration.\n",
+      "expected_kinds": ["lexical-cluster", "lexical-cluster", "lexical-cluster"]
+    },
+    {
+      "id": "lone-transition",
+      "path": "docs/guide.md",
+      "text": "Furthermore, the cache owns these records.\n",
+      "expected_kinds": []
+    },
+    {
+      "id": "ordinary-passive-sentence",
+      "path": "docs/guide.md",
+      "text": "The record is written by the worker.\n",
+      "expected_kinds": []
+    },
+    {
+      "id": "single-technical-compound",
+      "path": "docs/guide.md",
+      "text": "The parser accepts an intricate data structure.\n",
+      "expected_kinds": []
+    },
+    {
+      "id": "changelog-diff-language",
+      "path": "CHANGELOG.md",
+      "text": "A registry check was added to the command.\n",
+      "expected_kinds": []
+    },
+    {
+      "id": "release-note-diff-language",
+      "path": "docs/release-notes/1.4.0.md",
+      "text": "The comparison has been updated to preserve protected spans.\n",
+      "expected_kinds": []
+    },
+    {
+      "id": "migration-diff-language",
+      "path": "docs/migrations/registry.md",
+      "text": "The registry now uses the new schema.\n",
+      "expected_kinds": []
+    }
+  ]
+}

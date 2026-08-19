@@ -1,0 +1,216 @@
+{
+  "claims": [
+    {
+      "boundary": "The replay verifies one committed document and never promotes the result to host parity or broad backfill correctness.",
+      "claim": "The committed backfill fixture replays a blocked verification outcome for unsupported claims.",
+      "evidence_level": "replay-tested",
+      "evidence_paths": [
+        "skill/scripts/docdna_backfill.py",
+        "proof/replay/golden-workflows.json"
+      ],
+      "id": "backfill.boundary-verification",
+      "mode": "backfill",
+      "replay_id": "golden.backfill"
+    },
+    {
+      "boundary": "The tests exercise committed fixtures and temporary repositories, not every document shape or external reference system.",
+      "claim": "Backfill verification distinguishes repository evidence, human attestation, self-attested run output, and refusals in unit tests.",
+      "evidence_level": "unit-tested",
+      "evidence_paths": [
+        "tests/test_regression.py"
+      ],
+      "id": "backfill.unit-verification",
+      "mode": "backfill"
+    },
+    {
+      "boundary": "The artifact proves the saved fixture shape only and does not establish behavior on an uninspected repository.",
+      "claim": "The documented repository fixture exposes deterministic evidence, attestation, gap, and refusal fields to the checker.",
+      "evidence_level": "artifact-proven",
+      "evidence_paths": [
+        "tests/fixtures/documented_repo"
+      ],
+      "id": "check.artifact-classification",
+      "mode": "check"
+    },
+    {
+      "boundary": "The adjudication covers command-reference findings only and does not label every checker pass.",
+      "claim": "Command drift findings retain low standing where the recorded adjudication found poor precision.",
+      "corpus": "The 51-repository command-reference adjudication recorded in tests/test_drift.py.",
+      "evidence_level": "adjudicated",
+      "evidence_paths": [
+        "tests/test_drift.py"
+      ],
+      "id": "check.command-adjudication",
+      "limitations": "The raw external repositories are not redistributed, so the shipped evidence preserves the decision, cases, and aggregate rather than the source corpus.",
+      "mode": "check"
+    },
+    {
+      "boundary": "A declared dependency is not evidence that the external tool ran or that a host integration succeeded.",
+      "claim": "Host and external-tool dependencies are labeled separately from repository-local proof.",
+      "evidence_level": "external-tool-dependent",
+      "evidence_paths": [
+        "proof/runtime/README.md"
+      ],
+      "id": "runtime.external-tool-boundary",
+      "mode": "runtime"
+    },
+    {
+      "boundary": "The procedure is available in the source checkout only; installed-registry validation skips checkout-only evidence and does not claim a host run.",
+      "claim": "The source-checkout runtime proof bundle gives a bounded procedure for recording host evidence.",
+      "evidence_level": "host-capture-ready",
+      "evidence_paths": [
+        "proof/runtime/README.md"
+      ],
+      "id": "runtime.host-capture-procedure",
+      "mode": "runtime"
+    },
+    {
+      "boundary": "Shipped means the implementation is present in this tree; replay and host execution are separate evidence levels.",
+      "claim": "A standard-library command validates the product claim registry without writing project files.",
+      "evidence_level": "shipped",
+      "evidence_paths": [
+        "skill/scripts/docdna_proof.py"
+      ],
+      "id": "runtime.proof-command",
+      "mode": "runtime"
+    },
+    {
+      "boundary": "Unit tests run in the repository process and do not substitute for an isolated installation test.",
+      "claim": "Registry validation, closed evidence levels, path checks, stable output, and replay outcomes are covered by unit tests.",
+      "evidence_level": "unit-tested",
+      "evidence_paths": [
+        "tests/test_proofs.py"
+      ],
+      "id": "runtime.proof-command-tests",
+      "mode": "runtime"
+    },
+    {
+      "boundary": "The measurement covers one synthetic service fixture with the default shallow survey only.",
+      "claim": "The internal service fixture contains three inventory documents and produces two drift observations.",
+      "corpus": "tests/fixtures/internal_service at the committed fixture state.",
+      "evidence_level": "measured",
+      "evidence_paths": [
+        "tests/fixtures/internal_service"
+      ],
+      "id": "survey.fixture-measurement",
+      "limitations": "Repository history and host filesystem behavior outside the fixture are not measured by this claim.",
+      "mode": "survey"
+    },
+    {
+      "boundary": "The replay checks stable selected fields and does not compare volatile timestamps, commit ids, or absolute paths.",
+      "claim": "The internal service survey replays its saved inventory and drift outcome.",
+      "evidence_level": "replay-tested",
+      "evidence_paths": [
+        "proof/replay/golden-workflows.json"
+      ],
+      "id": "survey.golden-replay",
+      "mode": "survey",
+      "replay_id": "golden.survey"
+    }
+  ],
+  "evidence_levels": [
+    {
+      "id": "shipped",
+      "requires_evidence": [
+        "implementation"
+      ]
+    },
+    {
+      "id": "unit-tested",
+      "requires_evidence": [
+        "unit-test"
+      ]
+    },
+    {
+      "id": "install-tested",
+      "requires_evidence": [
+        "install-test"
+      ]
+    },
+    {
+      "id": "artifact-proven",
+      "requires_evidence": [
+        "artifact"
+      ]
+    },
+    {
+      "id": "replay-tested",
+      "requires_evidence": [
+        "replay"
+      ]
+    },
+    {
+      "id": "measured",
+      "requires_evidence": [
+        "measurement"
+      ]
+    },
+    {
+      "id": "adjudicated",
+      "requires_evidence": [
+        "adjudication"
+      ]
+    },
+    {
+      "id": "host-capture-ready",
+      "requires_evidence": [
+        "capture-procedure"
+      ]
+    },
+    {
+      "id": "host-captured",
+      "requires_evidence": [
+        "host-capture"
+      ]
+    },
+    {
+      "id": "external-tool-dependent",
+      "requires_evidence": [
+        "external-dependency"
+      ]
+    }
+  ],
+  "replay": [
+    {
+      "actual_exit": 0,
+      "assertions": 3,
+      "expected_exit": 0,
+      "id": "golden.survey",
+      "mode": "survey",
+      "status": "pass"
+    },
+    {
+      "actual_exit": 1,
+      "assertions": 3,
+      "expected_exit": 1,
+      "id": "golden.backfill",
+      "mode": "backfill",
+      "status": "pass"
+    },
+    {
+      "actual_exit": 0,
+      "assertions": 3,
+      "expected_exit": 0,
+      "id": "golden.check",
+      "mode": "check",
+      "status": "pass"
+    },
+    {
+      "actual_exit": 0,
+      "assertions": 3,
+      "expected_exit": 0,
+      "id": "golden.runtime",
+      "mode": "runtime",
+      "status": "pass"
+    }
+  ],
+  "schema": 1,
+  "summary": {
+    "claims": 10,
+    "evidence_levels": 10,
+    "replays": 4,
+    "replays_passed": 4,
+    "status": "pass"
+  },
+  "tool": "docdna_proof"
+}

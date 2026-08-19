@@ -7,6 +7,13 @@ plainly enough to keep.
 This guidance is adapted from the pstack `unslop` skill. The source and MIT notice are recorded in
 [`third-party-notices.md`](third-party-notices.md).
 
+The narrow advisory catalog also draws on the
+[`Humanizer`](https://github.com/Aboudjem/humanizer-skill/blob/main/skills/humanizer/SKILL.md)
+pattern definitions for chatbot artifacts,
+knowledge-cutoff disclaimers, diff-anchored writing, signposting, and clustered vocabulary. DocDNA keeps
+only patterns that can be checked literally with useful restraint. It does not import Humanizer's
+authorship scoring or rewriting behavior.
+
 ## The constrained edit
 
 Edit only the prose. Preserve every fact, citation, identifier, path, command, number, table relationship,
@@ -15,6 +22,17 @@ may not add a fact, inference, opinion, promise, or attribution.
 
 Run the evidence verifier again if the edit changes anything. A cleaner sentence with a broken citation is
 still a failed document.
+
+Before running the evidence verifier, compare the protected inventory:
+
+```sh
+python3 skill/scripts/docdna_prose.py --compare before.md after.md
+```
+
+The command is read-only. Each input must be a regular file no larger than 5 MiB. Symlinks, directories,
+FIFOs, devices, oversized files, and undecodable input are refused without reading an unbounded stream.
+The command exits 0 when the protected inventory is unchanged, 1 when an item was added or removed, and 2
+when an input is refused or cannot be read. Add `--json` for stable machine-readable output.
 
 ## What to keep
 
@@ -52,10 +70,34 @@ document. Failing it does not show that a model did.
 ## The advisory checker
 
 `docdna_check.py --only prose` reports a small set of literal patterns: vague attributions, filler,
-chatbot phrases, promotional terms, ornate substitutes for `is`, formulaic contrasts, generic endings,
-and likely title-case headings. It ignores frontmatter, fenced code, inline code, HTML comments, and link
-destinations. It never changes a file and never gates CI.
+chatbot phrases, knowledge-cutoff disclaimers, promotional terms, ornate substitutes for `is`, formulaic
+contrasts, generic endings, diff-anchored writing, signposting, clustered vocabulary, and likely
+title-case headings. It ignores frontmatter, fenced code including fences inside block quotes, inline code
+including code spans that cross lines within one paragraph, literal examples in quotation marks, HTML
+comments, inline and reference-style link destinations, and CommonMark URI or email autolinks. An inline
+destination is protected only when a syntactically plausible `[label](destination)` opener precedes it, so
+a stray `](...)` remains visible prose. Brackets inside protected spans cannot supply that opener.
+Multiline inline code stays within its Markdown paragraph block. It cannot cross an ATX heading, a change
+in block quote depth, or a separate list item. Every masked character keeps its source position, so a
+finding beside a protected span still reports its original line and column. The pass never changes a file
+and never gates CI.
+
+A single transition or watched vocabulary word is not a finding. Transitions and vocabulary require
+recurrence or co-occurrence in the same paragraph. Diff-anchored language is allowed in changelog,
+release-note, and migration paths, where edit history is the document's subject. Passive voice and
+technical compounds are not inferred from syntax.
+
+## Protected inventory comparison
+
+The comparison inventories frontmatter values, citations, GAP markers, numbers, inline code, link targets,
+fenced blocks, path-like tokens, and table shape. It reports exact additions and removals for each category.
+This deterministic check catches protected facts and structures that a prose-only edit must not change.
+
+An unchanged inventory is necessary but not sufficient. The command always returns an `unverified`
+soft-inference review with causal, temporal, and quantitative questions. A person must review whether the
+edit changed a reason, condition, sequence, duration, amount, scope, comparison, or limit. The command
+never reports those relationships as verified.
 
 The checker cannot judge active voice, sentence density, synonym cycling, false ranges, factual
-specificity, or whether a proper name explains capitalization. Review those in context. A pattern match is
-a prompt to read the sentence, not permission to rewrite it automatically.
+specificity, authorship, or whether a proper name explains capitalization. Review those in context. A
+pattern match is a prompt to read the sentence, not permission to rewrite it automatically.

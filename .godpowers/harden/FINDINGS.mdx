@@ -1,10 +1,16 @@
 # Security Findings
 
-Date: 2026-08-06T00:58:59Z
-Reviewer: god-harden-auditor with release-owner remediation
-Scope: docdna v1.2.1 release worktree, including repository reads and writes, imported control data,
-subprocess calls, generated agent-facing files, CI dependencies, installation instructions, resource
-limits, atomic replacement, and exceptional conditions.
+Date: 2026-08-19T12:07:07Z
+Reviewer: god-harden-auditor
+Product form: Local POSIX Python CLI and coding-agent skill
+Release: DocDNA 1.4.0
+Reviewed commit: `3763e787b9903300d71bf24bf538c3aa8215ae3a`
+Scope: Runtime and proof registries, Doctor and Proof commands, installer and documented distribution,
+wiring, repository reads and writes, subprocess boundaries, generated agent-facing files, CI, and focused
+security tests. DocDNA has no deployed network service, HTTP boundary, account or session system, managed
+cryptographic keys, encryption feature, central log sink, alert delivery, or telemetry. SHA-256 is used for
+local change fingerprints, not release authenticity. The CLI invokes local `git` and its own Python helpers;
+it does not fetch URLs or execute commands found in a target repository.
 
 ## Summary
 
@@ -12,109 +18,313 @@ limits, atomic replacement, and exceptional conditions.
 | --- | ---: |
 | Critical | 0 |
 | High | 0 |
-| Medium | 0 |
+| Medium | 3 |
 | Low | 0 |
-
-Resolved in this release: 1 High, 5 Medium, and 1 Low finding.
 
 **Launch gate**: PASSED
 
-No Critical, High, Medium, or Low finding remains open.
-
-## Resolved Findings
-
-### HIGH-001: Repository prose crossed into the agent-facing index
-
-- **Category**: OWASP A05:2025 Injection
-- **Resolution**: `docdna_llms.py` no longer copies prose or manifest-supplied titles into `llms.txt`.
-  It uses titles and stages from the installed catalog, static state notes, and percent-encoded paths.
-- **Regression evidence**: `test_llms_index_never_copies_repository_prose_or_manifest_titles` and the
-  internal-symlink index test.
-- **Status**: Resolved
-
-### MEDIUM-001: Unsafe configuration files failed open
-
-- **Category**: OWASP A02:2025 Security Misconfiguration
-- **Resolution**: the shared filesystem layer now distinguishes an absent control file from a symlink,
-  hardlink, special file, or unsafe parent. Selector and checker configuration reads fail closed.
-- **Regression evidence**: selector and checker symlink tests plus the hardlinked-config test.
-- **Status**: Resolved
-
-### MEDIUM-002: CI and installation used mutable release inputs
-
-- **Category**: OWASP A03:2025 Software Supply Chain Failures
-- **Resolution**: GitHub Actions are pinned to reviewed 40-character commit identifiers, workflow token
-  permissions are read-only, and installation examples select the immutable v1.2.1 tag.
-- **Regression evidence**: `test_ci_dependencies_are_immutable_and_permissions_are_read_only` and
-  `test_installation_examples_select_the_release_tag`.
-- **Status**: Resolved
-
-### MEDIUM-003: Imported scans could be replayed after repository changes
-
-- **Category**: OWASP A08:2025 Software or Data Integrity Failures
-- **Resolution**: scanner output carries a repository content fingerprint. Selector and checker validate
-  imported data, run a fresh scan, reject a fingerprint mismatch, and use the freshly reproduced result.
-- **Regression evidence**: selector and checker stale-content tests plus fingerprint-change coverage.
-- **Status**: Resolved
-
-### MEDIUM-004: Deeply nested JSON escaped the CLI error boundary
-
-- **Category**: OWASP A10:2025 Mishandling of Exceptional Conditions
-- **Resolution**: repository JSON and OpenAPI parsing catch recursion failures, and the scanner CLI keeps
-  the same concise exception boundary as other invalid input.
-- **Regression evidence**: `test_deeply_nested_repository_json_is_ignored_without_a_traceback`.
-- **Status**: Resolved
-
-### MEDIUM-005: Selector output failures could publish a mixed generation
-
-- **Category**: OWASP A10:2025 Mishandling of Exceptional Conditions
-- **Resolution**: both destinations are preflighted before either write. The human report is written first
-  and the machine-readable manifest is written last as the authoritative generation marker.
-- **Regression evidence**: `test_selector_preflights_both_outputs_before_writing_either_one` and the
-  existing root-swap, parent-swap, symlink, and hardlink tests.
-- **Status**: Resolved
-
-### LOW-001: Atomic replacement did not sync the containing directory
-
-- **Category**: OWASP A10:2025 Mishandling of Exceptional Conditions
-- **Resolution**: the shared atomic writer syncs the parent directory after rename.
-- **Regression evidence**: `test_atomic_replacement_syncs_the_file_and_parent_directory`.
-- **Status**: Resolved
+The Critical-only launch gate passes. Three Medium findings remain open and are assigned to the first
+post-launch sprint. There is no accepted or hidden Critical risk.
 
 ## OWASP Web Top 10:2025 Coverage
 
-| Category | Result | Evidence |
-| --- | --- | --- |
-| A01 Broken Access Control | Pass | Descriptor-bound traversal, symlink, hardlink, FIFO, and root-swap tests |
-| A02 Security Misconfiguration | Pass | Unsafe control files fail closed |
-| A03 Software Supply Chain Failures | Pass | Pinned CI actions, read-only permissions, versioned installation |
-| A04 Cryptographic Failures | Not Applicable | No credential, encryption, session, or remote transport feature |
-| A05 Injection | Pass | Subprocess arrays and trusted-only agent index rendering |
-| A06 Insecure Design | Pass | Read, file, evidence, drift, and write caps remain enforced |
-| A07 Authentication Failures | Not Applicable | Same-user local CLI delegates identity to host ACLs |
-| A08 Software or Data Integrity Failures | Pass | Fresh scan reproduction and content fingerprint validation |
-| A09 Security Logging and Alerting Failures | Pass | Local failures return concise stderr and nonzero status |
-| A10 Mishandling of Exceptional Conditions | Pass | Recursion boundary, output preflight, authoritative write order, directory sync |
+| Category | Manual procedure | Observed result | Evidence, reviewer, and time |
+| --- | --- | --- | --- |
+| A01:2025 Broken Access Control | Run the permission-denial probe in [A01 procedure](#a012025-broken-access-control), then run the named symlink, hardlink, root-swap, and parent-swap tests. Inventory object, function, tenant, administrator, URL, and internal-resource boundaries. | Pass. A mode-`000` repository was refused with exit 2 and no traceback. External symlinks, hardlinks, and swapped roots were refused or remained bound to the original descriptor. Tenant, role, administrator, and SSRF probes are project-specific Not Applicable because the product has no identity, multi-tenant, privileged remote function, URL-fetch, or network-client boundary. | `skill/scripts/docdna_fs.py:25-127`, `skill/scripts/docdna_fs.py:332-430`, `tests/test_scan.py:114-317`, `tests/test_select.py:525-753`, `tests/test_wire.py:190-204`. Reviewer: god-harden-auditor. Reviewed: 2026-08-19T12:07:07Z. |
+| A02:2025 Security Misconfiguration | Copy `skill/` to a temporary installed layout, change the runtime registry schema from 1 to 2, and run Doctor as shown in [A02 procedure](#a022025-security-misconfiguration). Inspect CI permissions, debug flags, and HTTP-only configuration surfaces. | Pass. Doctor returned exit 2, printed a concise remediation message, and emitted no traceback. CI permissions are `contents: read`; no debug endpoint, framework, cloud, proxy, CORS, or security-header surface exists in this local CLI. | `skill/scripts/docdna_doctor.py:321-352`, `skill/scripts/docdna_runtime.py:666-713`, `.github/workflows/ci.yml:9-10`. Reviewer: god-harden-auditor. Reviewed: 2026-08-19T12:07:07Z. |
+| A03:2025 Software Supply Chain Failures | Run the tag, signature, checksum, dependency-manifest, CI identity, action-pin, runner, and package-install inventory in [A03 procedure](#a032025-software-supply-chain-failures). | Fail. Third-party actions are pinned to 40-character commits and workflow permissions are read-only, and the runtime has no third-party Python dependency manifest. The documented install is tag-based without a published digest, signature, or provenance check; the runner, `3.x` Python, and apt-installed ShellCheck are mutable. | [MEDIUM-001](#medium-001-release-installation-is-not-bound-to-verifiable-provenance). Reviewer: god-harden-auditor. Reviewed: 2026-08-19T12:07:07Z. |
+| A04:2025 Cryptographic Failures | Run the import and URL-client inventory in [A04 procedure](#a042025-cryptographic-failures), and inspect the only `hashlib` and `secrets` call sites. | Project-specific Not Applicable. No password, token, key, encryption, nonce, IV, certificate, session, sensitive transport, or sensitive-data-at-rest feature exists. `secrets.token_hex` names local temporary files and SHA-256 detects local content changes; neither is claimed as authenticity. Distribution authenticity is recorded under A03 and A08. | `skill/scripts/docdna_fs.py:4-13`, `skill/scripts/docdna_fs.py:635-676`, `skill/scripts/docdna_scan.py:684-700`. Reviewer: god-harden-auditor. Reviewed: 2026-08-19T12:07:07Z. |
+| A05:2025 Injection | Create a repository and filename containing shell metacharacters, pass an `--exclude-dir` value containing `;touch`, run Scan and Wire through their real CLI entry points, and check the sentinel as shown in [A05 procedure](#a052025-injection). Run the hostile registry-label and agent-index regression tests. | Pass. Scan and Wire completed, the write stayed inside the bound repository, and the command-injection sentinel did not exist. Subprocesses use argv arrays without `shell=True`; generated `llms.txt` uses installed catalog titles and static notes rather than repository prose. | `skill/scripts/docdna_scan.py:462-505`, `skill/scripts/docdna_select.py:1599-1625`, `skill/scripts/docdna_llms.py:209-239`, `tests/test_docs.py:289-331`, `tests/test_docs.py:1051-1219`. Reviewer: god-harden-auditor. Reviewed: 2026-08-19T12:07:07Z. |
+| A06:2025 Insecure Design | Create 4,010 repository files and run Scan as shown in [A06 procedure](#a062025-insecure-design). Exercise proof child timeout/output limits and inspect Backfill's bulk confirmation and five-document default cap. | Pass for the local CLI boundary. Scan reported 4,010 indexed, 4,000 read, 10 capped, a 1,000,000-byte per-file limit, and `truncated=true`. Proof children stop at 30 seconds or 256 KiB per stream. Backfill defaults to five plans and requires explicit `--all --yes` to lift the cap. Remote request rate limiting and step-up controls are Not Applicable because there is no service or privileged account transition. | `skill/scripts/docdna_scan.py:55-68`, `skill/scripts/docdna_scan.py:703-724`, `skill/scripts/docdna_backfill.py:1197-1202`, `skill/scripts/docdna_backfill.py:2824-2887`, `skill/scripts/docdna_proof.py:64-69`, `tests/test_proofs.py:402-482`. Reviewer: god-harden-auditor. Reviewed: 2026-08-19T12:07:07Z. |
+| A07:2025 Authentication Failures | Run the CLI option and auth-module inventory in [A07 procedure](#a072025-authentication-failures), then repeat the A01 permission-denial probe to verify the host ACL failure reaches the command boundary. | Project-specific Not Applicable. There are no credentials, identities, sessions, MFA, recovery, tokens, rotation, revocation, login, enumeration, or authentication throttles. The same-user CLI delegates process identity and repository authorization to POSIX ACLs and refuses an unreadable root with exit 2. | `skill/scripts/docdna_scan.py:2616-2644`, `skill/scripts/docdna_doctor.py:321-356`, A01 probe record. Reviewer: god-harden-auditor. Reviewed: 2026-08-19T12:07:07Z. |
+| A08:2025 Software or Data Integrity Failures | Install an isolated copy, change a valid Python runtime member and a valid proof claim without breaking their schemas, then run Doctor and installed Proof as shown in [A08 procedure](#a082025-software-or-data-integrity-failures). Also run stale-scan fingerprint and unsafe serialized-input tests. | Fail. Stale imported repository scans and malformed or unsafe JSON fail closed. However, Doctor still returned pass after a runtime byte change, and installed Proof returned pass while rendering the tampered claim because neither result is bound to trusted release digests. | [MEDIUM-002](#medium-002-installed-runtime-and-proof-bytes-are-not-authenticated). Reviewer: god-harden-auditor. Reviewed: 2026-08-19T12:07:07Z. |
+| A09:2025 Security Logging and Alerting Failures | Symlink `.docdna/config.json` to an external file, run Select, capture stderr and exit status, and check for output writes as shown in [A09 procedure](#a092025-security-logging-and-alerting-failures). | Pass for operator-visible local failure. Select returned exit 2, named the unsafe control file on stderr, emitted no traceback, and wrote neither report nor manifest. Persistent detection, alert delivery, acknowledgment, and centralized response are project-specific Not Applicable because this process has no log sink or telemetry; the terminal caller owns response. | `skill/scripts/docdna_select.py:1644-1651`, `skill/scripts/docdna_select.py:1706-1735`, `skill/scripts/docdna_fs.py:504-536`, `tests/test_select.py:721-755`. Reviewer: god-harden-auditor. Reviewed: 2026-08-19T12:07:07Z. |
+| A10:2025 Mishandling of Exceptional Conditions | Put a known-good sentinel in an isolated install, inject a `cp` failure through a temporary `PATH`, run the real installer, and inspect the destination as shown in [A10 procedure](#a102025-mishandling-of-exceptional-conditions). Run the focused timeout, oversized-output, FIFO, recursion, root-race, write-preflight, and directory-sync tests. | Fail. CLI parsers, proof children, repository reads, and atomic output writes fail securely and remain bounded. The installer returned nonzero after its copy failed, but it had already deleted the prior sentinel and left an empty destination, with no rollback. | [MEDIUM-003](#medium-003-installer-failure-can-destroy-the-last-working-install). Reviewer: god-harden-auditor. Reviewed: 2026-08-19T12:07:07Z. |
+
+## Manual Probe Record
+
+All procedures below were executed from the repository root on 2026-08-19 UTC. Random temporary directory
+suffixes differ on replay. The listed observations are from the recorded run.
+
+### A01:2025 Broken Access Control
+
+```sh
+probe_root=$(mktemp -d /tmp/docdna-harden-access.XXXXXX)
+repo="$probe_root/repo"
+mkdir -p "$repo"
+touch "$repo/README.md"
+chmod 000 "$repo"
+python3 skill/scripts/docdna_scan.py "$repo"
+```
+
+Observed: exit 2; `docdna_scan: refused unsafe repository root ... Permission denied`; no traceback. The
+focused security test command in Verification also passed the external symlink, hardlink, FIFO, root-swap,
+parent-swap, and descriptor-binding cases.
+
+### A02:2025 Security Misconfiguration
+
+```sh
+probe_root=$(mktemp -d /tmp/docdna-harden-config.XXXXXX)
+cp -R skill "$probe_root/skill"
+perl -0pi -e 's/"schema": 1/"schema": 2/' "$probe_root/skill/catalog/runtimes.json"
+python3 "$probe_root/skill/scripts/docdna_doctor.py" --json
+```
+
+Observed: exit 2; `runtime registry schema must be 1`; remediation was printed; no traceback.
+
+### A03:2025 Software Supply Chain Failures
+
+```sh
+git tag -l v1.4.0
+git tag -v v1.4.0
+rg --files -g '!*__pycache__*' | rg '(^|/)(SHA256SUMS|checksums?\.txt|.*\.sig|.*\.asc|.*\.intoto\.jsonl)$'
+rg --files | rg '(^|/)(requirements[^/]*\.txt|poetry\.lock|Pipfile\.lock|uv\.lock|pyproject\.toml)$'
+rg -n '^\s*uses:|runs-on:|python:|apt-get install' .github/workflows/ci.yml
+```
+
+Observed: the pre-publication checkout had no `v1.4.0` tag to verify; no checksum, signature, or provenance
+artifact was present; no root runtime dependency manifest was present; both actions were commit-pinned and
+permissions were read-only; `ubuntu-latest`, Python `3.x`, and apt ShellCheck remained mutable inputs.
+
+### A04:2025 Cryptographic Failures
+
+```sh
+rg -n '^import (requests|http\.client|socket|ssl|cryptography|bcrypt|argon2)|^from (requests|http\.client|socket|ssl|cryptography|bcrypt|argon2)' skill/scripts install.sh
+rg -n '^import (hashlib|secrets)|^from (hashlib|secrets)' skill/scripts
+rg -n 'urlopen|requests\.|socket\.|ssl\.' skill/scripts install.sh
+```
+
+Observed: no network, TLS, password-hashing, encryption, or key-management import or call was found. Only
+`hashlib` and `secrets` appeared, at the local fingerprint and temporary-name boundaries stated above.
+
+### A05:2025 Injection
+
+```sh
+probe_root=$(mktemp -d /tmp/docdna-harden-injection.XXXXXX)
+repo="$probe_root/repo;touch pwned"
+mkdir -p "$repo"
+touch "$repo/\$(touch PWNED).md"
+payload="x;touch $probe_root/command-injection-sentinel"
+python3 skill/scripts/docdna_scan.py --json --exclude-dir "$payload" "$repo" > "$probe_root/scan.json"
+python3 skill/scripts/docdna_wire.py --json "$repo" > "$probe_root/wire.json"
+test ! -e "$probe_root/command-injection-sentinel"
+```
+
+Observed: Scan returned JSON with one indexed file; Wire created `AGENTS.md` below the hostile repository
+name; the sentinel was absent.
+
+### A06:2025 Insecure Design
+
+```sh
+probe_root=$(mktemp -d /tmp/docdna-harden-bounds.XXXXXX)
+repo="$probe_root/repo"
+mkdir -p "$repo"
+n=1
+while [ "$n" -le 4010 ]; do touch "$repo/file-$n.py"; n=$((n + 1)); done
+python3 skill/scripts/docdna_scan.py --json "$repo" > "$probe_root/scan.json"
+python3 - "$probe_root/scan.json" <<'PY'
+import json, sys
+report = json.load(open(sys.argv[1], encoding="utf-8"))
+print(report["scan"])
+PY
+```
+
+Observed fields: `files_total=4010`, `files_read=4000`, `files_capped=10`,
+`max_file_bytes=1000000`, and `truncated=true`. The focused proof tests also terminated a timed-out process
+group and bounded invalid UTF-8 and oversized child output.
+
+### A07:2025 Authentication Failures
+
+```sh
+rg -n 'add_argument\(.*(password|credential|token|session|mfa|login|logout|recovery|auth)' skill/scripts
+rg -n '^import (jwt|oauth|openid|keyring)|^from (jwt|oauth|openid|keyring)' skill/scripts
+```
+
+Observed: both inventories returned no matches. The A01 mode-denial probe demonstrated the only identity
+boundary, the invoking POSIX process, failing closed at the command boundary.
+
+### A08:2025 Software or Data Integrity Failures
+
+```sh
+probe_root=$(mktemp -d /tmp/docdna-harden-tamper.XXXXXX)
+cp -R skill "$probe_root/skill"
+python3 "$probe_root/skill/scripts/docdna_doctor.py" --json
+perl -0pi -e 's/VERSION = "1\.4\.0"/VERSION = "9.9.9"/' "$probe_root/skill/scripts/docdna_scan.py"
+python3 "$probe_root/skill/scripts/docdna_doctor.py" --json
+perl -0pi -e 's/A standard-library command validates the product claim registry without writing project files\./TAMPERED CLAIM ACCEPTED BY STRUCTURAL VALIDATION./' "$probe_root/skill/catalog/proofs.json"
+python3 "$probe_root/skill/scripts/docdna_proof.py" --json
+```
+
+Observed: baseline Doctor passed 4 of 4 checks; Doctor still passed 4 of 4 after the runtime-member change;
+installed Proof returned `status=pass`, `validation.mode=installed-registry`, and rendered
+`TAMPERED CLAIM ACCEPTED BY STRUCTURAL VALIDATION.`
+
+### A09:2025 Security Logging and Alerting Failures
+
+```sh
+probe_root=$(mktemp -d /tmp/docdna-harden-alert.XXXXXX)
+repo="$probe_root/repo"
+mkdir -p "$repo/.docdna"
+touch "$repo/README.md" "$probe_root/outside-config.json"
+ln -s "$probe_root/outside-config.json" "$repo/.docdna/config.json"
+python3 skill/scripts/docdna_select.py "$repo"
+```
+
+Observed: exit 2; stderr named `.docdna/config.json` as not a regular file; no traceback; neither
+`DOCDNA.md` nor `.docdna/manifest.json` was written. No separate alert or telemetry was expected or claimed.
+
+### A10:2025 Mishandling of Exceptional Conditions
+
+```sh
+probe_root=$(mktemp -d /tmp/docdna-harden-install.XXXXXX)
+mkdir -p "$probe_root/bin" "$probe_root/dest/docdna"
+ln -s /usr/bin/false "$probe_root/bin/cp"
+touch "$probe_root/dest/docdna/known-good-sentinel"
+PATH="$probe_root/bin:$PATH" CLAUDE_SKILLS_DIR="$probe_root/dest" ./install.sh claude
+test -e "$probe_root/dest/docdna/known-good-sentinel"
+find "$probe_root/dest/docdna" -mindepth 1 -maxdepth 1
+```
+
+Observed: installer exit 1; the prior sentinel was absent; the destination directory existed with zero
+entries. The installer reported failure through its exit code but provided no automatic restoration.
+
+## Findings
+
+### MEDIUM-001: Release installation is not bound to verifiable provenance
+
+- **Category**: OWASP A03:2025 Software Supply Chain Failures
+- **Location**: `README.md:54-60`, `.github/workflows/ci.yml:14-18`, `.github/workflows/ci.yml:162-168`, `install.sh:17-47`
+- **Description**: Installation copies whatever bytes are present in a checkout selected by the documented
+  `v1.4.0` tag. The repository does not publish or verify a release checksum, signature, artifact
+  attestation, or provenance statement. CI pins action code and limits token permissions, but its runner,
+  latest Python lane, and apt package are mutable. The tag was not present in this pre-publication checkout.
+- **Impact**: A compromised upstream release identity, moved tag, substituted archive, or compromised mutable
+  CI input can place altered Python and agent instructions into a user's coding-agent skill directory without
+  an independent byte-level trust check.
+- **Reproduction**: Run the A03 procedure. Confirm that action pins are full commits, then observe that tag
+  verification and integrity-artifact discovery cannot establish a signed or hash-bound release identity.
+- **Observed Result**: `git tag -v v1.4.0` returned exit 1 because the pre-publication tag was absent; integrity
+  artifact discovery returned no matches; mutable runner and package inputs remained.
+- **Evidence**: A03 coverage row and procedure; `README.md:57`; `.github/workflows/ci.yml:14-18`;
+  `.github/workflows/ci.yml:162-168`.
+- **Reviewed At**: 2026-08-19T12:07:07Z
+- **Owner**: Release owner
+- **Target**: 2026-09-02
+- **Remediation Options**:
+  - **Option A**: Publish release archives with SHA-256 sums plus Sigstore or equivalent signatures and make
+    installation verify them before executing or copying source. Estimated: 2 days.
+  - **Option B**: Document installation by full commit ID, create a signed annotated release tag, pin the CI
+    runner and ShellCheck source where practical, and publish SLSA-style provenance for the released tree.
+    Estimated: 3 days.
+- **Status**: Open
+
+### MEDIUM-002: Installed runtime and proof bytes are not authenticated
+
+- **Category**: OWASP A08:2025 Software or Data Integrity Failures
+- **Location**: `skill/scripts/docdna_doctor.py:89-131`, `skill/scripts/docdna_doctor.py:157-228`,
+  `skill/scripts/docdna_runtime.py:607-713`, `skill/scripts/docdna_proof.py:330-436`
+- **Description**: Doctor checks resource presence, safe file shape, size, Python syntax, and registry schema,
+  but it has no trusted manifest of expected member digests. Installed Proof validates claim structure and
+  intentionally skips checkout-only evidence and replay. A valid-code change or valid-schema claim change
+  therefore remains a passing installed health result.
+- **Impact**: Same-user tampering, a compromised updater, or post-distribution file replacement can change
+  executable skill behavior or agent-facing proof claims without Doctor or installed Proof detecting that the
+  bytes differ from the reviewed release.
+- **Reproduction**: Run the A08 procedure against an isolated copy. Change the Scan version string without
+  breaking syntax, then replace one proof claim with a valid string and rerun both commands.
+- **Observed Result**: Doctor passed 4 of 4 checks before and after the runtime change. Installed Proof passed
+  and rendered the tampered claim.
+- **Evidence**: A08 coverage row and procedure; retained probe layout
+  `/tmp/docdna-harden-tamper.x3Jq5M`; the cited validator implementations.
+- **Reviewed At**: 2026-08-19T12:07:07Z
+- **Owner**: Runtime maintainer
+- **Target**: 2026-09-02
+- **Remediation Options**:
+  - **Option A**: Ship a signed release manifest containing every installed member path and digest; have Doctor
+    verify it against a separately trusted release identity. Estimated: 3 days.
+  - **Option B**: Bind a generated digest manifest to the verified release artifact from MEDIUM-001, compare
+    every registered resource, and report structural-only versus authenticated health as distinct verdicts.
+    Estimated: 2 days after MEDIUM-001.
+- **Status**: Open
+
+### MEDIUM-003: Installer failure can destroy the last working install
+
+- **Category**: OWASP A10:2025 Mishandling of Exceptional Conditions
+- **Location**: `install.sh:40-49`
+- **Description**: `install_skill` recursively removes the destination, recreates it, and then copies the new
+  tree in place. There is no staging directory, pre-promotion validation, atomic directory swap, backup, or
+  rollback if copy, permission changes, interruption, or storage exhaustion occurs.
+- **Impact**: A routine upgrade failure can remove a working DocDNA skill and leave a missing or mixed runtime.
+  The host may stop loading the skill or may load only part of its commands and agent instructions until the
+  user notices and reinstalls.
+- **Reproduction**: Run the A10 procedure with a temporary destination and a failing `cp` shim. The sentinel
+  represents the previous working install.
+- **Observed Result**: Installer returned exit 1, removed the sentinel, and left an empty destination.
+- **Evidence**: A10 coverage row and procedure; retained probe layout
+  `/tmp/docdna-harden-install.hWOFcy`; `install.sh:45-49`.
+- **Reviewed At**: 2026-08-19T12:07:07Z
+- **Owner**: Installer maintainer
+- **Target**: 2026-09-02
+- **Remediation Options**:
+  - **Option A**: Copy into a sibling staging directory, run Doctor there, then atomically promote it while
+    retaining the prior directory until success. Estimated: 2 days.
+  - **Option B**: Move the prior install to a recoverable backup, install and validate the replacement, restore
+    the backup on every failure or signal, and test copy, chmod, and interruption faults. Estimated: 2 days.
+- **Status**: Open
+
+## Prior Finding Regression Status
+
+The 1.2.1 report recorded one High, five Medium, and one Low finding as resolved. They remain closed in this
+review. The 122-test registry, proof, wire, and filesystem run plus the 13-test focused adversarial run
+re-exercised trusted-only agent index rendering, unsafe control-file refusal, immutable action pins, stale
+scan reproduction, recursion handling, multi-output preflight, root and parent swap resistance, and atomic
+file plus directory synchronization. Closed historical findings are not included in the open counts.
 
 ## Verification
 
 ```text
-python3 -m unittest discover -s tests
-Ran 401 tests
+python3 -m unittest tests.test_doctor tests.test_proofs tests.test_wire tests.test_docs -v
+Ran 122 tests
 OK
 
-python3.8 -m unittest discover -s tests
-Ran 401 tests
+python3 -m unittest -v \
+  tests.test_scan.ScanTests.test_no_git_walk_keeps_the_original_root_descriptor_during_a_root_swap \
+  tests.test_scan.ScanTests.test_no_git_walk_never_traverses_a_nested_directory_swapped_for_a_symlink \
+  tests.test_scan.ScanTests.test_scanner_refuses_to_read_a_fifo_without_blocking \
+  tests.test_scan.ScanTests.test_scanner_does_not_read_a_hardlinked_external_file \
+  tests.test_select.SecurityBoundaryTests.test_selector_write_resists_a_repository_root_directory_swap_after_validation \
+  tests.test_select.SecurityBoundaryTests.test_selector_keeps_both_outputs_in_one_bound_root_during_a_swap \
+  tests.test_select.SecurityBoundaryTests.test_selector_refuses_hardlinked_config_and_ignores_hardlinked_prior_state \
+  tests.test_select.SecurityBoundaryTests.test_selector_preflights_both_outputs_before_writing_either_one \
+  tests.test_select.SecurityBoundaryTests.test_selector_reports_deeply_nested_scan_json_without_a_traceback \
+  tests.test_proofs.ProofRegistryTests.test_subprocess_output_and_decoding_are_bounded \
+  tests.test_proofs.ProofRegistryTests.test_subprocess_timeout_terminates_the_process_group \
+  tests.test_wire.WireTests.test_refuses_a_symlinked_target_without_touching_the_external_file \
+  tests.test_docs.GeneratedArtifactContractTests.test_atomic_replacement_syncs_the_file_and_parent_directory
+Ran 13 tests
 OK
+
+python3 -m unittest discover -s tests
+Build evidence recorded in `.godpowers/state.json`: Ran 527 tests, OK, at 2026-08-19T11:55:42Z.
 ```
 
-The release pipeline, generated-artifact byte-stability check, number-rule dogfood gate, and isolated
-installer smoke test are required again immediately before publication.
+Incremental repair review at `3763e787b9903300d71bf24bf538c3aa8215ae3a`: `git show` confirmed that
+only the POSIX `case` pattern changed from a quoted literal to `\~/*)`. `sh -n install.sh`,
+`/bin/dash -n install.sh`, five hostile registry-value and installer tests, and isolated default installs
+under both shells passed; each installed Doctor passed 4 of 4 checks. Repeating the A10 failing-copy probe
+returned exit 1 and left the destination empty, so MEDIUM-003 remains open. No A05 regression was observed,
+and finding counts are unchanged.
+
+The earlier mistyped focused invocation used nonexistent test class names and produced loader errors. The
+corrected 13-test command above passed. This was an audit-command correction, not a product failure.
 
 ## Have-Nots Checklist
 
-- [x] Manual adversarial review performed in addition to the test suite
-- [x] Every OWASP category has evidence or a product-specific Not Applicable reason
-- [x] Every identified finding has a code or workflow remediation and regression coverage
-- [x] No unresolved Critical finding remains
-- [x] No unresolved High, Medium, or Low finding remains
+- [x] Manual adversarial review and real CLI fault injection performed in addition to automated tests
+- [x] Every OWASP Web Top 10:2025 category has a reproducible procedure, observed result, exact evidence or linked finding, reviewer, and UTC timestamp
+- [x] Local authorization and inaccessible-object boundaries actively tested; absent web authentication boundaries justified
+- [x] Command, path, control JSON, repository prose, subprocess argv, and generated output contexts audited
+- [x] Local bulk, file, output, timeout, and child-process limits exercised; absent remote rate surface justified
+- [x] Symlink, hardlink, FIFO, root-swap, parent-swap, stale-scan, malformed JSON, partial install, and recovery behavior exercised
+- [x] Every open finding has severity, owner, target date, reproduction, observed result, and remediation options
+- [x] No Critical finding remains open

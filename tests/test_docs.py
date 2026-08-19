@@ -2,6 +2,7 @@ import importlib.util
 import json
 import os
 import re
+import shutil
 import stat
 import subprocess
 import sys
@@ -11,17 +12,47 @@ from unittest import mock
 from pathlib import Path
 
 
+# Implements: P-MUST-05
+
 ROOT = Path(__file__).resolve().parents[1]
 SKILL = ROOT / "skill" / "SKILL.md"
 SCRIPTS = ROOT / "skill" / "scripts"
 WORKFLOWS = ROOT / ".github" / "workflows"
 INSTALLER = ROOT / "install.sh"
+WIRE = ROOT / "skill" / "scripts" / "docdna_wire.py"
 LLMS = ROOT / "skill" / "scripts" / "docdna_llms.py"
 BACKFILL = ROOT / "skill" / "scripts" / "docdna_backfill.py"
 FS = ROOT / "skill" / "scripts" / "docdna_fs.py"
 SCAN = ROOT / "skill" / "scripts" / "docdna_scan.py"
 SELECT = ROOT / "skill" / "scripts" / "docdna_select.py"
 PROSE_REFERENCE = ROOT / "skill" / "references" / "prose.md"
+RUNTIME_REGISTRY = ROOT / "skill" / "catalog" / "runtimes.json"
+RUNTIME_SCRIPT = ROOT / "skill" / "scripts" / "docdna_runtime.py"
+PROSE_SCRIPT = ROOT / "skill" / "scripts" / "docdna_prose.py"
+INTERNAL_SERVICE = ROOT / "tests" / "fixtures" / "internal_service"
+
+PROTECTED_COMPARISON_DOCS = (
+    ROOT / "CHANGELOG.md",
+    ROOT / "docs" / "HOW-IT-DECIDES.md",
+    ROOT / "docs" / "QUICKSTART.md",
+    SKILL,
+)
+
+VERSIONED_HELPERS = (
+    "docdna_scan.py",
+    "docdna_select.py",
+    "docdna_backfill.py",
+    "docdna_check.py",
+    "docdna_status.py",
+    "docdna_wire.py",
+    "docdna_llms.py",
+)
+
+VERSIONED_TEMPLATES = (
+    "_frontmatter.md",
+    "_banner.md",
+    "_document-control.md",
+)
 
 MAX_DESCRIPTION = 1536
 MAX_SKILL_LINES = 300
@@ -188,10 +219,490 @@ class CompatibilityContractTests(unittest.TestCase):
         self.assertNotIn("actions/checkout@v4", workflow)
         self.assertNotIn("actions/setup-python@v5", workflow)
 
-    def test_installation_examples_select_the_release_tag(self):
+    def test_install_examples_select_the_immutable_v1_4_0_tag(self):
         for path in (ROOT / "README.md", ROOT / "docs" / "QUICKSTART.md"):
             text = path.read_text(encoding="utf-8")
-            self.assertIn("git clone --branch v1.3.0 --depth 1", text)
+            self.assertIn("git clone --branch v1.4.0 --depth 1", text)
+            self.assertNotIn("git clone --branch main", text)
+
+
+class ReleaseContractTests(unittest.TestCase):
+    def test_all_runtime_version_surfaces_are_1_4_0(self):
+        skill = SKILL.read_text(encoding="utf-8")
+        self.assertIn("Version: 1.4.0", skill)
+
+        for name in VERSIONED_HELPERS:
+            source = (SCRIPTS / name).read_text(encoding="utf-8")
+            self.assertIn('VERSION = "1.4.0"', source, name)
+
+        for name in VERSIONED_TEMPLATES:
+            source = (ROOT / "skill" / "templates" / name).read_text(encoding="utf-8")
+            self.assertIn("docdna v1.4.0", source, name)
+            self.assertNotIn("docdna v1.3.0", source, name)
+
+    def test_release_docs_state_command_boundaries_at_their_audience_layer(self):
+        boundaries = {
+            ROOT / "README.md": ("docdna_doctor.py", "docdna_status.py",
+                                  "fresh-context packet", "checkout-only evidence",
+                                  "host parity"),
+            ROOT / "docs" / "AGENT_SUPPORT.md": ("docdna_doctor.py",
+                                                    "docdna_status.py", "read-only",
+                                                    "host parity"),
+            ROOT / "docs" / "COMPLIANCE.md": ("docdna_proof.py", "Verified",
+                                                "Attested", "Self-attested", "Refused"),
+            ROOT / "docs" / "QUICKSTART.md": ("docdna_doctor.py", "docdna_status.py",
+                                                "fresh-context packet", "Exit code"),
+            SKILL: ("docdna_doctor.py", "docdna_status.py", "docdna_proof.py",
+                    "fresh-context packet", "Recovery"),
+        }
+        for path, phrases in boundaries.items():
+            text = path.read_text(encoding="utf-8")
+            for phrase in phrases:
+                self.assertIn(phrase, text, "%s misses %s" % (path.name, phrase))
+
+    def test_protected_comparison_docs_match_inventory_and_negative_behavior(self):
+        prose = load("docdna_prose_release_contract", PROSE_SCRIPT)
+        expected = list(prose.protected_inventory("").keys())
+
+        for path in PROTECTED_COMPARISON_DOCS:
+            text = path.read_text(encoding="utf-8")
+            match = re.search(r"Protected comparison inventory:\s*([^\n]+(?:\n(?!\n)[^\n]+)*)",
+                              text)
+            self.assertIsNotNone(match, "%s has no comparison inventory" % path.name)
+            documented = re.findall(r"`([a-z_]+)`", match.group(1))
+            self.assertEqual(documented, expected, path.name)
+
+        unprotected_edits = (
+            ("<!-- private alpha -->\nVisible prose.\n",
+             "<!-- private beta -->\nVisible prose.\n", "HTML comment"),
+            ("Run deployAlpha after approval.\n",
+             "Run deployBeta after approval.\n", "raw command prose"),
+            ("workerAlpha owns the queue.\n",
+             "workerBeta owns the queue.\n", "raw identifier prose"),
+        )
+        for before, after, label in unprotected_edits:
+            result = prose.compare_texts(before, after)
+            self.assertTrue(result["protected_inventory_unchanged"], label)
+            self.assertEqual(result["added"], {}, label)
+            self.assertEqual(result["removed"], {}, label)
+
+    def test_installer_uses_registry_label_and_default_without_evaluating_label(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            release = workspace / "release"
+            release.mkdir()
+            shutil.copy2(str(INSTALLER), str(release / "install.sh"))
+            shutil.copytree(str(ROOT / "skill"), str(release / "skill"),
+                            ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+            registry_path = release / "skill" / "catalog" / "runtimes.json"
+            registry = json.loads(registry_path.read_text(encoding="utf-8"))
+            claude = next(row for row in registry["host_targets"]
+                          if row["install"]["selector"] == "claude")
+            claude["label"] = "Registry $(touch registry-label-pwned) Host"
+            claude["install"]["default_location"] = "~/.registry-owned/docdna"
+            registry_path.write_text(json.dumps(registry, indent=2) + "\n", encoding="utf-8")
+            home = workspace / "home"
+            home.mkdir()
+            environment = dict(os.environ, HOME=str(home), PYTHON=sys.executable)
+
+            process = subprocess.run(["sh", str(release / "install.sh"), "claude"],
+                                     cwd=str(release), env=environment,
+                                     text=True, capture_output=True)
+
+            installed = home / ".registry-owned" / "docdna"
+            self.assertEqual(process.returncode, 0, process.stderr)
+            self.assertTrue((installed / "SKILL.md").is_file())
+            self.assertIn(claude["label"], process.stdout)
+            self.assertIn(str(installed), process.stdout)
+            self.assertFalse((release / "registry-label-pwned").exists())
+            self.assertFalse((home / ".claude" / "skills" / "docdna").exists())
+
+    def test_installer_prints_hostile_accepted_labels_and_paths_literally(self):
+        shells = ["sh"]
+        dash = shutil.which("dash")
+        if dash is not None:
+            shells.append(dash)
+
+        for shell in shells:
+            with self.subTest(shell=shell), tempfile.TemporaryDirectory() as tmp:
+                workspace = Path(tmp)
+                release = workspace / "release"
+                release.mkdir()
+                shutil.copy2(str(INSTALLER), str(release / "install.sh"))
+                shutil.copytree(str(ROOT / "skill"), str(release / "skill"),
+                                ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+                registry_path = release / "skill" / "catalog" / "runtimes.json"
+                registry = json.loads(registry_path.read_text(encoding="utf-8"))
+                claude = next(row for row in registry["host_targets"]
+                              if row["install"]["selector"] == "claude")
+                claude["label"] = "Registry\\cHost"
+                registry_path.write_text(json.dumps(registry, indent=2) + "\n",
+                                         encoding="utf-8")
+                override = workspace / "skills\\cpath"
+                override.mkdir()
+                stale = override / "docdna.md"
+                stale.write_text("stale\n", encoding="utf-8")
+                environment = dict(os.environ, HOME=str(workspace / "home"),
+                                   CLAUDE_SKILLS_DIR=str(override), PYTHON=sys.executable)
+
+                process = subprocess.run([shell, str(release / "install.sh"), "claude"],
+                                         cwd=str(release), env=environment,
+                                         text=True, capture_output=True)
+
+                destination = override / "docdna"
+                expected = (
+                    "Removed stale bare-file install at %s\n"
+                    "Installed docdna v1.4.0 for Registry\\cHost to %s\n"
+                    "Restart the target coding agent to pick it up.\n"
+                ) % (stale, destination)
+                self.assertEqual(process.returncode, 0, process.stderr)
+                self.assertEqual(process.stdout, expected)
+                self.assertTrue((destination / "SKILL.md").is_file())
+                self.assertFalse(stale.exists())
+
+    def test_runtime_exposes_validated_install_metadata(self):
+        runtime = load("docdna_runtime_release_metadata", RUNTIME_SCRIPT)
+        registry = runtime.load_registry(str(ROOT / "skill"))
+        metadata = runtime.install_metadata(registry)
+
+        self.assertEqual([row["selector"] for row in metadata],
+                         runtime.install_targets(registry))
+        self.assertTrue(all(set(row) == {"selector", "label", "default_location"}
+                            for row in metadata))
+
+        unsafe = json.loads(json.dumps(registry))
+        claude = next(row for row in unsafe["host_targets"]
+                      if row["install"]["selector"] == "claude")
+        claude["install"]["default_location"] = "~/../outside/docdna"
+        with self.assertRaises(runtime.RuntimeRegistryError):
+            runtime.validate_registry(unsafe)
+
+    def test_installer_accepts_registry_owned_selector_membership(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            release = workspace / "release"
+            release.mkdir()
+            shutil.copy2(str(INSTALLER), str(release / "install.sh"))
+            shutil.copytree(str(ROOT / "skill"), str(release / "skill"),
+                            ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+            registry_path = release / "skill" / "catalog" / "runtimes.json"
+            registry = json.loads(registry_path.read_text(encoding="utf-8"))
+            claude = next(row for row in registry["host_targets"]
+                          if row["install"]["selector"] == "claude")
+            claude["install"]["selector"] = "anthropic"
+            claude["label"] = "Registry Membership Host"
+            claude["install"]["default_location"] = "~/.membership-owned/docdna"
+            registry_path.write_text(json.dumps(registry, indent=2) + "\n", encoding="utf-8")
+            home = workspace / "home"
+            home.mkdir()
+            environment = dict(os.environ, HOME=str(home), PYTHON=sys.executable)
+
+            process = subprocess.run(["sh", str(release / "install.sh"), "anthropic"],
+                                     cwd=str(release), env=environment,
+                                     text=True, capture_output=True)
+            old_selector = subprocess.run(["sh", str(release / "install.sh"), "claude"],
+                                          cwd=str(release), env=environment,
+                                          text=True, capture_output=True)
+
+            installed = home / ".membership-owned" / "docdna"
+            self.assertEqual(process.returncode, 0, process.stderr)
+            self.assertTrue((installed / "SKILL.md").is_file())
+            self.assertIn("Registry Membership Host", process.stdout)
+            self.assertEqual(old_selector.returncode, 2)
+
+    def test_runtime_and_installer_reject_reserved_selector_collisions(self):
+        runtime = load("docdna_runtime_reserved_install_selectors", RUNTIME_SCRIPT)
+        baseline = runtime.load_registry(str(ROOT / "skill"))
+
+        for selector in ("all", "cascade"):
+            with self.subTest(selector=selector):
+                unsafe = json.loads(json.dumps(baseline))
+                claude = next(row for row in unsafe["host_targets"]
+                              if row["install"]["selector"] == "claude")
+                claude["install"]["selector"] = selector
+                with self.assertRaisesRegex(runtime.RuntimeRegistryError, "reserved"):
+                    runtime.validate_registry(unsafe)
+
+                with tempfile.TemporaryDirectory() as tmp:
+                    workspace = Path(tmp)
+                    release = workspace / "release"
+                    release.mkdir()
+                    shutil.copy2(str(INSTALLER), str(release / "install.sh"))
+                    shutil.copytree(str(ROOT / "skill"), str(release / "skill"),
+                                    ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+                    registry_path = release / "skill" / "catalog" / "runtimes.json"
+                    registry_path.write_text(json.dumps(unsafe, indent=2) + "\n",
+                                             encoding="utf-8")
+                    home = workspace / "home"
+                    home.mkdir()
+                    environment = dict(os.environ, HOME=str(home), PYTHON=sys.executable)
+
+                    process = subprocess.run(["sh", str(release / "install.sh"), selector],
+                                             cwd=str(release), env=environment,
+                                             text=True, capture_output=True)
+
+                    self.assertEqual(process.returncode, 2, process.stdout)
+                    self.assertIn("install.sh: invalid runtime registry", process.stderr)
+                    self.assertIn("reserved", process.stderr)
+                    self.assertNotIn("Traceback", process.stderr)
+                    self.assertEqual(list(home.rglob("SKILL.md")), [])
+
+    def test_installer_preserves_legacy_cascade_alias_for_valid_registry(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            destination = workspace / "windsurf-skills"
+            environment = dict(os.environ, HOME=str(workspace / "home"),
+                               WINDSURF_SKILLS_DIR=str(destination), PYTHON=sys.executable)
+
+            process = subprocess.run(["sh", str(INSTALLER), "cascade"], cwd=str(ROOT),
+                                     env=environment, text=True, capture_output=True)
+
+            self.assertEqual(process.returncode, 0, process.stderr)
+            self.assertTrue((destination / "docdna" / "SKILL.md").is_file())
+            self.assertIn("Windsurf and Cascade", process.stdout)
+
+    def test_installer_override_adapter_replaces_registry_default_only(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            release = workspace / "release"
+            release.mkdir()
+            shutil.copy2(str(INSTALLER), str(release / "install.sh"))
+            shutil.copytree(str(ROOT / "skill"), str(release / "skill"),
+                            ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+            registry_path = release / "skill" / "catalog" / "runtimes.json"
+            registry = json.loads(registry_path.read_text(encoding="utf-8"))
+            claude = next(row for row in registry["host_targets"]
+                          if row["install"]["selector"] == "claude")
+            claude["label"] = "Registry Override Host"
+            claude["install"]["default_location"] = "~/.unused-default/docdna"
+            registry_path.write_text(json.dumps(registry, indent=2) + "\n", encoding="utf-8")
+            override = workspace / "override-skills"
+            environment = dict(os.environ, HOME=str(workspace / "home"),
+                               CLAUDE_SKILLS_DIR=str(override), PYTHON=sys.executable)
+
+            process = subprocess.run(["sh", str(release / "install.sh"), "claude"],
+                                     cwd=str(release), env=environment,
+                                     text=True, capture_output=True)
+
+            self.assertEqual(process.returncode, 0, process.stderr)
+            self.assertTrue((override / "docdna" / "SKILL.md").is_file())
+            self.assertIn(claude["label"], process.stdout)
+            self.assertFalse((workspace / "home" / ".unused-default" / "docdna").exists())
+
+    def test_wire_cli_catches_malformed_and_unsafe_registry_before_writing(self):
+        for case in ("malformed", "symlink"):
+            with self.subTest(case=case), tempfile.TemporaryDirectory() as tmp:
+                workspace = Path(tmp)
+                copied_skill = workspace / "skill"
+                shutil.copytree(str(ROOT / "skill"), str(copied_skill),
+                                ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+                registry_path = copied_skill / "catalog" / "runtimes.json"
+                if case == "malformed":
+                    registry_path.write_text("{not json\n", encoding="utf-8")
+                else:
+                    outside = workspace / "outside-runtimes.json"
+                    shutil.copy2(str(registry_path), str(outside))
+                    registry_path.unlink()
+                    os.symlink(str(outside), str(registry_path))
+                repo = workspace / "repo"
+                repo.mkdir()
+                wire_path = copied_skill / "scripts" / "docdna_wire.py"
+
+                imported = subprocess.run(
+                    [sys.executable, "-c",
+                     ("import importlib.util,sys; "
+                      "spec=importlib.util.spec_from_file_location('isolated_wire',sys.argv[1]); "
+                      "module=importlib.util.module_from_spec(spec); spec.loader.exec_module(module); "
+                      "print('imported')"), str(wire_path)], text=True, capture_output=True)
+
+                process = subprocess.run(
+                    [sys.executable, str(wire_path), "--all", str(repo)],
+                    text=True, capture_output=True)
+
+                self.assertEqual(imported.returncode, 0, imported.stderr)
+                self.assertEqual(imported.stdout, "imported\n")
+                self.assertEqual(process.returncode, 2, process.stdout)
+                self.assertTrue(process.stderr.startswith("docdna_wire: "), process.stderr)
+                self.assertNotIn("Traceback", process.stderr)
+                self.assertEqual(list(repo.rglob("*")), [])
+
+    def test_runtime_wiring_renderers_are_closed_and_enforce_cardinality(self):
+        runtime = load("docdna_runtime_wiring_renderers", RUNTIME_SCRIPT)
+        baseline = runtime.load_registry(str(ROOT / "skill"))
+
+        unknown = json.loads(json.dumps(baseline))
+        unknown["wiring_surfaces"][0]["renderer"] = "unknown-renderer"
+        with self.assertRaisesRegex(runtime.RuntimeRegistryError, "renderer is invalid"):
+            runtime.validate_registry(unknown)
+
+        wrong_count = json.loads(json.dumps(baseline))
+        cascade = next(row for row in wrong_count["wiring_surfaces"]
+                       if row["renderer"] == "cascade-rule")
+        cascade["paths"] = cascade["paths"][:1]
+        with self.assertRaisesRegex(runtime.RuntimeRegistryError,
+                                    "cascade-rule renderer requires exactly 2 paths"):
+            runtime.validate_registry(wrong_count)
+
+    def test_wire_accepts_a_new_registry_surface_without_id_specific_code(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            copied_skill = workspace / "skill"
+            shutil.copytree(str(ROOT / "skill"), str(copied_skill),
+                            ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+            registry_path = copied_skill / "catalog" / "runtimes.json"
+            registry = json.loads(registry_path.read_text(encoding="utf-8"))
+            registry["wiring_surfaces"].append({
+                "id": "zed",
+                "renderer": "plain-existing",
+                "paths": ["ZED.md"],
+            })
+            agents_host = next(row for row in registry["host_targets"]
+                               if row["id"] == "agents-compatible")
+            agents_host["wiring"]["surfaces"].append("zed")
+            registry_path.write_text(json.dumps(registry, indent=2) + "\n", encoding="utf-8")
+            repo = workspace / "repo"
+            repo.mkdir()
+
+            process = subprocess.run(
+                [sys.executable, str(copied_skill / "scripts" / "docdna_wire.py"),
+                 "--agent", "zed", "--json", str(repo)], text=True, capture_output=True)
+
+            self.assertEqual(process.returncode, 0, process.stderr)
+            self.assertEqual(json.loads(process.stdout)[0]["target"], "zed")
+            self.assertIn("DOCDNA.md", (repo / "ZED.md").read_text(encoding="utf-8"))
+
+    def test_wire_preflights_every_selected_destination_before_any_write(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            repo = workspace / "repo"
+            repo.mkdir()
+            outside = workspace / "outside-claude.md"
+            outside.write_text("outside marker\n", encoding="utf-8")
+            os.symlink(str(outside), str(repo / "CLAUDE.md"))
+
+            process = subprocess.run(
+                [sys.executable, str(WIRE), "--agent", "agents", "--agent", "claude",
+                 str(repo)], text=True, capture_output=True)
+
+            self.assertEqual(process.returncode, 2, process.stdout)
+            self.assertTrue(process.stderr.startswith("docdna_wire: "), process.stderr)
+            self.assertNotIn("Traceback", process.stderr)
+            self.assertFalse((repo / "AGENTS.md").exists())
+            self.assertEqual(outside.read_text(encoding="utf-8"), "outside marker\n")
+
+    def test_wire_preflights_unsafe_parent_chains_before_any_write(self):
+        for parent_shape in ("symlink", "file"):
+            with self.subTest(parent_shape=parent_shape), tempfile.TemporaryDirectory() as tmp:
+                workspace = Path(tmp)
+                copied_skill = workspace / "skill"
+                shutil.copytree(str(ROOT / "skill"), str(copied_skill),
+                                ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+                registry_path = copied_skill / "catalog" / "runtimes.json"
+                registry = json.loads(registry_path.read_text(encoding="utf-8"))
+                registry["wiring_surfaces"].append({
+                    "id": "zed",
+                    "renderer": "plain-existing",
+                    "paths": ["trap/ZED.md"],
+                })
+                agents_host = next(row for row in registry["host_targets"]
+                                   if row["id"] == "agents-compatible")
+                agents_host["wiring"]["surfaces"].append("zed")
+                registry_path.write_text(json.dumps(registry, indent=2) + "\n",
+                                         encoding="utf-8")
+
+                repo = workspace / "repo"
+                repo.mkdir()
+                trap = repo / "trap"
+                outside = workspace / "outside"
+                outside.mkdir()
+                marker = outside / "marker.txt"
+                marker.write_text("outside marker\n", encoding="utf-8")
+                if parent_shape == "symlink":
+                    os.symlink(str(outside), str(trap))
+                else:
+                    trap.write_text("repo marker\n", encoding="utf-8")
+
+                process = subprocess.run(
+                    [sys.executable, str(copied_skill / "scripts" / "docdna_wire.py"),
+                     "--all", str(repo)], text=True, capture_output=True)
+
+                self.assertEqual(process.returncode, 2, process.stdout)
+                self.assertTrue(process.stderr.startswith("docdna_wire: "), process.stderr)
+                self.assertNotIn("Traceback", process.stderr)
+                self.assertFalse((repo / "AGENTS.md").exists())
+                self.assertEqual(marker.read_text(encoding="utf-8"), "outside marker\n")
+                self.assertFalse((outside / "ZED.md").exists())
+                self.assertEqual([path.name for path in repo.iterdir()], ["trap"])
+                if parent_shape == "file":
+                    self.assertEqual(trap.read_text(encoding="utf-8"), "repo marker\n")
+
+    def test_packet_command_documents_and_matches_manifest_only_write_boundary(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "repo"
+            shutil.copytree(str(INTERNAL_SERVICE), str(repo))
+            selected = subprocess.run([sys.executable, str(SELECT), str(repo)], text=True,
+                                      capture_output=True)
+            self.assertEqual(selected.returncode, 0, selected.stderr)
+
+            def snapshot():
+                return {str(path.relative_to(repo)): path.read_bytes()
+                        for path in sorted(repo.rglob("*")) if path.is_file()}
+
+            before = snapshot()
+            status = subprocess.run(
+                [sys.executable, str(SCRIPTS / "docdna_status.py"), "--json", str(repo)],
+                text=True, capture_output=True)
+            self.assertEqual(status.returncode, 0, status.stderr)
+            self.assertEqual(snapshot(), before)
+
+            packet = subprocess.run(
+                [sys.executable, str(BACKFILL), "--only", "build.api-reference",
+                 "--json", str(repo)], text=True, capture_output=True)
+            self.assertEqual(packet.returncode, 0, packet.stderr)
+            self.assertEqual(json.loads(packet.stdout)["plans"][0]["id"],
+                             "build.api-reference")
+
+            after = snapshot()
+            changed = sorted(path for path in set(before) | set(after)
+                             if before.get(path) != after.get(path))
+            self.assertEqual(changed, [".docdna/manifest.json"])
+            self.assertEqual(set(before) - set(after), set())
+            self.assertEqual(set(after) - set(before), set())
+            self.assertFalse((repo / "docs" / "build" / "api-reference.md").exists())
+            manifest = json.loads(after[".docdna/manifest.json"].decode("utf-8"))
+            row = next(item for item in manifest["documents"]
+                       if item["id"] == "build.api-reference")
+            self.assertEqual(row["write_status"], "in-progress")
+            self.assertTrue(row["plan_generated_at"])
+
+        for path in (ROOT / "README.md", ROOT / "docs" / "QUICKSTART.md", SKILL):
+            text = path.read_text(encoding="utf-8")
+            normalized = " ".join(text.split())
+            self.assertIn("writes manifest planning state", normalized, path.name)
+            self.assertIn("does not write the target document", normalized, path.name)
+            self.assertNotIn("Packet planning is read-only", text, path.name)
+
+    def test_ci_derives_runtime_checks_from_the_registry(self):
+        workflow = (WORKFLOWS / "ci.yml").read_text(encoding="utf-8")
+
+        self.assertIn("skill/catalog/runtimes.json", workflow)
+        self.assertIn("docdna_runtime", workflow)
+        self.assertIn("runtime_members", workflow)
+        self.assertNotRegex(workflow, r"python -m py_compile skill/scripts/docdna_[a-z_]+\.py")
+
+    def test_ci_verifies_an_isolated_consumer_install(self):
+        workflow = (WORKFLOWS / "ci.yml").read_text(encoding="utf-8")
+        start = workflow.index("Install the skill and run it from the installed location")
+        body = workflow[start:]
+
+        self.assertIn("mktemp -d", body)
+        self.assertIn("./install.sh", body)
+        for helper in ("docdna_doctor.py", "docdna_proof.py", "docdna_status.py",
+                       "docdna_backfill.py"):
+            self.assertIn('$dest/docdna/scripts/%s' % helper, body)
+        self.assertIn("fresh_context_packet", body)
+        self.assertIn("read_only", body)
+        self.assertNotIn("skill/scripts/docdna_doctor.py", body)
 
 
 class GeneratedArtifactContractTests(unittest.TestCase):
@@ -921,14 +1432,15 @@ class ReferenceTests(unittest.TestCase):
                         % (mode & 0o777))
 
     def test_ci_workflow_compiles_every_helper(self):
-        compiled = set()
-        for path in sorted(WORKFLOWS.glob("*.yml")):
-            for line in path.read_text(encoding="utf-8").splitlines():
-                if "py_compile" not in line:
-                    continue
-                compiled.update(Path(rel).name for rel in SCRIPT_PATH.findall(line))
+        registry = json.loads(RUNTIME_REGISTRY.read_text(encoding="utf-8"))
+        registered = set(Path(row["path"]).name for row in registry["runtime_members"])
+        workflow = (WORKFLOWS / "ci.yml").read_text(encoding="utf-8")
 
-        self.assertEqual(compiled, self.script_names())
+        self.assertEqual(registered, self.script_names())
+        self.assertIn('runtime_registry["runtime_members"]', workflow)
+        self.assertIn("py_compile.compile", workflow)
+        self.assertNotRegex(workflow,
+                            r"python -m py_compile skill/scripts/docdna_[a-z_]+\.py")
 
 
 if __name__ == "__main__":

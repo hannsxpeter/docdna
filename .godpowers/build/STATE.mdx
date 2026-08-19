@@ -1,0 +1,30 @@
+<!-- godpowers:state-view:begin -->
+<!-- godpowers:checksum sha256:1ab8538fecf4dee75ee831493111a39b4d24c6ce82c8c77166f738f9bb2973ac -->
+# Godpowers Build State
+
+- [DECISION] This file is a generated human-readable view of `.godpowers/state.json` for `tier-2.build`.
+- [DECISION] The managed section may be replaced by Godpowers whenever project state changes.
+- [DECISION] Edit project state through Godpowers commands or owning command wrappers rather than editing this managed section.
+- [DECISION] Project: docdna.
+- [DECISION] Step: Building: Build.
+- [DECISION] Status: `done`.
+- [HYPOTHESIS] No artifact path is recorded in `state.json` for this step.
+- [DECISION] Updated: 2026-08-19T11:56:53.912Z.
+
+## Verification Commands
+
+| Command | Status | Exit code | Ran at | Duration ms | Diagnostics |
+|---|---|---|---|---|---|
+| python3 -m unittest discover -s tests | pass | 0 | 2026-08-19T11:55:42Z | - | - |
+| python3 skill/scripts/docdna_doctor.py --json --source-checkout | pass | 0 | 2026-08-19T11:55:42Z | - | - |
+| python3 skill/scripts/docdna_proof.py --json | pass | 0 | 2026-08-19T11:55:42Z | - | - |
+| python3 -m unittest tests.test_readme_samples -v | pass | 0 | 2026-08-19T11:55:42Z | - | - |
+| sh -n install.sh | pass | 0 | 2026-08-19T11:55:42Z | - | - |
+| /bin/dash -n install.sh | pass | 0 | 2026-08-19T11:55:42Z | - | - |
+| isolated installed consumer: doctor, proof, scan, select, status, packet, check, llms, wire | pass | 0 | 2026-08-19T11:55:42Z | - | - |
+
+## Evidence Fields
+
+- [HYPOTHESIS] No additional evidence fields are recorded in `state.json` for this step.
+
+<!-- godpowers:state-view:end -->

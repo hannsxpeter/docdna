@@ -6,11 +6,129 @@
     "started": "2026-08-05T00:00:00Z"
   },
   "tiers": {
+    "tier-2": {
+      "build": {
+        "status": "done",
+        "updated": "2026-08-19T11:56:53.912Z",
+        "verification": {
+          "commands": [
+            {
+              "command": "python3 -m unittest discover -s tests",
+              "status": "pass",
+              "exitCode": 0,
+              "ranAt": "2026-08-19T11:55:42Z"
+            },
+            {
+              "command": "python3 skill/scripts/docdna_doctor.py --json --source-checkout",
+              "status": "pass",
+              "exitCode": 0,
+              "ranAt": "2026-08-19T11:55:42Z"
+            },
+            {
+              "command": "python3 skill/scripts/docdna_proof.py --json",
+              "status": "pass",
+              "exitCode": 0,
+              "ranAt": "2026-08-19T11:55:42Z"
+            },
+            {
+              "command": "python3 -m unittest tests.test_readme_samples -v",
+              "status": "pass",
+              "exitCode": 0,
+              "ranAt": "2026-08-19T11:55:42Z"
+            },
+            {
+              "command": "sh -n install.sh",
+              "status": "pass",
+              "exitCode": 0,
+              "ranAt": "2026-08-19T11:55:42Z"
+            },
+            {
+              "command": "/bin/dash -n install.sh",
+              "status": "pass",
+              "exitCode": 0,
+              "ranAt": "2026-08-19T11:55:42Z"
+            },
+            {
+              "command": "isolated installed consumer: doctor, proof, scan, select, status, packet, check, llms, wire",
+              "status": "pass",
+              "exitCode": 0,
+              "ranAt": "2026-08-19T11:55:42Z"
+            }
+          ]
+        }
+      }
+    },
     "tier-3": {
+      "launch": {
+        "status": "in-flight",
+        "artifact": "launch/LAUNCH-1.4.0.mdx",
+        "updated": "2026-08-19T12:29:13.059Z",
+        "notes": "DocDNA 1.4.0 is locally ready for a GitHub repository release. Public activation awaits exact-commit GitHub CI on Python 3.8 and current Python with ShellCheck, followed by a fresh hash-bound prepublication record and check immediately before publication.",
+        "verification": {
+          "commands": [
+            {
+              "command": "rg -n '^\\| Critical \\| 0 \\|$|^\\| High \\| 0 \\|$|^\\| Medium \\| 3 \\|$|^\\*\\*Launch gate\\*\\*: PASSED$' .godpowers/harden/FINDINGS.mdx",
+              "status": "pass",
+              "exitCode": 0,
+              "ranAt": "2026-08-19T12:16:32Z",
+              "diagnostics": "Hardening records 0 Critical, 0 High, 3 open Medium, and Launch gate: PASSED."
+            },
+            {
+              "command": "git remote get-url origin",
+              "status": "pass",
+              "exitCode": 0,
+              "ranAt": "2026-08-19T12:16:32Z",
+              "diagnostics": "The only verified public target is https://github.com/hannsxpeter/docdna.git."
+            },
+            {
+              "command": "test ! -f .godpowers/REQUIREMENTS.mdx && rg -o 'P-MUST-0[1-5]' .godpowers/build/PLAN.mdx | sort -u",
+              "status": "pass",
+              "exitCode": 0,
+              "ranAt": "2026-08-19T12:16:32Z",
+              "diagnostics": "No canonical requirements artifact exists; the accepted bounded plan defines P-MUST-01 through P-MUST-05 and build state is done."
+            }
+          ]
+        },
+        "launch-scope": "local-ready-github-release-preparation",
+        "release-version": "1.4.0",
+        "release-target": "https://github.com/hannsxpeter/docdna.git",
+        "release-surface": "README.md plus the GitHub release page",
+        "release-notes": "launch/RELEASE-NOTES-1.4.0.md",
+        "local-readiness": "pass: 527 tests, source Doctor and Proof, stable README samples, registry JSON and compile, stable artifacts, sh and dash syntax, and isolated installed Doctor, Proof, Status, packet, Check, llms, and Wire",
+        "p-must-gate": "pass under the accepted bounded-increment no-PRD exception: P-MUST-01 through P-MUST-05 are covered by the done build",
+        "web-landing-page": "not-applicable: this release has no deployed web application or owned landing page; README.md is the evergreen repository launch surface",
+        "custom-og-card": "not-applicable: there is no owned web metadata or image publication surface; GitHub owns repository and release-page rendering",
+        "telemetry": "not-applicable for accounts or signups: the local CLI has no telemetry; release identity, exact tag and commit, CI, tagged-install smoke, native GitHub evidence, and issue reports form the measurement record",
+        "open-medium-findings": 3,
+        "public-activation": "blocked-pending-exact-commit-ci-and-fresh-prepublication-pass",
+        "remaining-ci": "Python 3.8 matrix lane and ShellCheck must pass for the exact release commit",
+        "prepublication": "stale existing record must be replaced and checked by the root agent after all other checks and immediately before the first public write"
+      },
       "harden": {
         "status": "done",
-        "updated": "2026-08-06T01:02:17Z"
+        "updated": "2026-08-19T12:29:13.026Z",
+        "verification": {
+          "commands": [
+            {
+              "command": "python3 -m unittest tests.test_doctor tests.test_proofs tests.test_wire tests.test_docs",
+              "status": "pass",
+              "exitCode": 0,
+              "ranAt": "2026-08-19T12:12:55.493Z",
+              "durationMs": 14195,
+              "diagnostics": ""
+            },
+            {
+              "command": "python3 -m unittest tests.test_docs.ReleaseContractTests",
+              "status": "pass",
+              "exitCode": 0,
+              "ranAt": "2026-08-19T12:29:08.455Z",
+              "durationMs": 1596,
+              "diagnostics": ""
+            }
+          ]
+        }
       }
     }
-  }
+  },
+  "lock": null
 }

@@ -1,0 +1,34 @@
+docdna proof registry 1
+  claims    : 10
+  replays   : 4 of 4 passed
+
+evidence levels
+  shipped                            implementation
+  unit-tested                        unit-test
+  install-tested                     install-test
+  artifact-proven                    artifact
+  replay-tested                      replay
+  measured                           measurement
+  adjudicated                        adjudication
+  host-capture-ready                 capture-procedure
+  host-captured                      host-capture
+  external-tool-dependent            external-dependency
+
+claim matrix
+  id | evidence level | mode | claim | boundary
+  backfill.boundary-verification | replay-tested | backfill | The committed backfill fixture replays a blocked verification outcome for unsupported claims. | The replay verifies one committed document and never promotes the result to host parity or broad backfill correctness.
+  backfill.unit-verification | unit-tested | backfill | Backfill verification distinguishes repository evidence, human attestation, self-attested run output, and refusals in unit tests. | The tests exercise committed fixtures and temporary repositories, not every document shape or external reference system.
+  check.artifact-classification | artifact-proven | check | The documented repository fixture exposes deterministic evidence, attestation, gap, and refusal fields to the checker. | The artifact proves the saved fixture shape only and does not establish behavior on an uninspected repository.
+  check.command-adjudication | adjudicated | check | Command drift findings retain low standing where the recorded adjudication found poor precision. | The adjudication covers command-reference findings only and does not label every checker pass.
+  runtime.external-tool-boundary | external-tool-dependent | runtime | Host and external-tool dependencies are labeled separately from repository-local proof. | A declared dependency is not evidence that the external tool ran or that a host integration succeeded.
+  runtime.host-capture-procedure | host-capture-ready | runtime | The source-checkout runtime proof bundle gives a bounded procedure for recording host evidence. | The procedure is available in the source checkout only; installed-registry validation skips checkout-only evidence and does not claim a host run.
+  runtime.proof-command | shipped | runtime | A standard-library command validates the product claim registry without writing project files. | Shipped means the implementation is present in this tree; replay and host execution are separate evidence levels.
+  runtime.proof-command-tests | unit-tested | runtime | Registry validation, closed evidence levels, path checks, stable output, and replay outcomes are covered by unit tests. | Unit tests run in the repository process and do not substitute for an isolated installation test.
+  survey.fixture-measurement | measured | survey | The internal service fixture contains three inventory documents and produces two drift observations. | The measurement covers one synthetic service fixture with the default shallow survey only.
+  survey.golden-replay | replay-tested | survey | The internal service survey replays its saved inventory and drift outcome. | The replay checks stable selected fields and does not compare volatile timestamps, commit ids, or absolute paths.
+
+golden replay
+  golden.survey                      survey   pass
+  golden.backfill                    backfill pass
+  golden.check                       check    pass
+  golden.runtime                     runtime  pass
