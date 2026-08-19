@@ -1,0 +1,424 @@
+{
+  "schema": 1,
+  "minimum_python": [
+    3,
+    8
+  ],
+  "platform_support": {
+    "family": "posix",
+    "support_level": "supported",
+    "requirements": [
+      "descriptor-relative filesystem access",
+      "no-follow filesystem access"
+    ]
+  },
+  "host_targets": [
+    {
+      "id": "agents-compatible",
+      "label": "AGENTS.md-compatible agents",
+      "support_level": "wiring-only",
+      "install": {
+        "support": "not-supported",
+        "selector": null,
+        "default_location": null
+      },
+      "wiring": {
+        "support": "supported",
+        "surfaces": [
+          "agents"
+        ]
+      },
+      "host_parity": {
+        "status": "not-verified",
+        "boundary": "A writable instruction surface does not prove host parity."
+      }
+    },
+    {
+      "id": "claude",
+      "label": "Claude Code",
+      "support_level": "install-and-wiring",
+      "install": {
+        "support": "supported",
+        "selector": "claude",
+        "default_location": "~/.claude/skills/docdna"
+      },
+      "wiring": {
+        "support": "supported",
+        "surfaces": [
+          "claude"
+        ]
+      },
+      "host_parity": {
+        "status": "not-verified",
+        "boundary": "Installation and wiring support do not prove host parity."
+      }
+    },
+    {
+      "id": "codex",
+      "label": "Codex",
+      "support_level": "install-and-wiring",
+      "install": {
+        "support": "supported",
+        "selector": "codex",
+        "default_location": "~/.codex/skills/docdna"
+      },
+      "wiring": {
+        "support": "supported",
+        "surfaces": [
+          "agents"
+        ]
+      },
+      "host_parity": {
+        "status": "not-verified",
+        "boundary": "Installation and AGENTS.md wiring support do not prove host parity."
+      }
+    },
+    {
+      "id": "cursor",
+      "label": "Cursor",
+      "support_level": "install-and-wiring",
+      "install": {
+        "support": "supported",
+        "selector": "cursor",
+        "default_location": "~/.cursor/skills/docdna"
+      },
+      "wiring": {
+        "support": "supported",
+        "surfaces": [
+          "cursor"
+        ]
+      },
+      "host_parity": {
+        "status": "not-verified",
+        "boundary": "Installation and rule wiring support do not prove host parity."
+      }
+    },
+    {
+      "id": "gemini",
+      "label": "Gemini",
+      "support_level": "wiring-only",
+      "install": {
+        "support": "not-supported",
+        "selector": null,
+        "default_location": null
+      },
+      "wiring": {
+        "support": "supported",
+        "surfaces": [
+          "gemini"
+        ]
+      },
+      "host_parity": {
+        "status": "not-verified",
+        "boundary": "GEMINI.md wiring support does not prove install support or host parity."
+      }
+    },
+    {
+      "id": "github-copilot",
+      "label": "GitHub Copilot",
+      "support_level": "wiring-only",
+      "install": {
+        "support": "not-supported",
+        "selector": null,
+        "default_location": null
+      },
+      "wiring": {
+        "support": "supported",
+        "surfaces": [
+          "copilot"
+        ]
+      },
+      "host_parity": {
+        "status": "not-verified",
+        "boundary": "Instruction-file wiring support does not prove install support or host parity."
+      }
+    },
+    {
+      "id": "windsurf-cascade",
+      "label": "Windsurf and Cascade",
+      "support_level": "install-and-wiring",
+      "install": {
+        "support": "supported",
+        "selector": "windsurf",
+        "default_location": "~/.codeium/windsurf/skills/docdna"
+      },
+      "wiring": {
+        "support": "supported",
+        "surfaces": [
+          "cascade"
+        ]
+      },
+      "host_parity": {
+        "status": "not-verified",
+        "boundary": "Installation and rule wiring support do not prove host parity."
+      }
+    }
+  ],
+  "wiring_surfaces": [
+    {
+      "id": "agents",
+      "paths": [
+        "AGENTS.md"
+      ]
+    },
+    {
+      "id": "cascade",
+      "paths": [
+        ".devin/rules/docdna.md",
+        ".windsurf/rules/docdna.md"
+      ]
+    },
+    {
+      "id": "claude",
+      "paths": [
+        "CLAUDE.md"
+      ]
+    },
+    {
+      "id": "copilot",
+      "paths": [
+        ".github/copilot-instructions.md"
+      ]
+    },
+    {
+      "id": "cursor",
+      "paths": [
+        ".cursor/rules/docdna.mdc"
+      ]
+    },
+    {
+      "id": "gemini",
+      "paths": [
+        "GEMINI.md"
+      ]
+    }
+  ],
+  "runtime_members": [
+    {
+      "id": "command.backfill",
+      "kind": "command",
+      "path": "scripts/docdna_backfill.py"
+    },
+    {
+      "id": "command.check",
+      "kind": "command",
+      "path": "scripts/docdna_check.py"
+    },
+    {
+      "id": "command.doctor",
+      "kind": "command",
+      "path": "scripts/docdna_doctor.py"
+    },
+    {
+      "id": "module.filesystem",
+      "kind": "module",
+      "path": "scripts/docdna_fs.py"
+    },
+    {
+      "id": "command.llms",
+      "kind": "command",
+      "path": "scripts/docdna_llms.py"
+    },
+    {
+      "id": "command.proof",
+      "kind": "command",
+      "path": "scripts/docdna_proof.py"
+    },
+    {
+      "id": "command.prose",
+      "kind": "command",
+      "path": "scripts/docdna_prose.py"
+    },
+    {
+      "id": "module.runtime",
+      "kind": "module",
+      "path": "scripts/docdna_runtime.py"
+    },
+    {
+      "id": "command.scan",
+      "kind": "command",
+      "path": "scripts/docdna_scan.py"
+    },
+    {
+      "id": "command.select",
+      "kind": "command",
+      "path": "scripts/docdna_select.py"
+    },
+    {
+      "id": "command.status",
+      "kind": "command",
+      "path": "scripts/docdna_status.py"
+    },
+    {
+      "id": "module.unicode",
+      "kind": "module",
+      "path": "scripts/docdna_unicode.py"
+    },
+    {
+      "id": "command.wire",
+      "kind": "command",
+      "path": "scripts/docdna_wire.py"
+    }
+  ],
+  "registries": [
+    {
+      "id": "catalog.archetypes",
+      "path": "catalog/archetypes.json"
+    },
+    {
+      "id": "catalog.documents",
+      "path": "catalog/documents.json"
+    },
+    {
+      "id": "catalog.interview",
+      "path": "catalog/interview.json"
+    },
+    {
+      "id": "catalog.proofs",
+      "path": "catalog/proofs.json"
+    },
+    {
+      "id": "catalog.rules",
+      "path": "catalog/rules.json"
+    },
+    {
+      "id": "catalog.runtimes",
+      "path": "catalog/runtimes.json"
+    },
+    {
+      "id": "catalog.signals",
+      "path": "catalog/signals.json"
+    }
+  ],
+  "templates": [
+    {
+      "id": "template.banner",
+      "path": "templates/_banner.md"
+    },
+    {
+      "id": "template.document-control",
+      "path": "templates/_document-control.md"
+    },
+    {
+      "id": "template.frontmatter",
+      "path": "templates/_frontmatter.md"
+    },
+    {
+      "id": "template.gap",
+      "path": "templates/_gap.md"
+    },
+    {
+      "id": "template.build-api-reference",
+      "path": "templates/build-api-reference.md"
+    },
+    {
+      "id": "template.build-codebase-map",
+      "path": "templates/build-codebase-map.md"
+    },
+    {
+      "id": "template.build-config-reference",
+      "path": "templates/build-config-reference.md"
+    },
+    {
+      "id": "template.build-dev-setup",
+      "path": "templates/build-dev-setup.md"
+    },
+    {
+      "id": "template.build-feature-flags",
+      "path": "templates/build-feature-flags.md"
+    },
+    {
+      "id": "template.build-llms-txt",
+      "path": "templates/build-llms-txt.md"
+    },
+    {
+      "id": "template.design-api-contract",
+      "path": "templates/design-api-contract.md"
+    },
+    {
+      "id": "template.design-data-model",
+      "path": "templates/design-data-model.md"
+    },
+    {
+      "id": "template.frame-glossary",
+      "path": "templates/frame-glossary.md"
+    },
+    {
+      "id": "template.verify-dod",
+      "path": "templates/verify-dod.md"
+    }
+  ],
+  "references": [
+    {
+      "id": "reference.antipatterns",
+      "path": "references/antipatterns.md"
+    },
+    {
+      "id": "reference.evidence",
+      "path": "references/evidence.md"
+    },
+    {
+      "id": "reference.lifecycle",
+      "path": "references/lifecycle.md"
+    },
+    {
+      "id": "reference.prose",
+      "path": "references/prose.md"
+    },
+    {
+      "id": "reference.regime-accessibility",
+      "path": "references/regime-facts/accessibility.md"
+    },
+    {
+      "id": "reference.regime-ai",
+      "path": "references/regime-facts/ai.md"
+    },
+    {
+      "id": "reference.regime-canada",
+      "path": "references/regime-facts/canada.md"
+    },
+    {
+      "id": "reference.regime-eu",
+      "path": "references/regime-facts/eu.md"
+    },
+    {
+      "id": "reference.regime-standards",
+      "path": "references/regime-facts/standards.md"
+    },
+    {
+      "id": "reference.regime-us",
+      "path": "references/regime-facts/us.md"
+    },
+    {
+      "id": "reference.selection",
+      "path": "references/selection.md"
+    },
+    {
+      "id": "reference.third-party-notices",
+      "path": "references/third-party-notices.md"
+    }
+  ],
+  "smoke_checks": [
+    {
+      "id": "runtime-registry",
+      "kind": "registry",
+      "target": "catalog.runtimes"
+    },
+    {
+      "id": "python-compatibility",
+      "kind": "python",
+      "target": "minimum_python"
+    },
+    {
+      "id": "runtime-members",
+      "kind": "members",
+      "target": "runtime_members"
+    },
+    {
+      "id": "proof-registry",
+      "kind": "proof-installed-registry",
+      "target": "catalog.proofs",
+      "checkout_target": "proof/replay/golden-workflows.json"
+    }
+  ]
+}
