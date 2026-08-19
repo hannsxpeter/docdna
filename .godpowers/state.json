@@ -62,7 +62,7 @@
       "launch": {
         "status": "in-flight",
         "artifact": "launch/LAUNCH-1.4.0.mdx",
-        "updated": "2026-08-19T12:21:21.340Z",
+        "updated": "2026-08-19T12:29:13.059Z",
         "notes": "DocDNA 1.4.0 is locally ready for a GitHub repository release. Public activation awaits exact-commit GitHub CI on Python 3.8 and current Python with ShellCheck, followed by a fresh hash-bound prepublication record and check immediately before publication.",
         "verification": {
           "commands": [
@@ -106,7 +106,7 @@
       },
       "harden": {
         "status": "done",
-        "updated": "2026-08-19T12:14:54.848Z",
+        "updated": "2026-08-19T12:29:13.026Z",
         "verification": {
           "commands": [
             {
@@ -115,6 +115,14 @@
               "exitCode": 0,
               "ranAt": "2026-08-19T12:12:55.493Z",
               "durationMs": 14195,
+              "diagnostics": ""
+            },
+            {
+              "command": "python3 -m unittest tests.test_docs.ReleaseContractTests",
+              "status": "pass",
+              "exitCode": 0,
+              "ranAt": "2026-08-19T12:29:08.455Z",
+              "durationMs": 1596,
               "diagnostics": ""
             }
           ]

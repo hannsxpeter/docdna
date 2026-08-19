@@ -4,7 +4,7 @@ Date: 2026-08-19T12:07:07Z
 Reviewer: god-harden-auditor
 Product form: Local POSIX Python CLI and coding-agent skill
 Release: DocDNA 1.4.0
-Reviewed commit: `6c3c1182da0dd39651e87e2f3bed75088c1940d9`
+Reviewed commit: `3763e787b9903300d71bf24bf538c3aa8215ae3a`
 Scope: Runtime and proof registries, Doctor and Proof commands, installer and documented distribution,
 wiring, repository reads and writes, subprocess boundaries, generated agent-facing files, CI, and focused
 security tests. DocDNA has no deployed network service, HTTP boundary, account or session system, managed
@@ -307,6 +307,13 @@ OK
 python3 -m unittest discover -s tests
 Build evidence recorded in `.godpowers/state.json`: Ran 527 tests, OK, at 2026-08-19T11:55:42Z.
 ```
+
+Incremental repair review at `3763e787b9903300d71bf24bf538c3aa8215ae3a`: `git show` confirmed that
+only the POSIX `case` pattern changed from a quoted literal to `\~/*)`. `sh -n install.sh`,
+`/bin/dash -n install.sh`, five hostile registry-value and installer tests, and isolated default installs
+under both shells passed; each installed Doctor passed 4 of 4 checks. Repeating the A10 failing-copy probe
+returned exit 1 and left the destination empty, so MEDIUM-003 remains open. No A05 regression was observed,
+and finding counts are unchanged.
 
 The earlier mistyped focused invocation used nonexistent test class names and produced loader errors. The
 corrected 13-test command above passed. This was an audit-command correction, not a product failure.
