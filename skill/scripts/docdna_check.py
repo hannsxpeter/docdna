@@ -2562,7 +2562,7 @@ def pass_prose(ctx):
     total = 0
     emitted = 0
     for doc in records:
-        for hit in inspect_prose(doc["text"]):
+        for hit in inspect_prose(doc["text"], path=doc["path"]):
             counts[hit["kind"]] += 1
             total += 1
             if emitted >= MAX_PROSE_FINDINGS:
@@ -2579,7 +2579,8 @@ def pass_prose(ctx):
         "by_kind": dict(sorted(counts.items())),
         "boundary": ("advisory literal-pattern review of rendered Markdown prose; it does not infer "
                      "authorship, judge factual support, or evaluate voice in context"),
-        "ignored": "frontmatter, fenced and inline code, HTML comments, and link destinations",
+        "ignored": ("frontmatter, fenced and inline code, literal examples, HTML comments, link "
+                    "destinations, and autolinks"),
         "writes": "never",
         "gates": "never",
     }

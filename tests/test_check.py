@@ -662,6 +662,35 @@ class CheckTests(unittest.TestCase):
 
             self.assertEqual((repo / "README.md").read_text(encoding="utf-8"), body)
 
+    # Implements: P-MUST-01
+    def test_prose_check_fixture_is_read_only_and_never_gates(self):
+        fixture = FIXTURES / "prose"
+        before = {path.relative_to(fixture): path.read_bytes()
+                  for path in fixture.rglob("*") if path.is_file()}
+
+        for fail_on in self.check.FAIL_ON:
+            with self.subTest(fail_on=fail_on):
+                process = cli(fixture, "--only", "prose", "--fail-on", fail_on)
+                self.assertEqual(process.returncode, 0, process.stderr)
+
+        after = {path.relative_to(fixture): path.read_bytes()
+                 for path in fixture.rglob("*") if path.is_file()}
+        self.assertEqual(after, before)
+
+    def test_protected_span_fixture_and_direct_inspection_agree(self):
+        text = (FIXTURES / "prose" / "visible-findings.md").read_text(encoding="utf-8")
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = write_repo(tmp, {"README.md": text})
+
+            direct = list(self.check.inspect_prose(text, path="README.md"))
+            report = self.check.check(str(repo), {"prose"}, "minor", None, False)
+            integrated = [row for row in report["findings"] if row["pass"] == "prose"]
+
+        self.assertEqual(
+            [(row["kind"], row["line"], row["column"]) for row in integrated],
+            [(row["kind"], row["line"], row["column"]) for row in direct],
+        )
+
     def test_hygiene_pass_reports_and_gates_bidirectional_controls_by_default(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo = write_repo(tmp, {"README.md": "# App\n\nleft\u202eright\n"})
