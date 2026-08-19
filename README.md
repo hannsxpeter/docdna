@@ -54,7 +54,7 @@ them decides what should exist, and none of them will defend an absence. That ga
 ## Get started in two minutes
 
 ```sh
-git clone --branch v1.2.1 --depth 1 https://github.com/hannsxpeter/docdna.git
+git clone --branch v1.3.0 --depth 1 https://github.com/hannsxpeter/docdna.git
 cd docdna
 ./install.sh claude      # or: all | codex | cursor | windsurf
 ```
@@ -194,6 +194,22 @@ The checker never rewrites user-authored documentation. DocDNA cleans only its g
 prose before the existing race-safe write, and it leaves manifest paths and identifiers untouched. This is
 deterministic text hygiene, not statistical watermark detection, metadata removal, or evidence that a
 person wrote the text.
+
+## Advisory prose review
+
+Check also reports a small set of editorial patterns that commonly make technical documentation vague or
+formulaic. It looks for unnamed sources, filler, chat closings, promotional terms, indirect substitutes
+for `is`, stock contrasts, generic endings, and likely title-case headings.
+
+```sh
+python3 skill/scripts/docdna_check.py --only prose /path/to/repo
+```
+
+This pass is deliberately advisory. It never gates, never rewrites a document, and does not infer whether
+a person or model wrote the text. It skips frontmatter, fenced and inline code, HTML comments, and link
+destinations. Patterns that require context, including active voice and factual specificity, remain a
+human review. Backfill applies the fuller prose discipline after evidence verification and verifies the
+document again after any edit.
 
 ## What it will write for you
 

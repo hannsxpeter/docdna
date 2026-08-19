@@ -21,6 +21,7 @@ BACKFILL = ROOT / "skill" / "scripts" / "docdna_backfill.py"
 FS = ROOT / "skill" / "scripts" / "docdna_fs.py"
 SCAN = ROOT / "skill" / "scripts" / "docdna_scan.py"
 SELECT = ROOT / "skill" / "scripts" / "docdna_select.py"
+PROSE_REFERENCE = ROOT / "skill" / "references" / "prose.md"
 
 MAX_DESCRIPTION = 1536
 MAX_SKILL_LINES = 300
@@ -153,6 +154,14 @@ class SkillDocumentTests(unittest.TestCase):
         self.assertIn("default", row)
         self.assertIn("retained by default", text)
 
+    def test_backfill_routes_through_the_prose_reference_after_evidence(self):
+        skill = SKILL.read_text(encoding="utf-8")
+        prose = PROSE_REFERENCE.read_text(encoding="utf-8")
+
+        self.assertIn("references/prose.md", skill)
+        self.assertIn("Verify evidence, audit prose", skill)
+        self.assertIn("Run the evidence verifier again", prose)
+
 
 class CompatibilityContractTests(unittest.TestCase):
     def test_ci_exercises_python_3_8_and_latest(self):
@@ -182,7 +191,7 @@ class CompatibilityContractTests(unittest.TestCase):
     def test_installation_examples_select_the_release_tag(self):
         for path in (ROOT / "README.md", ROOT / "docs" / "QUICKSTART.md"):
             text = path.read_text(encoding="utf-8")
-            self.assertIn("git clone --branch v1.2.1 --depth 1", text)
+            self.assertIn("git clone --branch v1.3.0 --depth 1", text)
 
 
 class GeneratedArtifactContractTests(unittest.TestCase):
@@ -201,7 +210,7 @@ class GeneratedArtifactContractTests(unittest.TestCase):
 
     def test_committed_llms_text_does_not_embed_volatile_generation_metadata(self):
         llms = load("docdna_llms_contract", LLMS)
-        manifest = {"archetype": {"primary": "solo-utility"}, "generated_by": "docdna v1.2.1",
+        manifest = {"archetype": {"primary": "solo-utility"}, "generated_by": "docdna v1.3.0",
                     "generated_at": "2026-08-05", "repo_head": "abc1234"}
         with tempfile.TemporaryDirectory() as tmp:
             lines = llms.blockquote(tmp, manifest, 1)

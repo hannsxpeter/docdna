@@ -4,8 +4,19 @@ All notable changes to docdna are documented in this file. The format is based o
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-08-19
+
 ### Added
 
+- **Advisory prose review is now part of Check.** The new `prose` pass reports vague attributions,
+  filler, chatbot phrases, promotional terms, ornate substitutes for `is`, formulaic contrasts,
+  generic endings, and likely title-case headings. It ignores frontmatter, literal code, HTML comments,
+  and link destinations. Findings never gate, the pass never rewrites a document, and it makes no claim
+  about whether a person or model wrote the text.
+- **Backfill now has a constrained prose audit after evidence verification.** The new
+  `references/prose.md` permits shorter and clearer wording while preserving every fact, citation,
+  identifier, command, number, table relationship, frontmatter value, and GAP. Any edit is verified
+  again. The guidance is adapted from pstack's `unslop` skill under the MIT notice committed with it.
 - **Deterministic Unicode hygiene is now part of Check.** The new `hygiene` pass reports exact paths,
   lines, columns, codepoints, Unicode names, and classes for invisible format characters and space
   lookalikes in repository documentation. Terminal controls, bidirectional controls, and Unicode tag characters gate at the

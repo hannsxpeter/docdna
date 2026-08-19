@@ -116,6 +116,24 @@ only for the documents a user explicitly names in `assurance_set`.
 
 A gate that turns everything red gets disabled in week two. This one does not turn everything red.
 
+## Prose review: deterministic matches, no accuracy claim
+
+The prose pass recognizes eight literal pattern families. Unit tests exercise every family and verify that
+frontmatter, fenced and inline code, HTML comments, and link destinations stay outside the inspected text.
+On 2026-08-19, `docdna_check.py --only prose --no-write .` inspected the 12 Markdown documents in this
+repository's documentation inventory and reported no candidates.
+
+That is a dogfood result, not precision. There is no external adjudicated corpus, no measured recall, and
+no measured agreement with an editor. A pattern can miss a vague sentence written with different words.
+A title-case heading can be a proper name. A promotional term can appear inside a quotation that remains
+rendered prose. The checker cannot judge active voice, sentence density, synonym cycling, false ranges,
+specificity, or whether an edit preserved meaning.
+
+For those reasons every prose finding is `minor` and non-gating under every `--fail-on` setting. The pass
+never rewrites a document and makes no claim about whether a person or model wrote it. Before any pattern
+can gate, it needs an external corpus, a written labeling rule, independent adjudication, and published
+precision and recall.
+
 ## Related
 
 - [HOW-IT-DECIDES.md](HOW-IT-DECIDES.md), what the selection engine does with these inputs

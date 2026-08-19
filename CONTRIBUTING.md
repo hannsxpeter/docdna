@@ -31,6 +31,11 @@ Three questions to answer before the pull request is ready:
 
 A check that cannot state its own mesh size is not finished, and "it catches the common case" is only acceptable as prose in the repository, never as an unqualified claim.
 
+The advisory prose pass is narrower still. A new pattern needs one positive test, one nearby negative test,
+and a dogfood run against this repository. It remains non-gating until an external corpus has a written
+labeling rule, independent adjudication, and published precision and recall. A list of phrases written by
+the same person who wrote the matcher is a regression fixture, not a measurement set.
+
 ## Changing the catalog
 
 [`skill/catalog/SCHEMA.md`](skill/catalog/SCHEMA.md) is normative. Read it before editing any JSON under `skill/catalog/`, and note that `docdna_select.py` enforces its ten invariants as hard errors at load time. A catalog change that violates one fails the build rather than degrading quietly.
@@ -54,6 +59,7 @@ Run the automated checks before opening a pull request:
 
 ```sh
 python3 -m py_compile skill/scripts/docdna_fs.py
+python3 -m py_compile skill/scripts/docdna_prose.py
 python3 -m py_compile skill/scripts/docdna_unicode.py
 python3 -m py_compile skill/scripts/docdna_scan.py
 python3 -m py_compile skill/scripts/docdna_select.py

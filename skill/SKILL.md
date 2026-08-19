@@ -5,7 +5,7 @@ allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 ---
 
 # DocDNA
-Version: 1.2.1
+Version: 1.3.0
 Runtime: Python 3.8+ on a POSIX host with descriptor-relative, no-follow filesystem support; Windows is not supported.
 
 ## What this is
@@ -33,8 +33,7 @@ Read the user's intent and pick one.
   documentation", "docdna".
 - **Backfill**: write selected documents from code evidence. Triggered by "backfill the docs", "write the
   config reference", "document this repo".
-- **Check**: drift, lint, Unicode hygiene, GAP rollup, stale exclusions. The CI gate. Triggered by "check the docs against
-  the code", "are our docs still true".
+- **Check**: drift, lint, advisory prose review, Unicode hygiene, GAP rollup, stale exclusions. The CI gate. Triggered by "check the docs against the code", "are our docs still true".
 
 **Routing, three rules in order:**
 
@@ -143,21 +142,21 @@ than restarting. `--branch` puts the run on its own branch with one commit per d
    name or a verbatim anchor survives reformatting and a line number does not.
 4. **GAP everything else**, using the paired syntax in `templates/_gap.md`. Both lines, always.
 5. **Close with the document control block** from `templates/_document-control.md`.
-6. **Verify adversarially, with this command, once per document written:**
+6. **Verify evidence, audit prose, then verify changed text again.** Run this once per document written:
 
    ```sh
    python3 "<skill-dir>/scripts/docdna_backfill.py" --verify docs/build/config-reference.md <target-dir>
    ```
 
-   It re-reads every citation against the code. Assume each claim is wrong until the file proves it right.
-   FAIL means delete the unsupported claim, not soften it. A refused stub is retained by default.
-   `--delete-stub` removes one only when its frontmatter and content hash prove docdna wrote it in this run
-   and nobody edited it; `--keep` names the safe compatibility default. A pass sets the row to `verified`.
-   It cannot judge whether an anchor supports the sentence or run commands; `references/evidence.md` governs.
+   It re-reads every citation against the code. FAIL means delete the unsupported claim, not soften it.
+   After PASS, read `references/prose.md` and edit only wording, never facts, citations, identifiers,
+   commands, numbers, table relationships, frontmatter, or GAPs. Verify again after any edit. A refused
+   stub is retained by default. `--delete-stub` removes one only when its frontmatter and content hash
+   prove docdna wrote it in this run and nobody edited it; `--keep` is the safe compatibility default.
+   The verifier cannot judge whether an anchor supports a claim; `references/evidence.md` governs.
 
-**If cited claim blocks are fewer than GAP markers, do not write the file.** Record it in the manifest as
-`status: not-started` with its blockers. An empty file that exists is worse than a missing document that
-is tracked, because the empty one stops anyone from noticing.
+**If cited claim blocks are fewer than GAP markers, do not write the file.** Record `status: not-started`
+with its blockers. An empty file stops readers from noticing work that was never done.
 
 ## Mode: Check
 
@@ -166,7 +165,7 @@ python3 "<skill-dir>/scripts/docdna_check.py" <target-dir>
 python3 "<skill-dir>/scripts/docdna_check.py" --fail-on blocker --only drift <target-dir>
 ```
 
-Seven passes over one walk: drift, frontmatter lint, Unicode hygiene, GAP rollup, traceability spine, **tripwires**, orphans.
+Eight passes over one walk: drift, frontmatter lint, prose review, Unicode hygiene, GAP rollup, traceability spine, **tripwires**, orphans.
 
 **Lead with tripwires when any fire.** A tripwire is an exclusion whose `revisit_when` predicate has become
 true: a document correctly skipped last quarter that the code now requires. It is the reason to re-run.
@@ -175,8 +174,9 @@ true on `users.is_oss` and `q1_users`. Every firing so far, there and in tests, 
 the predicate already true when first checked. Unobserved is the temporal case the feature rests on, one
 flipping across elapsed time under an older manifest. Report a predicate true now, not one watched turn.
 
-Drift is a **warning** by default and gates only for documents in `assurance_set`. Unicode hygiene reports exact
-codepoints and locations, gates terminal, bidi, and tag controls at `major`, preserves emoji glue, and never rewrites user documents. Totals stay exact while detail caps at 1,000 rows. Generated prose is cleaned; manifests, statistical marks, and metadata are not.
+Drift is a **warning** by default and gates only for documents in `assurance_set`. Prose review reports literal
+patterns, never rewrites or gates, and makes no authorship claim. Unicode hygiene reports exact locations,
+gates terminal, bidi, and tag controls at `major`, preserves emoji glue, and never rewrites user documents.
 
 **Exit codes.** Every helper exits 0 after a successful run and 2 when invalid or unsafe input prevents
 the run. `docdna_check.py` exits 1 on a gated finding. `docdna_backfill.py` exits 3 for `--all` without
@@ -193,7 +193,7 @@ The whole CLI surface. Every helper takes a positional `repo` (default `.`) and 
 | `docdna_scan.py` | `--family <f>` limit gated passes to one signal family, repeatable; `--deep` per-document git metrics; `--exclude-dir <dir>` repeatable; `--max-evidence <n>` evidence records kept per signal |
 | `docdna_select.py` | `--answer key=value` record an interview answer, repeatable; `--unattended` take every unanswered question at its default and never ask; `--scan <path>` validate scanner JSON, reproduce it with a fresh scan, and reject changed contents; `--exclude-dir <dir>` repeatable |
 | `docdna_backfill.py` | `--only <id>` plan this catalog id instead of the derivable ten, repeatable; `--all` lift the five-document cap, prints an estimate and waits; `--yes` answer that confirmation; `--limit <n>` never above 5; `--branch` own branch, one commit per document; `--verify <path>` re-read a written document and check every claim, see Backfill step 6; refused stubs are retained by default; `--delete-stub` remove only a guarded stub written in this run; `--keep` explicitly retain it for compatibility; `--confirm-sensitive` below |
-| `docdna_check.py` | `--fail-on blocker\|major\|minor\|never` default `major`; `--only drift\|lint\|hygiene\|gaps\|spine\|tripwires\|orphans` repeatable; `--scan <path>` validates and reproduces a fresh scan before use; `--no-write` never touch `DOCDNA.md`; `--exclude-dir <dir>` repeatable |
+| `docdna_check.py` | `--fail-on blocker\|major\|minor\|never` default `major`; `--only drift\|lint\|prose\|hygiene\|gaps\|spine\|tripwires\|orphans` repeatable; prose never gates; `--scan <path>` validates and reproduces a fresh scan before use; `--no-write` never touch `DOCDNA.md`; `--exclude-dir <dir>` repeatable |
 | `docdna_wire.py` | `--agent agents\|claude\|gemini\|copilot\|cursor\|cascade` repeatable; `--all` create or update every supported target |
 
 **`--confirm-sensitive` is a decision, not a lever.** It records that a person knows this repository is
@@ -294,6 +294,6 @@ Load on demand, by name. Do not read them all.
 | --- | --- |
 | `catalog/SCHEMA.md` | Changing the catalog, or interpreting a predicate |
 | `catalog/documents.json` | Every Survey. One read replaces ninety-six document lookups. |
-| `references/evidence.md` | Every Backfill, before writing |
+| `references/evidence.md`, `references/prose.md` | Every Backfill, before writing and after evidence verification |
 | `templates/_frontmatter.md`, `_gap.md`, `_banner.md`, `_document-control.md` | Every Backfill |
 | `templates/<stage>-<slug>.md` | Only for the entry being written |

@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 
 SCHEMA = 1
 TOOL = "docdna_select"
-VERSION = "1.2.1"
+VERSION = "1.3.0"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:

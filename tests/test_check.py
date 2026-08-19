@@ -622,6 +622,46 @@ class CheckTests(unittest.TestCase):
             self.assertEqual(outside.read_text(encoding="utf-8"),
                              "external report marker\n")
 
+    def test_prose_pass_reports_advice_and_never_gates(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = write_repo(tmp, {"README.md": "# App\n\nExperts believe this is groundbreaking.\n"})
+
+            report = self.check.check(str(repo), {"prose"}, "minor", None, False)
+            rows = [row for row in report["findings"] if row["pass"] == "prose"]
+
+            self.assertEqual({row["kind"] for row in rows},
+                             {"vague-attribution", "promotional-language"})
+            self.assertTrue(all(row["severity"] == "minor" for row in rows))
+            self.assertTrue(all(not row["gating"] for row in rows))
+            self.assertEqual(report["prose_review"]["inspected"], 1)
+            self.assertEqual(report["prose_review"]["findings"], 2)
+            self.assertEqual(report["prose_review"]["gates"], "never")
+            self.assertEqual(report["summary"]["exit"], 0)
+
+    def test_prose_only_cli_emits_text_and_json_reports(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = write_repo(tmp, {"README.md": "# App\n\nIn order to continue, read this.\n"})
+
+            text_report = cli(repo, "--only", "prose")
+            json_report = cli(repo, "--json", "--only", "prose")
+
+            self.assertEqual(text_report.returncode, 0)
+            self.assertIn("prose review, advisory and never gating", text_report.stdout)
+            self.assertIn("the phrase delays the point", text_report.stdout)
+            self.assertEqual(json_report.returncode, 0)
+            payload = json.loads(json_report.stdout)
+            self.assertEqual(payload["passes"], ["prose"])
+            self.assertEqual(payload["prose_review"]["findings"], 1)
+
+    def test_prose_pass_never_rewrites_user_authored_documents(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            body = "# App\n\nOf course, this is a guide.\n"
+            repo = write_repo(tmp, {"README.md": body})
+
+            self.check.check(str(repo), {"prose"}, "never", None, True)
+
+            self.assertEqual((repo / "README.md").read_text(encoding="utf-8"), body)
+
     def test_hygiene_pass_reports_and_gates_bidirectional_controls_by_default(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo = write_repo(tmp, {"README.md": "# App\n\nleft\u202eright\n"})
