@@ -19,7 +19,7 @@ from docdna_fs import (MAX_CONTROL_BYTES, bind_root as safe_bind_root,
                        path_exists as safe_path_exists,
                        read_text as safe_read_text, write_text as safe_write_text)
 
-VERSION = "1.2.1"
+VERSION = "1.3.0"
 
 START = "<!-- docdna:start -->"
 END = "<!-- docdna:end -->"

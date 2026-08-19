@@ -19,7 +19,7 @@ python3 --version
 ## Install it
 
 ```sh
-git clone --branch v1.2.1 --depth 1 https://github.com/hannsxpeter/docdna.git
+git clone --branch v1.3.0 --depth 1 https://github.com/hannsxpeter/docdna.git
 cd docdna
 ./install.sh claude
 ```
@@ -109,9 +109,16 @@ The third mode re-checks documents against the code, and is the one to put in co
 
 > check the docs against the code
 
-Drift warns unless you choose a small assurance set, usually three to five documents. Unicode hygiene is
-also included: terminal controls, bidirectional controls, and Unicode tag characters fail at the default `major` threshold,
-while other invisible format characters warn. Inspect that pass alone with:
+Drift warns unless you choose a small assurance set, usually three to five documents. The prose pass also
+warns about literal editorial patterns, but it never gates or rewrites a document:
+
+```sh
+python3 skill/scripts/docdna_check.py --only prose .
+```
+
+Unicode hygiene is also included. Terminal controls, bidirectional controls, and Unicode tag characters
+fail at the default `major` threshold, while other invisible format characters warn. Inspect that pass
+alone with:
 
 ```sh
 python3 skill/scripts/docdna_check.py --only hygiene .

@@ -14,7 +14,7 @@ between the two as a lint error.
 | --- | --- |
 | Status | draft |
 | Owner | unassigned (candidate: @platform-team, from CODEOWNERS, unconfirmed) |
-| Last reviewed | 2026-07-31 by docdna v1.2.1 |
+| Last reviewed | 2026-07-31 by docdna v1.3.0 |
 | Review cadence | on change to the files listed below |
 | Next review | when `src/config/settings.py` or `.env.example` changes |
 | Derived from | `src/config/settings.py`, `.env.example` at commit 639dfe7 |

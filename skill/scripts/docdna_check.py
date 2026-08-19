@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check a repository's documentation: drift, lint, gaps, spine, tripwires, orphans."""
+"""Check repository documentation for drift, evidence, prose, hygiene, gaps, and lifecycle."""
 
 import argparse
 import hashlib
@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 
 SCHEMA = 1
 TOOL = "docdna_check"
-VERSION = "1.2.1"
+VERSION = "1.3.0"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CATALOG_DIR = os.path.normpath(os.path.join(HERE, "..", "catalog"))
@@ -36,6 +36,7 @@ from docdna_fs import (FileTooLarge, MAX_CONTROL_BYTES, bind_root as safe_bind_r
                        root_is_current as safe_root_is_current,
                        walk_paths as safe_walk_paths,
                        write_text as safe_write_text)
+from docdna_prose import iter_findings as inspect_prose
 from docdna_unicode import clean_generated_text, iter_findings as inspect_unicode
 
 MANIFEST_REL = os.path.join(".docdna", "manifest.json")
@@ -46,7 +47,7 @@ REPORT_REL = "DOCDNA.md"
 GAPS_START = "<!-- docdna:gaps:start -->"
 GAPS_END = "<!-- docdna:gaps:end -->"
 
-PASSES = ("drift", "lint", "hygiene", "gaps", "spine", "tripwires", "orphans")
+PASSES = ("drift", "lint", "prose", "hygiene", "gaps", "spine", "tripwires", "orphans")
 FAIL_ON = ("blocker", "major", "minor", "never")
 SEVERITY_RANK = {"info": 0, "minor": 1, "major": 2, "blocker": 3}
 GATE_RANK = {"blocker": 3, "major": 2, "minor": 1, "never": 99}
@@ -100,6 +101,7 @@ MAX_SOURCE_FILES = 4000
 MAX_FILE_BYTES = 1000000
 MARKDOWN_EXT = (".md", ".markdown")
 TEXT_DOC_EXT = MARKDOWN_EXT + (".rst", ".adoc", ".txt")
+MAX_PROSE_FINDINGS = 1000
 MAX_HYGIENE_FINDINGS = 1000
 
 ANNOTATION = re.compile(r"@covers\s+([A-Za-z][A-Za-z0-9_:@/#.\-]*)")
@@ -2548,6 +2550,41 @@ def pass_hygiene(ctx):
     }
 
 
+def pass_prose(ctx):
+    records = []
+    seen = set()
+    for doc in ctx["documents"] + ctx["prose"]:
+        if doc["path"] in seen or doc["kind"] not in ("markdown", "prose"):
+            continue
+        seen.add(doc["path"])
+        records.append(doc)
+    counts = Counter()
+    total = 0
+    emitted = 0
+    for doc in records:
+        for hit in inspect_prose(doc["text"]):
+            counts[hit["kind"]] += 1
+            total += 1
+            if emitted >= MAX_PROSE_FINDINGS:
+                continue
+            detail = "%s; matched %r" % (hit["detail"], hit["match"])
+            finding(ctx, "prose", hit["kind"], "minor", detail, path=doc["path"],
+                    ident=doc.get("id"), line=hit["line"], column=hit["column"])
+            emitted += 1
+    ctx["report"]["prose_review"] = {
+        "inspected": len(records),
+        "findings": total,
+        "emitted": emitted,
+        "omitted": total - emitted,
+        "by_kind": dict(sorted(counts.items())),
+        "boundary": ("advisory literal-pattern review of rendered Markdown prose; it does not infer "
+                     "authorship, judge factual support, or evaluate voice in context"),
+        "ignored": "frontmatter, fenced and inline code, HTML comments, and link destinations",
+        "writes": "never",
+        "gates": "never",
+    }
+
+
 def staleness_summary(ctx):
     counts = Counter()
     for record in (ctx["report"].get("drift") or {}).get("digest") or []:
@@ -2622,6 +2659,8 @@ def check_bound(root, passes, fail_on, scan_path, write, exclude_dirs=None):
         pass_drift(ctx)
     if "lint" in passes:
         pass_lint(ctx)
+    if "prose" in passes:
+        pass_prose(ctx)
     if "hygiene" in passes:
         pass_hygiene(ctx)
     if "gaps" in passes:
@@ -2651,7 +2690,7 @@ def check_bound(root, passes, fail_on, scan_path, write, exclude_dirs=None):
               "summary": {"findings": len(ctx["findings"]), "gating": len(gating),
                           "fail_on": fail_on, "by_severity": dict(severities),
                           "exit": 1 if gating else 0}}
-    for key in ("drift", "hygiene", "gaps", "spine", "tripwires", "orphans"):
+    for key in ("drift", "prose_review", "hygiene", "gaps", "spine", "tripwires", "orphans"):
         report[key] = ctx["report"].get(key)
     return report
 
@@ -2757,6 +2796,16 @@ def print_text(report):
     print_tripwires(report)
     print_findings(report, "drift", "drift, warning unless the document is in assurance_set")
     print_findings(report, "lint", "lint")
+    prose_review = report.get("prose_review")
+    if prose_review is not None:
+        print("\nprose review, advisory and never gating")
+        print("  %-9s: %d Markdown documents, %d findings" %
+              ("checked", prose_review["inspected"], prose_review["findings"]))
+        if prose_review["omitted"]:
+            print("  %-9s: %d rows emitted, %d omitted from detail" %
+                  ("bounded", prose_review["emitted"], prose_review["omitted"]))
+        print("  %-9s: %s" % ("boundary", clip(prose_review["boundary"], 92)))
+        print_findings(report, "prose", "prose review findings")
     hygiene = report.get("hygiene")
     if hygiene is not None:
         print("\nunicode hygiene, deterministic text inspection")
@@ -2808,8 +2857,8 @@ def print_text(report):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Check documentation against the code: drift, "
-                                                 "lint, Unicode hygiene, gaps, spine, tripwires, "
-                                                 "orphans.")
+                                                 "lint, prose, Unicode hygiene, gaps, spine, "
+                                                 "tripwires, orphans.")
     parser.add_argument("repo", nargs="?", default=".")
     parser.add_argument("--json", action="store_true", help="emit JSON instead of text")
     parser.add_argument("--fail-on", choices=FAIL_ON, default="major",
