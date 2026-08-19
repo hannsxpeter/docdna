@@ -1,0 +1,597 @@
+# Build Plan: Delivery Increment 1.4.0 Trust Runtime
+
+## Planning basis and gate exception
+
+The root agent accepted a bounded-increment gate exception because `.godpowers/roadmap/ROADMAP.mdx`
+and `.godpowers/stack/DECISION.mdx` do not exist. No current architecture artifact exists either. This
+plan is grounded in the repository as it stands: a Python 3.8-compatible, standard-library CLI and
+agent skill, POSIX filesystem safety, `unittest`, a shell installer, and GitHub Actions CI. The accepted
+baseline is 429 passing tests.
+
+The following trace IDs are local to this bounded increment because no canonical roadmap or PRD defines
+them:
+
+| Requirement | Bounded behavior |
+| --- | --- |
+| `P-MUST-01` | Prose review preserves protected Markdown spans and reports only visible prose findings. |
+| `P-MUST-02` | Verification exposes stable, fixture-backed proof evidence and distinguishes verified, attested, self-attested, and refused evidence. |
+| `P-MUST-03` | A consumer can run one doctor command against a unified runtime registry and receive a deterministic health verdict. |
+| `P-MUST-04` | A fresh agent context receives a complete backfill packet, while status inspection returns one next action without writing. |
+| `P-MUST-05` | Versioned docs, CI, installation, and an isolated consumer check prove the 1.4.0 release surface. |
+
+## Requirement coverage
+
+| Requirement | Slice |
+| --- | --- |
+| `P-MUST-01` | A |
+| `P-MUST-02` | B |
+| `P-MUST-03` | C |
+| `P-MUST-04` | D |
+| `P-MUST-05` | E |
+
+## Wave map
+
+| Wave | Parallel slices | Reason |
+| --- | --- | --- |
+| 1 | A, B | The slices own disjoint implementation, test, fixture, and catalog files. |
+| 2 | C, D | C creates the doctor and runtime registry. D changes backfill planning and status. They share no owned files and depend separately on B and A. |
+| 3 | E | Release integration consumes every earlier slice and owns the shared docs, version, generated-artifact, installer, and CI surfaces. |
+
+No two slices in one wave modify the same path. A slice is one atomic implementation commit after its
+tests pass. Wave 3 begins only after both Wave 2 slices pass review.
+
+## Wave 1 (parallel)
+
+### Slice A: Prose safety and protected-span verification
+
+- **User-visible behavior:** A user can run the prose pass on Markdown containing frontmatter, fenced
+  code, inline code, HTML comments, link destinations, autolinks, and literal examples without those
+  protected spans producing editorial findings. The advisory pass also detects a small high-precision
+  set of signposting, chat contamination, knowledge-cutoff disclaimers, diff-anchored steady-state prose,
+  and clustered lexical language. A separate before-and-after comparison fails when protected facts or
+  structures change and always reports the required soft-inference meaning review.
+- **Requirements:** `P-MUST-01`
+
+#### Existing files
+
+- `skill/scripts/docdna_prose.py`
+- `skill/references/prose.md`
+- `tests/test_prose.py`
+- `tests/test_check.py`
+
+#### Existing symbols
+
+- `_mask_inline`
+- `_mask_comments`
+- `_title_case`
+- `iter_findings`
+- `inspect_text`
+- `pass_prose`
+
+#### New artifacts
+
+- `tests/fixtures/prose/protected-spans.md`
+- `tests/fixtures/prose/visible-findings.md`
+- `tests/fixtures/prose/humanizer-cases.json`
+- `tests/fixtures/prose/prose-before.md`
+- `tests/fixtures/prose/prose-after-safe.md`
+- `tests/fixtures/prose/prose-after-unsafe.md`
+
+#### Unchecked references
+
+None.
+
+#### Files to create or modify
+
+- Modify `skill/scripts/docdna_prose.py`.
+- Modify `skill/references/prose.md`.
+- Modify `tests/test_prose.py`.
+- Modify `tests/test_check.py`.
+- Create `tests/fixtures/prose/protected-spans.md`.
+- Create `tests/fixtures/prose/visible-findings.md`.
+
+#### Tests first
+
+1. RED: `test_protected_spans_emit_no_prose_findings` proves all supported protected regions are silent.
+2. RED: `test_visible_prose_beside_each_protected_span_is_still_reported` prevents masking from consuming
+   neighboring prose.
+3. RED: `test_nested_parentheses_and_escaped_delimiters_preserve_source_columns` pins original line and
+   column coordinates.
+4. RED: `test_unclosed_comment_and_fence_protect_only_their_actual_remainder` pins malformed-input
+   behavior without a traceback.
+5. RED: `test_prose_check_fixture_is_read_only_and_never_gates` compares fixture bytes before and after
+   the integrated check and asserts exit code 0 at every `--fail-on` level.
+6. RED: `test_protected_span_fixture_and_direct_inspection_agree` requires direct inspection and the
+   checker integration to return the same visible findings.
+7. RED: `test_humanizer_true_positive_and_restraint_cases` loads a fixture corpus containing both
+   repeated high-confidence patterns and legitimate technical near-misses.
+8. RED: `test_context_sensitive_patterns_require_recurrence_or_allowed_path_context` prevents a lone
+   transition, passive sentence, technical compound, or changelog sentence from becoming a finding.
+9. RED: `test_prose_comparison_preserves_protected_inventory` covers frontmatter, citations, GAP markers,
+   numbers, inline code, link targets, fenced blocks, path-like tokens, and table shape.
+10. RED: `test_prose_comparison_reports_soft_inference_review` requires the causal, temporal, and
+    quantitative meaning-check questions even when the protected inventory is unchanged.
+
+#### Implementation
+
+1. RED: add the fixtures and all six failing tests, then run the focused suites.
+2. GREEN: make protected-span masking deterministic across frontmatter, fences, inline code, comments,
+   link targets, and autolinks while retaining one output character per input character.
+3. GREEN: keep prose matching on the masked view and location reporting on the original line.
+4. GREEN: preserve the existing advisory contract in `pass_prose`: no write, no gate, no authorship
+   inference.
+5. GREEN: add only the approved high-precision advisory families. Use recurrence or co-occurrence for
+   clustered lexical language and path context to exempt changelogs, release notes, and migrations from
+   diff-anchored findings.
+6. GREEN: expose a standard-library comparison command that inventories protected spans before and after
+   a prose edit, reports exact additions and removals, and exits nonzero on a protected change. The output
+   must always include an unverified soft-inference review covering causal, temporal, and quantitative
+   links.
+7. REFACTOR: consolidate span handling only after the direct, comparison, and integrated fixtures agree.
+
+#### Acceptance criteria
+
+- Protected fixture content produces zero findings.
+- The visible fixture produces the exact expected kinds, source lines, and source columns.
+- Mixed protected and visible content does not hide a visible finding.
+- Unclosed Markdown constructs terminate safely and deterministically.
+- The checker does not alter either fixture and never gates on a prose finding.
+- A safe prose edit passes protected comparison; changed facts or structures fail with exact details.
+- Soft inference is never reported verified by the deterministic comparison.
+- Context-sensitive Humanizer-derived patterns require recurrence or a high-confidence artifact.
+- All previously passing prose and checker tests remain green on current Python and Python 3.8.
+
+#### Completion commands
+
+```sh
+python3 -m unittest tests.test_prose tests.test_check
+python3 skill/scripts/docdna_prose.py --compare tests/fixtures/prose/prose-before.md tests/fixtures/prose/prose-after-safe.md --json
+python3 -m py_compile skill/scripts/docdna_prose.py
+python3.8 -m unittest tests.test_prose tests.test_check
+```
+
+#### Dependencies
+
+None. Slice D waits for this slice so its fresh-context packet can state the finalized protected-span
+contract.
+
+### Slice B: Product claim evidence registry and proof bundles
+
+- **User-visible behavior:** A consumer can inspect DocDNA's own product claims through a validated
+  evidence registry and proof bundles. Claims distinguish shipped, unit-tested, install-tested,
+  artifact-proven, replay-tested, measured, adjudicated, host-capture-ready, host-captured, and
+  external-tool-dependent states. A claim cannot be promoted without matching evidence on disk.
+- **Requirements:** `P-MUST-02`
+
+#### Existing files
+
+- `skill/catalog/SCHEMA.md`
+- `tests/test_readme_samples.py`
+- `tests/fixtures/internal_service/README.md`
+- `tests/fixtures/documented_repo/README.md`
+
+#### Existing symbols
+
+- `SampleTests`
+
+#### New artifacts
+
+- `skill/catalog/proofs.json`
+- `skill/catalog/PROOFS.md`
+- `skill/scripts/docdna_proof.py`
+- `proof/README.md`
+- `proof/survey/README.md`
+- `proof/backfill/README.md`
+- `proof/check/README.md`
+- `proof/runtime/README.md`
+- `proof/replay/golden-workflows.json`
+- `tests/test_proofs.py`
+
+#### Unchecked references
+
+None.
+
+#### Files to create or modify
+
+- Modify `skill/catalog/SCHEMA.md`.
+- Create `skill/catalog/proofs.json`.
+- Create `skill/catalog/PROOFS.md`.
+- Create `skill/scripts/docdna_proof.py`.
+- Create the proof bundle files listed above.
+- Create `tests/test_proofs.py`.
+
+#### Tests first
+
+1. RED: `test_registry_has_unique_claims_and_closed_evidence_levels` validates schema and vocabulary.
+2. RED: `test_every_claim_evidence_path_exists` rejects a proof promotion without inspectable evidence.
+3. RED: `test_measurement_and_adjudication_claims_name_corpus_and_boundary` preserves DocDNA-specific
+   trust distinctions instead of collapsing them into a generic tested label.
+4. RED: `test_proof_command_emits_stable_text_and_json` pins the public claim matrix.
+5. RED: `test_each_core_mode_has_an_inspectable_bundle` covers Survey, Backfill, Check, and runtime.
+6. RED: `test_golden_workflows_replay_expected_mode_results` validates saved state and expected outcomes.
+
+#### Implementation
+
+1. RED: add registry-shape and fixture-contract tests before creating the registry.
+2. GREEN: define the evidence levels, claims, boundaries, evidence paths, and optional replay IDs in
+   `proofs.json`; document compatibility in `PROOFS.md` and `SCHEMA.md`.
+3. GREEN: implement a read-only proof command that validates the registry and renders the claim matrix.
+4. GREEN: commit proof bundles that point to raw fixtures, exact reproduction commands, and explicit
+   non-claims. Do not duplicate evidence as hand-edited output when a test or fixture is canonical.
+5. GREEN: add a small golden-workflow replay layer for the three core modes and runtime health.
+6. REFACTOR: keep claim presentation separate from evidence validation and replay evaluation.
+
+#### Acceptance criteria
+
+- Every product claim has a registered ID, evidence level, boundary, and inspectable evidence path.
+- Measured and adjudicated claims name their corpus and limitations.
+- Proof bundles cover Survey, Backfill, Check, and runtime without overstating host parity.
+- Golden workflows replay deterministically.
+- Invalid or duplicate registry entries fail closed with concise stderr and exit code 2.
+- Current Python and Python 3.8 produce equivalent proof output.
+
+#### Completion commands
+
+```sh
+python3 -m json.tool skill/catalog/proofs.json >/dev/null
+python3 -m unittest tests.test_proofs
+python3 skill/scripts/docdna_proof.py --json
+python3 -m py_compile skill/scripts/docdna_proof.py
+python3.8 -m unittest tests.test_proofs
+```
+
+#### Dependencies
+
+None. Slice C reads the registry after this slice lands. Slice D modifies the same backfill module and
+therefore begins only after this slice lands.
+
+## Wave 2 (parallel, depends on Wave 1)
+
+### Slice C: Unified runtime registry plus doctor smoke
+
+- **User-visible behavior:** A user can run `python3 skill/scripts/docdna_doctor.py --json` in a checkout
+  or installed skill and receive one deterministic, read-only verdict covering runtime membership,
+  required resources, registry validity, Python compatibility, and proof-fixture integrity.
+- **Requirements:** `P-MUST-03`
+
+#### Existing files
+
+- `skill/scripts/docdna_fs.py`
+- `skill/SKILL.md`
+- `install.sh`
+- `.github/workflows/ci.yml`
+
+#### Existing symbols
+
+- `bind_root`
+- `read_text`
+- `parse_json`
+- `root_is_current`
+- `install_skill`
+
+#### New artifacts
+
+- `skill/catalog/runtimes.json`
+- `skill/scripts/docdna_runtime.py`
+- `skill/scripts/docdna_doctor.py`
+- `tests/test_doctor.py`
+
+#### Unchecked references
+
+None.
+
+#### Planned inputs from earlier slices
+
+- `skill/catalog/proofs.json`, created by Slice B.
+- `proof/replay/golden-workflows.json`, created by Slice B.
+
+#### Files to create or modify
+
+- Create `skill/catalog/runtimes.json`.
+- Create `skill/scripts/docdna_runtime.py`.
+- Create `skill/scripts/docdna_doctor.py`.
+- Create `tests/test_doctor.py`.
+- Do not modify installer, CI, or user documentation in this slice; Slice E owns those shared surfaces.
+
+#### Tests first
+
+1. RED: `test_runtime_registry_names_every_shipped_command_once` catches missing and duplicate commands.
+2. RED: `test_doctor_passes_from_checkout_without_writing` snapshots the worktree before and after.
+3. RED: `test_doctor_passes_from_isolated_installed_skill` proves the command does not depend on checkout
+   files.
+4. RED: `test_doctor_fails_when_a_registered_member_is_missing` returns a failed check and exit code 1.
+5. RED: `test_doctor_rejects_invalid_runtime_or_proof_registry` returns concise stderr and exit code 2.
+6. RED: `test_doctor_emits_stable_json_and_text_verdicts` pins schema, check IDs, counts, and remediation.
+
+#### Implementation
+
+1. RED: add the doctor tests using temporary copied skill directories.
+2. GREEN: define `runtimes.json` as the single inventory of supported host targets, install locations,
+   wiring surfaces, shipped commands, supporting modules, registries, templates, references, and smoke
+   contracts. Implement one loader used by doctor and, in Slice E, installer and wiring.
+3. GREEN: implement the doctor with standard-library reads and bounded subprocess checks only against
+   declared DocDNA commands and fixed fixtures. It must never run a target repository's application,
+   tests, hooks, or network clients.
+4. GREEN: reuse filesystem helpers for bounded reads and fail-closed parsing.
+5. GREEN: emit ordered checks with `pass`, `fail`, or `error`, one overall verdict, and a concrete repair
+   action for each non-pass result.
+6. REFACTOR: keep registry validation, smoke execution, rendering, and exit-code selection independently
+   testable.
+
+#### Acceptance criteria
+
+- One registry enumerates every shipped runtime member exactly once.
+- Doctor succeeds from both the checkout and the installed `skill/` directory.
+- Doctor is read-only, deterministic after path normalization, network-free, and standard-library only.
+- A missing member or failed smoke returns exit code 1; invalid input or unsafe access returns exit code 2.
+- Output identifies the failed registry member and gives one executable next action.
+- The same checks pass on current Python and Python 3.8.
+
+#### Completion commands
+
+```sh
+python3 -m json.tool skill/catalog/runtimes.json >/dev/null
+python3 -m unittest tests.test_doctor
+python3 skill/scripts/docdna_doctor.py --json
+python3 -m py_compile skill/scripts/docdna_runtime.py skill/scripts/docdna_doctor.py
+python3.8 -m unittest tests.test_doctor
+```
+
+#### Dependencies
+
+Slice B. This slice runs in parallel with Slice D because their owned paths do not overlap.
+
+### Slice D: Fresh-context backfill packets, constrained style input, and read-only status
+
+- **User-visible behavior:** Each JSON backfill plan contains one self-contained packet that a new agent
+  context can execute without relying on prior chat, plus visible fresh-context and sequential-fallback
+  status. A repository style profile can constrain terminology, naming, heading case, and formatting but
+  can never add stance, imitate an author, or change evidence. A standalone status command reports exactly
+  one next action without surveying, planning, branching, committing, or writing any repository file.
+- **Requirements:** `P-MUST-04`
+
+#### Existing files
+
+- `skill/scripts/docdna_backfill.py`
+- `skill/scripts/docdna_fs.py`
+- `tests/test_regression.py`
+
+#### Existing symbols
+
+- `build_plan`
+- `contract_block`
+- `read_manifest`
+- `set_status`
+- `plan_mode`
+- `print_plan`
+- `main`
+
+#### New artifacts
+
+- `tests/test_backfill_packets.py`
+- `skill/scripts/docdna_status.py`
+- `tests/test_status.py`
+
+#### Unchecked references
+
+None.
+
+#### Planned inputs from earlier slices
+
+- The protected-span contract finalized by Slice A.
+- `skill/catalog/proofs.json`, created by Slice B.
+
+#### Files to create or modify
+
+- Modify `skill/scripts/docdna_backfill.py` after Slice B lands.
+- Modify `tests/test_regression.py` only for compatibility assertions shared with existing verification.
+- Create `tests/test_backfill_packets.py`.
+- Create `skill/scripts/docdna_status.py`.
+- Create `tests/test_status.py`.
+
+#### Tests first
+
+1. RED: `test_each_plan_has_a_self_contained_fresh_context_packet` requires target identity, document
+   identity, exact inputs, output, contract, proof rules, safety boundaries, verify command, and done
+   criteria.
+2. RED: `test_one_packet_can_be_consumed_without_sibling_plans_or_prior_chat` removes all sibling report
+   data and still leaves an executable unit.
+3. RED: `test_packet_paths_are_repository_relative_or_explicitly_bound` refuses ambiguous and escaping
+   paths.
+4. RED: `test_status_with_no_manifest_is_read_only_and_names_survey_as_next` asserts no `.docdna`
+   directory is created.
+5. RED: `test_status_prefers_verify_for_written_or_in_progress_document` returns exactly one command for
+   the highest-priority incomplete row.
+6. RED: `test_status_never_calls_select_scan_branch_commit_or_write` patches every mutating boundary and
+   compares a recursive byte snapshot before and after.
+7. RED: `test_packet_reports_fresh_context_and_portable_sequential_fallback` pins execution status without
+   claiming a host spawned an agent.
+8. RED: `test_style_profile_is_limited_to_terminology_naming_headings_and_formatting` discovers a local
+   profile but blocks voice imitation, stance, and new factual content.
+9. RED: `test_status_prioritizes_manual_gates_before_safe_local_helpers` pins one next action across
+   missing, written, verified, sensitive, and refusal states.
+
+#### Implementation
+
+1. RED: add packet and status tests around current `plan_mode` and CLI behavior.
+2. GREEN: build a packet per plan from existing grounded plan data. Include no conversational shorthand
+   and no implicit reference to another packet.
+3. GREEN: include the current root identity, commit and dirty state, exact evidence files, catalog and
+   template inputs, protected-span rules, proof-registry states, output path, verify command, acceptance
+   checks, and refusal conditions.
+4. GREEN: record fresh-context as recommended, host execution as unknown until reported, and sequential
+   isolated prompt execution as the portable fallback.
+5. GREEN: discover an optional repository style profile and expose only constrained terminology and
+   formatting dimensions under the evidence and prose rules.
+6. GREEN: implement `docdna_status.py` with bounded reads only. If the manifest is absent, return Survey
+   as the next command without running it. If work exists, choose exactly one next command by stable
+   priority and classify it as read-only, local-helper, agent-ready, or manual-gated.
+7. REFACTOR: isolate packet construction, style discovery, and next-action selection as pure functions. Keep existing plan
+   and verify JSON fields compatible.
+
+#### Acceptance criteria
+
+- Every planned document has one independently executable packet.
+- Packet status distinguishes fresh-context intent, actual host execution, and sequential fallback.
+- A discovered style profile cannot override evidence, terminology from the repository, or factual scope.
+- Removing outer report context does not remove any information required to write and verify that document.
+- Status output has `mode: status`, `read_only: true`, a stable summary, and exactly one `next_action`.
+- Status on an uninitialized repository writes nothing and names Survey as the next step.
+- Status never invokes selection, scan, write, branch, commit, delete, or a target-repository command.
+- Existing plan, verify, refusal, exit-code, and safe-delete regressions remain green.
+
+#### Completion commands
+
+```sh
+python3 -m unittest tests.test_backfill_packets tests.test_regression
+python3 -m py_compile skill/scripts/docdna_backfill.py
+python3 skill/scripts/docdna_status.py --json .
+python3.8 -m unittest tests.test_backfill_packets tests.test_regression
+```
+
+#### Dependencies
+
+Slices A and B. This slice runs in parallel with Slice C.
+
+## Wave 3 (depends on Wave 2)
+
+### Slice E: Docs, version, release CI, and consumer verification
+
+- **User-visible behavior:** A consumer can install immutable DocDNA 1.4.0, run doctor, inspect backfill
+  status, consume a fresh-context packet, and reproduce the documented proof behavior. CI exercises the
+  same installed bytes and blocks release drift across registry, commands, docs, examples, and generated
+  artifacts.
+- **Requirements:** `P-MUST-05`
+
+#### Existing files
+
+- `.github/workflows/ci.yml`
+- `CHANGELOG.md`
+- `CONTRIBUTING.md`
+- `README.md`
+- `docs/AGENT_SUPPORT.md`
+- `docs/COMPLIANCE.md`
+- `docs/HOW-IT-DECIDES.md`
+- `docs/QUICKSTART.md`
+- `skill/SKILL.md`
+- `install.sh`
+- `skill/scripts/docdna_scan.py`
+- `skill/scripts/docdna_select.py`
+- `skill/scripts/docdna_backfill.py`
+- `skill/scripts/docdna_check.py`
+- `skill/scripts/docdna_wire.py`
+- `skill/scripts/docdna_llms.py`
+- `tests/test_docs.py`
+- `tests/test_readme_samples.py`
+- `DOCDNA.md`
+- `.docdna/manifest.json`
+- `.docdna/meta/build.llms-txt.yml`
+- `llms.txt`
+
+#### Existing symbols
+
+- `VERSION`
+- `GeneratedArtifactContractTests`
+- `SampleTests`
+- `next_actions`
+- `verify_document`
+- `install_skill`
+
+#### New artifacts
+
+None.
+
+#### Unchecked references
+
+None.
+
+#### Planned inputs from earlier slices
+
+- `skill/catalog/runtimes.json`, `skill/scripts/docdna_runtime.py`, and
+  `skill/scripts/docdna_doctor.py`, created by Slice C.
+- `skill/catalog/proofs.json` and `skill/catalog/PROOFS.md`, created by Slice B.
+- `tests/test_proofs.py`, `tests/test_doctor.py`, `tests/test_backfill_packets.py`, and
+  `tests/test_status.py`, created by earlier slices.
+
+#### Files to create or modify
+
+- Modify every file listed under Existing files.
+- Modify `skill/catalog/runtimes.json` from Slice C only if its release version is part of the accepted registry
+  schema.
+- Do not create a second release manifest, version file, or CI-only command inventory.
+
+#### Tests first
+
+1. RED: `test_all_runtime_version_surfaces_are_1_4_0` checks the skill, registry, and six versioned CLI
+   helpers.
+2. RED: `test_release_docs_name_doctor_status_packets_and_proof_boundaries` checks all user-facing modes
+   and their safety limits.
+3. RED: `test_install_examples_select_the_immutable_v1_4_0_tag` rejects a mutable branch or older tag.
+4. RED: `test_ci_derives_runtime_checks_from_the_registry` prevents a second hand-maintained command list.
+5. RED: `test_ci_verifies_an_isolated_consumer_install` requires installed doctor, status, proof, and
+   fresh-context packet checks.
+6. RED: `test_documented_1_4_0_samples_are_real_stdout` regenerates marked examples and compares them byte
+   for byte.
+
+#### Implementation
+
+1. RED: add release-contract and sample tests before changing versions or prose.
+2. GREEN: document proof states, protected spans, doctor output, packet handoff, status next-action
+   priority, read-only boundaries, exit codes, and recovery actions in the skill and audience docs.
+3. GREEN: set the release version to 1.4.0 in `skill/SKILL.md`, the six existing versioned CLI helpers,
+   and the runtime registry if applicable. Update immutable install examples and the changelog.
+4. GREEN: make `install.sh` and `docdna_wire.py` consume the shared runtime registry through
+   `docdna_runtime.py`, then make CI validate both JSON registries, compile registry-declared helpers, run all tests on
+   Python 3.8 and current Python, run doctor in the checkout, and run the full existing pipeline.
+5. GREEN: install the skill to an isolated temporary consumer directory and run the installed doctor,
+   proof fixture checks, read-only status, and one fresh-context packet flow from installed paths.
+6. GREEN: regenerate `DOCDNA.md`, `.docdna/manifest.json`, `.docdna/meta/build.llms-txt.yml`, and
+   `llms.txt` with the settled-run procedure already enforced by CI.
+7. REFACTOR: remove duplicated CI inventory only after registry-driven verification passes, then perform
+   the final docs and generated-artifact drift check.
+
+#### Acceptance criteria
+
+- Every shipped version surface reports 1.4.0 and install examples select tag `v1.4.0`.
+- Docs state precisely which proof states are verified, attested, self-attested, or refused.
+- Docs show doctor, status, and packet commands with real captured output and explicit read-only limits.
+- Installer, wiring, doctor, and CI derive runtime membership from `skill/catalog/runtimes.json`.
+- CI passes on Python 3.8 and current Python, with all 429 baseline tests plus every new focused test.
+- The isolated installed copy passes doctor and consumer flows without reading checkout-only files.
+- Generated artifacts are byte-stable after the documented settling runs.
+- The worktree is clean after all verification commands and regeneration complete.
+
+#### Completion commands
+
+```sh
+python3 -m unittest discover -s tests
+python3.8 -m unittest discover -s tests
+python3 skill/scripts/docdna_doctor.py --json
+python3 skill/scripts/docdna_scan.py --json . >/dev/null
+python3 skill/scripts/docdna_select.py . >/dev/null
+python3 skill/scripts/docdna_check.py . >/dev/null
+python3 skill/scripts/docdna_backfill.py --status --json . >/dev/null
+python3 skill/scripts/docdna_backfill.py --json . >/dev/null
+python3 skill/scripts/docdna_llms.py . >/dev/null
+python3 -m unittest tests.test_readme_samples -v
+shellcheck install.sh
+git diff --check
+git status --short
+```
+
+The isolated consumer command in CI must create its destination with `mktemp -d`, install through
+`install.sh`, and invoke every check from that installed directory rather than from the checkout.
+
+#### Dependencies
+
+Slices A, B, C, and D. This is the only release slice and starts after all four behavior slices pass
+focused tests and review.
+
+## Increment completion gate
+
+The delivery increment is complete only when all five slices satisfy their acceptance criteria, every
+focused suite passes on Python 3.8 and current Python, full discovery preserves the 429-test baseline and
+includes all named new tests, the installed consumer flow passes from copied release bytes, generated
+artifacts are stable, and `git diff --check` reports no whitespace errors. No implementation slice may
+waive a failed proof, doctor, read-only, source-containment, or protected-span check to make the release
+green.
