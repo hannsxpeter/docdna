@@ -81,7 +81,7 @@ PY
 
 default_destination() {
   case "$1" in
-    "~/"*)
+    \~/*)
       relative=${1#\~/}
       printf '%s/%s\n' "${HOME%/}" "$relative"
       ;;
