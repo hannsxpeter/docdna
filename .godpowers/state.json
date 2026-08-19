@@ -60,10 +60,10 @@
     },
     "tier-3": {
       "launch": {
-        "status": "in-flight",
+        "status": "done",
         "artifact": "launch/LAUNCH-1.4.0.mdx",
-        "updated": "2026-08-19T12:29:13.059Z",
-        "notes": "DocDNA 1.4.0 is locally ready for a GitHub repository release. Public activation awaits exact-commit GitHub CI on Python 3.8 and current Python with ShellCheck, followed by a fresh hash-bound prepublication record and check immediately before publication.",
+        "updated": "2026-08-19T12:40:23.348Z",
+        "notes": "DocDNA 1.4.0 is published from reviewed merge commit 537b1f983a3ff194f7fbb441889f0130d41c220e. Exact-commit CI, the fresh hash-bound prepublication gate, and the tagged installed-consumer smoke all passed.",
         "verification": {
           "commands": [
             {
@@ -86,10 +86,42 @@
               "exitCode": 0,
               "ranAt": "2026-08-19T12:16:32Z",
               "diagnostics": "No canonical requirements artifact exists; the accepted bounded plan defines P-MUST-01 through P-MUST-05 and build state is done."
+            },
+            {
+              "command": "gh run watch 32253458015 --exit-status",
+              "status": "pass",
+              "exitCode": 0,
+              "ranAt": "2026-08-19T12:39:48.246Z",
+              "durationMs": 552,
+              "diagnostics": ""
+            },
+            {
+              "command": "gh release view v1.4.0 --json url,tagName,targetCommitish,publishedAt,isDraft,isPrerelease",
+              "status": "pass",
+              "exitCode": 0,
+              "ranAt": "2026-08-19T12:39:48.674Z",
+              "durationMs": 350,
+              "diagnostics": ""
+            },
+            {
+              "command": "test \"$(git rev-list -n 1 v1.4.0)\" = \"537b1f983a3ff194f7fbb441889f0130d41c220e\" && python3 -c 'import json; d,p,s,b,w=[json.load(open(x,encoding=\"utf-8\")) for x in [\"/var/folders/7s/sfyh12m94v13w49y9fnyywyc0000gn/T/tmp.i3mKYZNzNY/doctor.json\",\"/var/folders/7s/sfyh12m94v13w49y9fnyywyc0000gn/T/tmp.i3mKYZNzNY/proof.json\",\"/var/folders/7s/sfyh12m94v13w49y9fnyywyc0000gn/T/tmp.i3mKYZNzNY/status.json\",\"/var/folders/7s/sfyh12m94v13w49y9fnyywyc0000gn/T/tmp.i3mKYZNzNY/packet.json\",\"/var/folders/7s/sfyh12m94v13w49y9fnyywyc0000gn/T/tmp.i3mKYZNzNY/wire.json\"]]; assert d[\"verdict\"]==\"pass\" and d[\"read_only\"] is True; assert p[\"validation\"][\"mode\"]==\"installed-registry\"; assert s[\"read_only\"] is True; assert b[\"plans\"][0][\"fresh_context_packet\"][\"execution\"][\"status\"]==\"ready-for-handoff\"; assert w'",
+              "status": "pass",
+              "exitCode": 0,
+              "ranAt": "2026-08-19T12:39:48.782Z",
+              "durationMs": 30,
+              "diagnostics": ""
+            },
+            {
+              "command": "node /Users/hprincivil/.local/lib/node_modules/godpowers/lib/prepublication-gate.js --check --project=.",
+              "status": "pass",
+              "exitCode": 0,
+              "ranAt": "2026-08-19T12:39:48.885Z",
+              "durationMs": 24,
+              "diagnostics": ""
             }
           ]
         },
-        "launch-scope": "local-ready-github-release-preparation",
+        "launch-scope": "published-github-release",
         "release-version": "1.4.0",
         "release-target": "https://github.com/hannsxpeter/docdna.git",
         "release-surface": "README.md plus the GitHub release page",
@@ -100,9 +132,12 @@
         "custom-og-card": "not-applicable: there is no owned web metadata or image publication surface; GitHub owns repository and release-page rendering",
         "telemetry": "not-applicable for accounts or signups: the local CLI has no telemetry; release identity, exact tag and commit, CI, tagged-install smoke, native GitHub evidence, and issue reports form the measurement record",
         "open-medium-findings": 3,
-        "public-activation": "blocked-pending-exact-commit-ci-and-fresh-prepublication-pass",
-        "remaining-ci": "Python 3.8 matrix lane and ShellCheck must pass for the exact release commit",
-        "prepublication": "stale existing record must be replaced and checked by the root agent after all other checks and immediately before the first public write"
+        "public-activation": "published: https://github.com/hannsxpeter/docdna/releases/tag/v1.4.0",
+        "remaining-ci": "pass: GitHub Actions run 32253458015 passed Python 3.8, current Python, ShellCheck, and installed-consumer verification on the exact merge commit",
+        "prepublication": "pass: the fresh record and check bind publication to hardening revision sha256:483a8000d6b3142895fe080c5df3841500badac36c40f1a2e325dbafbdcda0c6 with zero critical findings",
+        "release-commit": "537b1f983a3ff194f7fbb441889f0130d41c220e",
+        "release-url": "https://github.com/hannsxpeter/docdna/releases/tag/v1.4.0",
+        "tagged-consumer-smoke": "pass: Doctor, Proof, Scan, Select, read-only Status, packet planning, Check, llms generation, and Wire"
       },
       "harden": {
         "status": "done",

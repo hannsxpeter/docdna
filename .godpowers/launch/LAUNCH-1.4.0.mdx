@@ -165,14 +165,16 @@ move or reuse `v1.4.0`.
 | 2026-08-12 | D-7 | Release maintainer | Prepare changelog, README install path, release notes, success criteria, and rollback rule. Completed during the compressed release cycle. |
 | 2026-08-16 | D-3 | Release maintainer | Confirm hardening ownership and the GitHub-only launch surface. Completed during the compressed release cycle. |
 | 2026-08-18 | D-1 | Release maintainer | Run the full local harness and verify the isolated installed consumer. Completed with 527 tests and the recorded command checks. |
-| 2026-08-19 | D-Day | Release maintainer | Merge the exact candidate, require exact-commit CI, record and check the fresh gate, tag, create the GitHub release, and run the tagged-install smoke. |
+| 2026-08-19 | D-Day | Release maintainer | Merge the exact candidate, require exact-commit CI, record and check the fresh gate, tag, create the GitHub release, and run the tagged-install smoke. Completed at merge commit `537b1f983a3ff194f7fbb441889f0130d41c220e`. |
 | 2026-08-20 to 2026-08-22 | D+1 to D+3 | Release maintainer | Respond to every actionable release comment or issue, record install failures, and publish the optional Show HN note only after tagged-install proof. |
 | 2026-08-26 | D+7 | Release maintainer | Review release availability, issue reports, available GitHub traffic, and the three Medium findings. Record a retrospective and decide whether 1.4.1 is required. |
 
 ## Current Verdict
 
-Local launch readiness: PASS.
+Launch: COMPLETE.
 
-Public activation blocker: exact-commit GitHub CI has not yet supplied Python 3.8 and ShellCheck evidence,
-and the current prepublication artifact is stale. After CI passes, the root agent must run the two fresh
-prepublication commands immediately before the tag push and GitHub release write.
+DocDNA v1.4.0 is published at `https://github.com/hannsxpeter/docdna/releases/tag/v1.4.0` from merge
+commit `537b1f983a3ff194f7fbb441889f0130d41c220e`. GitHub Actions run `32253458015` passed Python
+3.8, current Python, ShellCheck, and installed-consumer verification. The fresh prepublication gate and
+the post-publication tagged consumer smoke also passed. The three open Medium hardening findings remain
+scheduled release follow-up work; there are no open Critical or High findings.
