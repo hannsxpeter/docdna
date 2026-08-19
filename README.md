@@ -54,7 +54,7 @@ them decides what should exist, and none of them will defend an absence. That ga
 ## Get started in two minutes
 
 ```sh
-git clone --branch v1.3.0 --depth 1 https://github.com/hannsxpeter/docdna.git
+git clone --branch v1.4.0 --depth 1 https://github.com/hannsxpeter/docdna.git
 cd docdna
 ./install.sh claude      # or: all | codex | cursor | windsurf
 ```
@@ -178,6 +178,87 @@ Survey needs nothing at all to run. The other two run a survey first if one is m
 know what you want, say so: "write the config reference for this repo" goes straight to writing that one
 document, because being told exactly what to do should never be answered with a questionnaire.
 
+## Trust and handoff commands in 1.4.0
+
+Run the doctor from an installed skill before trusting a workflow. It reads the shared runtime registry,
+checks every registered resource, checks Python compatibility, and validates the installed proof registry.
+It is read-only. Exit code 0 means every check passed, 1 means a required resource or check failed, and 2
+means invalid or unsafe input prevented a verdict. Recovery is to reinstall the immutable `v1.4.0` bytes
+and rerun the command from the installed skill directory.
+
+```sh
+python3 <skill-dir>/scripts/docdna_doctor.py --json
+```
+
+This full text sample is captured from the installed-layout boundary. It does not claim source-checkout
+evidence replay or host parity.
+
+<!-- docdna:sample cmd="python3 skill/scripts/docdna_doctor.py --skill-root TARGET" target="skill" -->
+```
+docdna doctor: PASS
+checks: 4 pass, 0 fail, 0 error
+PASS runtime-registry: runtime registry schema is valid
+PASS python-compatibility: Python meets the declared 3.8 minimum
+PASS runtime-members: 46 registered runtime resources are present and readable
+PASS proof-registry: proof registry is valid in installed-registry mode
+```
+
+Status reads at most the bounded manifest and returns exactly one next action. It never writes or executes
+that action. Exit code 0 means it produced a status report; exit code 2 means the repository or manifest
+was invalid or unsafe. Correct the named manifest problem or run Survey when the manifest is absent.
+
+```sh
+python3 <skill-dir>/scripts/docdna_status.py --json /path/to/repo
+```
+
+The stable summary below is selected byte for byte from real JSON stdout for the committed fixture.
+
+<!-- docdna:sample cmd="python3 skill/scripts/docdna_status.py --json TARGET" target="tests/fixtures/internal_service" json_path="summary" -->
+```json
+{
+  "assumptions": 0,
+  "documents": 0,
+  "manifest": "absent",
+  "open_questions": 0,
+  "tripwires": 0,
+  "write_status": {
+    "failed": 0,
+    "in-progress": 0,
+    "pending": 0,
+    "verified": 0,
+    "written": 0
+  }
+}
+```
+
+When status returns the `agent-ready` lane, run its exact Backfill argv to produce a fresh-context packet.
+The packet binds one document, its repository evidence, templates, proof limits, protected-prose contract,
+output, and verification command. Producing it writes manifest planning state, including `write_status`,
+but does not write the target document. Without a current manifest, Backfill first runs Survey, which also
+writes `.docdna/manifest.json` and `DOCDNA.md`.
+
+```sh
+python3 <skill-dir>/scripts/docdna_backfill.py --only <document-id> --json /path/to/repo
+```
+
+<!-- docdna:sample cmd="python3 skill/scripts/docdna_backfill.py --json TARGET" target="tests/fixtures/internal_service" json_path="plans.0.fresh_context_packet.execution" -->
+```json
+{
+  "agent_spawned": false,
+  "fresh_context": "recommended",
+  "fresh_context_statement": "Fresh-context execution is recommended.",
+  "host_execution": "unknown-until-reported",
+  "host_execution_statement": "Host execution is unknown until reported.",
+  "portable_fallback": "isolated sequential prompt execution, one packet at a time, with no dependence on prior conversation",
+  "portable_fallback_statement": "Isolated sequential prompt execution is the portable fallback.",
+  "status": "ready-for-handoff"
+}
+```
+
+`docdna_proof.py` is also read-only. In a source checkout it validates evidence paths and replays the
+registered golden workflows. In an installed skill it validates registry schema and promotion structure
+only because checkout-only evidence and replay fixtures are not shipped. Neither mode proves host parity.
+
 ## Invisible Unicode hygiene
 
 Check also audits the documentation inventory for invisible Unicode that can break diffs, search, review,
@@ -206,8 +287,8 @@ python3 skill/scripts/docdna_check.py --only prose /path/to/repo
 ```
 
 This pass is deliberately advisory. It never gates, never rewrites a document, and does not infer whether
-a person or model wrote the text. It skips frontmatter, fenced and inline code, HTML comments, and link
-destinations. Patterns that require context, including active voice and factual specificity, remain a
+a person or model wrote the text. It skips frontmatter, fenced code, inline code, HTML comments, link
+destinations, and autolinks. Patterns that require context, including active voice and factual specificity, remain a
 human review. Backfill applies the fuller prose discipline after evidence verification and verifies the
 document again after any edit.
 
@@ -262,6 +343,14 @@ Full detail, including the compliance posture and the three worked examples:
 This project publishes its own limits, on the grounds that a tool which overstates itself has no standing
 to report anybody else's drift. Two earlier versions of this page made claims that later measurement
 knocked down, so the current position is stated plainly:
+
+The evidence words are exact. **Verified** means a deterministic check observed the registered local
+evidence. **Attested** means a human supplied a shape-checked statement that DocDNA did not independently
+prove. **Self-attested** means a recorded `run:` command and its output were supplied together, but DocDNA
+did not execute the target repository command. **Refused** means the evidence class, input, or requested
+promotion is outside the verifier's authority. Inspect the product-claim matrix with
+`python3 skill/scripts/docdna_proof.py`; its shipped, tested, replayed, measured, adjudicated, host-capture,
+and external-tool levels remain separate and never imply host parity.
 
 - **Measured and solid.** Across 51 repositories the underlying signal layer discriminated strongly and
   never errored. What it reads genuinely varies by repository rather than emitting a constant list, which

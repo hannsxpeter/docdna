@@ -157,12 +157,14 @@
   "wiring_surfaces": [
     {
       "id": "agents",
+      "renderer": "plain-default",
       "paths": [
         "AGENTS.md"
       ]
     },
     {
       "id": "cascade",
+      "renderer": "cascade-rule",
       "paths": [
         ".devin/rules/docdna.md",
         ".windsurf/rules/docdna.md"
@@ -170,24 +172,28 @@
     },
     {
       "id": "claude",
+      "renderer": "plain-existing",
       "paths": [
         "CLAUDE.md"
       ]
     },
     {
       "id": "copilot",
+      "renderer": "plain-existing",
       "paths": [
         ".github/copilot-instructions.md"
       ]
     },
     {
       "id": "cursor",
+      "renderer": "cursor-rule",
       "paths": [
         ".cursor/rules/docdna.mdc"
       ]
     },
     {
       "id": "gemini",
+      "renderer": "plain-existing",
       "paths": [
         "GEMINI.md"
       ]

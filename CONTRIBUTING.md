@@ -1,5 +1,7 @@
 # Contributing to docdna
 
+<!-- Implements: P-MUST-05 -->
+
 Thanks for your interest in improving docdna. It is a small project with a clear shape, so contributing is straightforward.
 
 ## What docdna is
@@ -58,19 +60,35 @@ Security lexicons exclude locales, i18n bundles, `.po` files, and lockfiles glob
 Run the automated checks before opening a pull request:
 
 ```sh
-python3 -m py_compile skill/scripts/docdna_fs.py
-python3 -m py_compile skill/scripts/docdna_prose.py
-python3 -m py_compile skill/scripts/docdna_unicode.py
-python3 -m py_compile skill/scripts/docdna_scan.py
-python3 -m py_compile skill/scripts/docdna_select.py
-python3 -m py_compile skill/scripts/docdna_backfill.py
-python3 -m py_compile skill/scripts/docdna_check.py
-python3 -m py_compile skill/scripts/docdna_wire.py
-python3 -m py_compile skill/scripts/docdna_llms.py
+python3 - <<'PY'
+import os
+import py_compile
+import sys
+
+sys.path.insert(0, "skill/scripts")
+from docdna_runtime import load_registry
+
+registry = load_registry("skill")
+for member in registry["runtime_members"]:
+    py_compile.compile(os.path.join("skill", member["path"]), doraise=True)
+PY
+python3 -m json.tool skill/catalog/runtimes.json >/dev/null
+python3 -m json.tool skill/catalog/proofs.json >/dev/null
 python3 -m unittest discover -s tests
+python3 skill/scripts/docdna_doctor.py --json --source-checkout
+python3 skill/scripts/docdna_proof.py --json >/dev/null
+python3 skill/scripts/docdna_status.py --json . >/dev/null
 tmp="$(mktemp -d)"
 CLAUDE_SKILLS_DIR="$tmp/claude" CODEX_SKILLS_DIR="$tmp/codex" CURSOR_SKILLS_DIR="$tmp/cursor" WINDSURF_SKILLS_DIR="$tmp/windsurf" ./install.sh all
 ```
+
+The runtime registry is the only helper inventory and owns install membership, labels, full default
+locations, and wiring surface renderer/path metadata. Shell retains selector-specific environment
+override adapter names only. A new wiring surface must use a closed renderer kind and its required path
+cardinality; do not add a matching surface-id branch to `docdna_wire.py`. CI installs the copied skill into
+a separate temporary consumer directory, then runs installed Doctor, Proof, read-only Status, and one
+fresh-context packet flow. Do not replace that with checkout paths or a hand-maintained command list.
+Python 3.8 and the current Python matrix must both remain green.
 
 If `shellcheck` is installed, run `shellcheck install.sh` as well.
 

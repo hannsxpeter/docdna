@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Report one next DocDNA action through bounded, read-only manifest inspection."""
 
-# Implements: P-MUST-04
+# Implements: P-MUST-04, P-MUST-05
 
 import argparse
 import json
@@ -12,7 +12,7 @@ import sys
 
 SCHEMA = 1
 TOOL = "docdna_status"
-VERSION = "1.3.0"
+VERSION = "1.4.0"
 MAX_STATUS_BYTES = 1024 * 1024
 MANIFEST_REL = os.path.join(".docdna", "manifest.json")
 WRITE_STATUS = ("pending", "in-progress", "written", "verified", "failed")

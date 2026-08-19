@@ -14,7 +14,8 @@ from datetime import datetime, timezone
 
 SCHEMA = 1
 TOOL = "docdna_check"
-VERSION = "1.3.0"
+# Implements: P-MUST-05
+VERSION = "1.4.0"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CATALOG_DIR = os.path.normpath(os.path.join(HERE, "..", "catalog"))

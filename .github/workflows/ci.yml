@@ -1,5 +1,7 @@
 name: CI
 
+# Implements: P-MUST-05
+
 on:
   push:
   pull_request:
@@ -27,27 +29,36 @@ jobs:
         with:
           python-version: "${{ matrix.python }}"
 
-      - name: Compile helpers
+      - name: Compile registry-declared helpers
         run: |
-          python -m py_compile skill/scripts/docdna_fs.py
-          python -m py_compile skill/scripts/docdna_proof.py
-          python -m py_compile skill/scripts/docdna_prose.py
-          python -m py_compile skill/scripts/docdna_unicode.py
-          python -m py_compile skill/scripts/docdna_scan.py
-          python -m py_compile skill/scripts/docdna_select.py
-          python -m py_compile skill/scripts/docdna_backfill.py
-          python -m py_compile skill/scripts/docdna_check.py
-          python -m py_compile skill/scripts/docdna_wire.py
-          python -m py_compile skill/scripts/docdna_llms.py
+          python - <<'PY'
+          import os
+          import py_compile
+          import sys
+
+          sys.path.insert(0, "skill/scripts")
+          from docdna_runtime import load_registry
+
+          runtime_registry = load_registry("skill")
+          for member in runtime_registry["runtime_members"]:
+              py_compile.compile(os.path.join("skill", member["path"]), doraise=True)
+          PY
 
       - name: Validate catalog JSON
         run: |
+          python -m json.tool skill/catalog/runtimes.json > /dev/null
+          python -m json.tool skill/catalog/proofs.json > /dev/null
           for f in skill/catalog/*.json; do
             python -c "import json,sys; json.load(open(sys.argv[1]))" "$f"
           done
 
       - name: Run tests
         run: python -m unittest discover -s tests
+
+      - name: Source doctor and proof pipeline
+        run: |
+          python skill/scripts/docdna_doctor.py --json --source-checkout > /tmp/docdna-doctor.json
+          python skill/scripts/docdna_proof.py --json > /tmp/docdna-proof-source.json
 
       - name: Proof output matches stable cross-version fixtures
         run: |
@@ -82,6 +93,7 @@ jobs:
           python skill/scripts/docdna_scan.py --json . > /dev/null
           python skill/scripts/docdna_select.py . > /dev/null
           python skill/scripts/docdna_check.py . > /dev/null
+          python skill/scripts/docdna_status.py --json . > /dev/null
           python skill/scripts/docdna_backfill.py --json . > /dev/null
           python skill/scripts/docdna_llms.py . > /dev/null
 
@@ -158,13 +170,44 @@ jobs:
       - name: Install the skill and run it from the installed location
         run: |
           dest=$(mktemp -d)
+          consumer_root=$(mktemp -d)
           CLAUDE_SKILLS_DIR="$dest" ./install.sh claude
           for member in SKILL.md scripts catalog references templates; do
             test -e "$dest/docdna/$member"
           done
-          repo=$(mktemp -d)
+          repo="$consumer_root/repo"
+          mkdir "$repo"
           cp -R tests/fixtures/internal_service/. "$repo/"
-          python "$dest/docdna/scripts/docdna_scan.py" --json "$repo" > /dev/null
+          cd "$consumer_root"
+          python "$dest/docdna/scripts/docdna_doctor.py" --json > doctor.json
+          python "$dest/docdna/scripts/docdna_proof.py" --json > proof.json
+          python "$dest/docdna/scripts/docdna_scan.py" --json "$repo" > scan.json
           python "$dest/docdna/scripts/docdna_select.py" "$repo" > /dev/null
+          before=$(find "$repo" -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum)
+          python "$dest/docdna/scripts/docdna_status.py" --json "$repo" > status.json
+          after_status=$(find "$repo" -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum)
+          test "$before" = "$after_status"
+          python "$dest/docdna/scripts/docdna_backfill.py" --only build.api-reference --json "$repo" > packet.json
+          test ! -e "$repo/docs/build/api-reference.md"
+          python - "$repo" <<'PY'
+          import json
+          import os
+          import sys
+
+          doctor = json.load(open("doctor.json", encoding="utf-8"))
+          proof = json.load(open("proof.json", encoding="utf-8"))
+          status = json.load(open("status.json", encoding="utf-8"))
+          packet = json.load(open("packet.json", encoding="utf-8"))
+          manifest = json.load(open(os.path.join(sys.argv[1], ".docdna", "manifest.json"),
+                                    encoding="utf-8"))
+          assert doctor["verdict"] == "pass" and doctor["read_only"] is True
+          assert proof["validation"]["mode"] == "installed-registry"
+          assert status["read_only"] is True
+          assert packet["plans"][0]["fresh_context_packet"]["execution"]["status"] == "ready-for-handoff"
+          packet_row = next(row for row in manifest["documents"]
+                            if row["id"] == "build.api-reference")
+          assert packet_row["write_status"] == "in-progress"
+          assert packet_row["plan_generated_at"]
+          PY
           python "$dest/docdna/scripts/docdna_check.py" "$repo" > /dev/null
           python "$dest/docdna/scripts/docdna_llms.py" "$repo" > /dev/null

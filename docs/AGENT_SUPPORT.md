@@ -1,5 +1,7 @@
 # Agent support
 
+<!-- Implements: P-MUST-05 -->
+
 Where docdna installs, what it wires, and the facts about agent context files that it depends on.
 
 Verified 2026-07-31. Host behaviour changes; confirm against your host's current docs before relying on a
@@ -22,6 +24,25 @@ its `catalog/`, `references/`, and `templates/` beside `SKILL.md`, not just the 
 appears. The installer removes a stale bare-file install if it finds one.
 
 Restart the host after installing. Skill listings are read at startup.
+
+Install membership, display labels, full default locations, and wiring surfaces come from
+`skill/catalog/runtimes.json`. Both `install.sh` and `docdna_wire.py` validate and consume that registry
+through `docdna_runtime.py`; they do not maintain a second host metadata inventory. The shell retains only
+the selector-specific environment override adapter names listed in the table above. Each wiring surface
+declares its closed renderer kind and path list; validation enforces the renderer's path cardinality, and
+wiring preflights every selected destination before any write. A declared install or writable instruction
+surface proves only that local operation. Every host row records host parity as not verified.
+
+After installation, run:
+
+```sh
+python3 <skill-dir>/scripts/docdna_doctor.py --json
+```
+
+Doctor is read-only. Exit code 0 means all registered checks passed, 1 means a required resource or check
+failed, and 2 means invalid or unsafe input prevented a verdict. Recovery is to reinstall trusted
+`v1.4.0` bytes and rerun Doctor from the installed directory. Installed proof validation checks registry
+structure only. Source-checkout evidence, golden replay, and host execution are separate boundaries.
 
 ## Project wiring
 
@@ -97,3 +118,13 @@ cannot run it, copy the complete `skill/` directory to one of the install target
 `docdna_select.py`, which invokes `docdna_scan.py` with the active Python interpreter and writes the same
 manifest and report as a shell-installed copy. Wiring can be done by running `docdna_wire.py` or by adding
 the block above by hand.
+
+## Agent handoff support
+
+`docdna_status.py --json <repo>` reads the bounded manifest without writing and returns exactly one next
+action. When its lane is `agent-ready`, the reported `docdna_backfill.py --only <id> --json <repo>` command
+contains a fresh-context packet. The packet binds one document, its evidence and templates, protected
+prose, proof limits, output, and verify argv. A packet reports host execution as unknown until the host
+reports it; creating a packet is not evidence that an agent spawned or succeeded. If the manifest is
+absent, Backfill first runs Survey and writes the manifest and report, so only status inspection itself is
+unconditionally read-only.

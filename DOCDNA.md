@@ -1,4 +1,4 @@
-docdna  solo-utility  ·  overlays: agent-skill-package  ·  35625 lines Python/Shell  ·  2 authors  ·  MIT  ·  5 tags  ·  CI only
+docdna  solo-utility  ·  overlays: agent-skill-package  ·  43295 lines Python/Shell  ·  2 authors  ·  MIT  ·  6 tags  ·  CI only
 
 Documentation  5 of 14        Leads  1 possible stale reference
 
@@ -25,7 +25,7 @@ POSSIBLE STALE REFERENCES  (1)
   docs/AGENT_SUPPORT.md says `.github/copilot-instructions.md`; no such file or directory in the ...
                 A document may name a path for a reason other than asserting it exists right now: an
                 install target, a changelog entry, a fix still to apply. The path scan is a filtered
-                view: 61 candidates never reached this list. These are leads for a human to read,
+                view: 72 candidates never reached this list. These are leads for a human to read,
                 not findings. Full list: .docdna/manifest.json
 
 NEXT            write 2 derivable documents  ·  --answer q3_authorizer  ·  .docdna/manifest.json

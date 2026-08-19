@@ -48,7 +48,7 @@ traces_down: ["module:src/config/settings.py"]
 
 derivation: derived
 confidence: high
-generated_by: docdna v1.3.0
+generated_by: docdna v1.4.0
 generated_on: 2026-07-31
 content_hash: sha256:a1b2c3...
 open_questions: []

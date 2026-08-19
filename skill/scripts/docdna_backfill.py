@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Plan, gate, and verify the documents docdna backfills from repository evidence."""
 
-# Implements: P-MUST-04
+# Implements: P-MUST-04, P-MUST-05
 
 import argparse
 import hashlib
@@ -16,7 +16,7 @@ from datetime import datetime, timedelta, timezone
 
 SCHEMA = 1
 TOOL = "docdna_backfill"
-VERSION = "1.3.0"
+VERSION = "1.4.0"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SKILL_ROOT = os.path.normpath(os.path.join(HERE, ".."))

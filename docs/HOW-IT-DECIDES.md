@@ -1,5 +1,7 @@
 # How it decides
 
+<!-- Implements: P-MUST-05 -->
+
 The selection engine is the product. Everything else in docdna exists to feed it or to report what it
 concluded. This page is the technical account: what goes in, how the decision is made, what comes out, and
 where the boundaries are.
@@ -146,6 +148,29 @@ so and those rows are marked present elsewhere rather than missing.
 A repository that vendors another repository (fixtures, examples, a bundled dependency) would otherwise have
 that project's documentation and manifests read as its own, against the wrong root. Name those directories
 with `--exclude-dir`, or as `exclude_dirs` in `.docdna/config.json`.
+
+## How it decides the next action
+
+`docdna_status.py --json <repo>` is a bounded, read-only inspection. It returns one action and does not
+execute it. Priority is firing tripwire, open question, assumption, refusal, sensitive confirmation,
+verification of written work, fresh-context packet for the highest-ranked incomplete document, then Check
+when every row is verified. Exit code 0 means the report was produced; exit code 2 means invalid or unsafe
+input prevented inspection. Recovery is to correct the named manifest field, remove the unsafe indirection,
+or run Survey when no manifest exists.
+
+The packet action runs `docdna_backfill.py --only <id> --json <repo>`. Its `fresh_context_packet` binds the
+one target document, repository evidence, skill inputs, output, verify argv, and refusal rules. It states
+that fresh context is recommended, host execution is unknown until reported, and isolated sequential
+execution is the portable fallback. Producing a packet writes manifest planning state, including
+`write_status`, but does not write the target document. Backfill also runs the writing Survey stage first
+when no current manifest exists.
+
+Protected comparison inventory: `frontmatter`, `citations`, `gap_markers`, `numbers`, `inline_code`, `link_targets`, `fenced_blocks`, `path_tokens`, `table_shape`.
+
+A change in one of those extracted values is refused. HTML comments are masked from advisory prose
+findings but their contents are not comparison-inventoried. Raw command-like prose and identifiers are
+protected only when an inventoried form, such as inline code, a fenced block, or a path token, captures
+them. An unchanged inventory does not verify causal, temporal, or quantitative meaning.
 
 ## Related
 

@@ -19,7 +19,7 @@ python3 --version
 ## Install it
 
 ```sh
-git clone --branch v1.3.0 --depth 1 https://github.com/hannsxpeter/docdna.git
+git clone --branch v1.4.0 --depth 1 https://github.com/hannsxpeter/docdna.git
 cd docdna
 ./install.sh claude
 ```
@@ -28,6 +28,17 @@ Swap `claude` for `codex`, `cursor`, `windsurf`, or `all`. Then restart your ass
 read when it starts up.
 
 If you want to know exactly where files landed, that is in [AGENT_SUPPORT.md](AGENT_SUPPORT.md).
+
+Check the installed bytes before the first run:
+
+```sh
+python3 <skill-dir>/scripts/docdna_doctor.py --json
+```
+
+The doctor is read-only. Exit code 0 is healthy, 1 is a failed required check, and 2 means invalid or
+unsafe input prevented a verdict. Recovery is to reinstall tag `v1.4.0` and rerun it. Installed mode
+validates the proof registry structure, but checkout-only evidence and replay fixtures are not shipped and
+host parity is not claimed.
 
 ## Your first run
 
@@ -102,6 +113,33 @@ with a questionnaire.
 
 Every document arrives with citations on its claims and clearly marked gaps where a human has to decide
 something. **A gap is not a failure.** It is the tool refusing to invent your recovery time objective.
+
+## Resume or hand work to a fresh context
+
+Status is a read-only view of the manifest. It writes nothing, executes nothing, and returns one next
+action in priority order: firing tripwire, open question, assumption, refusal, sensitive confirmation,
+verification, fresh-context packet, then Check.
+
+```sh
+python3 <skill-dir>/scripts/docdna_status.py --json /path/to/repo
+```
+
+Exit code 0 means one action was reported. Exit code 2 means the root or manifest was invalid or unsafe;
+repair the named input, or run Survey if the manifest is absent. If the lane is `agent-ready`, run the
+reported Backfill argv. Its JSON contains `fresh_context_packet`, a complete one-document handoff with
+bound inputs, protected-prose and proof contracts, the output path, and the exact verification argv.
+Producing a packet writes manifest planning state, including `write_status`, but does not write the target
+document. If no current manifest exists, Backfill runs Survey first and also writes the ledger and report.
+
+Proof states stay distinct: repository evidence can be **verified**, a `human:` claim is **attested**, a
+`run:` claim is **self-attested** because DocDNA did not execute it, and unsupported evidence is
+**refused**.
+
+Protected comparison inventory: `frontmatter`, `citations`, `gap_markers`, `numbers`, `inline_code`, `link_targets`, `fenced_blocks`, `path_tokens`, `table_shape`.
+
+HTML comments are masked from advisory prose findings, not comparison-inventoried. Raw command-like prose
+and identifiers are protected only when an inventoried form captures them. The comparison never verifies
+causal, temporal, or quantitative meaning by itself.
 
 ## Keeping it honest over time
 

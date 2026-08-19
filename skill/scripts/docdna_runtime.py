@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Load and validate the shared DocDNA runtime registry.
 
-Implements: P-MUST-03
+Implements: P-MUST-03, P-MUST-05
 """
 
 import os
@@ -23,6 +23,14 @@ REGISTRY_PATH = "catalog/runtimes.json"
 MAX_REGISTRY_BYTES = 1024 * 1024
 MAX_MEMBER_BYTES = 5 * 1024 * 1024
 ID_RE = re.compile(r"^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$")
+LOCATION_PART_RE = re.compile(r"^[A-Za-z0-9._-]+$")
+RESERVED_INSTALL_SELECTORS = frozenset(("all", "cascade"))
+WIRING_RENDERER_PATH_COUNTS = {
+    "plain-default": 1,
+    "plain-existing": 1,
+    "cursor-rule": 1,
+    "cascade-rule": 2,
+}
 
 ROOT_FIELDS = frozenset(("schema", "minimum_python", "platform_support", "host_targets",
                          "wiring_surfaces", "runtime_members", "registries", "templates",
@@ -33,7 +41,7 @@ HOST_FIELDS = frozenset(("id", "label", "support_level", "install", "wiring",
 INSTALL_FIELDS = frozenset(("support", "selector", "default_location"))
 WIRING_FIELDS = frozenset(("support", "surfaces"))
 PARITY_FIELDS = frozenset(("status", "boundary"))
-SURFACE_FIELDS = frozenset(("id", "paths"))
+SURFACE_FIELDS = frozenset(("id", "renderer", "paths"))
 MEMBER_FIELDS = frozenset(("id", "kind", "path"))
 RESOURCE_FIELDS = frozenset(("id", "path"))
 SMOKE_FIELDS = frozenset(("id", "kind", "target", "checkout_target"))
@@ -103,6 +111,25 @@ def _object(value, where, fields):
 def _string(value, where):
     if not isinstance(value, str) or not value.strip():
         _error("%s must be a non-empty string" % where)
+    return value
+
+
+def _display_label(value, where):
+    value = _string(value, where)
+    if any(ord(character) < 32 or 127 <= ord(character) <= 159 for character in value):
+        _error("%s contains a control character" % where)
+    return value
+
+
+def _install_location(value, where):
+    value = _string(value, where)
+    if not value.startswith("~/") or "\\" in value:
+        _error("%s must be a safe home-relative path" % where)
+    parts = value[2:].split("/")
+    if (not parts or parts[-1] != "docdna"
+            or any(part in ("", ".", "..") or LOCATION_PART_RE.fullmatch(part) is None
+                   for part in parts)):
+        _error("%s must be a safe home-relative path ending in docdna" % where)
     return value
 
 
@@ -506,7 +533,14 @@ def _validate_surfaces(rows):
         where = "wiring surface %d" % index
         row = _object(row, where, SURFACE_FIELDS)
         _identifier(row.get("id"), "%s id" % where)
+        renderer = row.get("renderer")
+        expected_paths = WIRING_RENDERER_PATH_COUNTS.get(renderer)
+        if expected_paths is None:
+            _error("%s renderer is invalid" % where)
         paths = _string_array(row.get("paths"), "%s paths" % where)
+        if len(paths) != expected_paths:
+            _error("%s %s renderer requires exactly %d path%s"
+                   % (where, renderer, expected_paths, "" if expected_paths == 1 else "s"))
         for number, path in enumerate(paths, 1):
             _safe_path(path, "%s path %d" % (where, number))
     _unique_sorted(rows, "wiring surfaces", "id")
@@ -520,15 +554,19 @@ def _validate_hosts(rows, surface_ids):
         where = "host target %d" % index
         row = _object(row, where, HOST_FIELDS)
         _identifier(row.get("id"), "%s id" % where)
-        _string(row.get("label"), "%s label" % where)
+        _display_label(row.get("label"), "%s label" % where)
 
         install = _object(row.get("install"), "%s install" % where, INSTALL_FIELDS)
         install_support = install.get("support")
         if install_support not in ("supported", "not-supported"):
             _error("%s install support is invalid" % where)
         if install_support == "supported":
-            selectors.append(_identifier(install.get("selector"), "%s install selector" % where))
-            _string(install.get("default_location"), "%s install default_location" % where)
+            selector = _identifier(install.get("selector"), "%s install selector" % where)
+            if selector in RESERVED_INSTALL_SELECTORS:
+                _error("%s install selector %s is reserved" % (where, selector))
+            selectors.append(selector)
+            _install_location(install.get("default_location"),
+                              "%s install default_location" % where)
         elif install.get("selector") is not None or install.get("default_location") is not None:
             _error("%s unsupported install must use null selector and location" % where)
 
@@ -684,6 +722,17 @@ def install_targets(registry):
     """Return only installer selectors with declared install support."""
     return [row["install"]["selector"] for row in registry["host_targets"]
             if row["install"]["support"] == "supported"]
+
+
+def install_metadata(registry):
+    """Return validated registry-owned labels and full default install locations."""
+    registry = validate_registry(registry)
+    return [
+        {"selector": row["install"]["selector"], "label": row["label"],
+         "default_location": row["install"]["default_location"]}
+        for row in registry["host_targets"]
+        if row["install"]["support"] == "supported"
+    ]
 
 
 def wiring_target_ids(registry):

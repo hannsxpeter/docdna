@@ -4,8 +4,9 @@ description: Decide which documents a codebase owes, name which it does not owe 
 allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 ---
 
+<!-- Implements: P-MUST-05 -->
 # DocDNA
-Version: 1.3.0
+Version: 1.4.0
 Runtime: Python 3.8+ on a POSIX host with descriptor-relative, no-follow filesystem support; Windows is not supported.
 
 ## What this is
@@ -34,6 +35,11 @@ Read the user's intent and pick one.
 - **Backfill**: write selected documents from code evidence. Triggered by "backfill the docs", "write the
   config reference", "document this repo".
 - **Check**: drift, lint, advisory prose review, Unicode hygiene, GAP rollup, stale exclusions. The CI gate. Triggered by "check the docs against the code", "are our docs still true".
+
+**Trust inspection is not a fourth mode.** Run `docdna_doctor.py --json` to check installed runtime health,
+`docdna_proof.py --json` to inspect claim boundaries, and `docdna_status.py --json <target-dir>` to read one
+next action without writing. Doctor exits 0 healthy, 1 failed, 2 invalid or unsafe; Status exits 0 with a
+report or 2 on invalid or unsafe input. Recovery is to fix the named input or reinstall trusted v1.4.0.
 
 **Routing, three rules in order:**
 
@@ -131,6 +137,11 @@ waits for `--yes`. A long run risks compaction dropping the manifest mid-run, an
 **`write_status` is updated in the manifest after every document**, so an interrupted run resumes rather
 than restarting. `--branch` puts the run on its own branch with one commit per document.
 
+Each plan carries a **fresh-context packet** binding one document, its repository evidence, skill inputs,
+protected-prose and proof contracts, output, and exact verify argv. Host execution remains unknown until
+reported. Producing a packet writes manifest planning state, including `write_status`, but does not write
+the target document. Without a current manifest, Backfill runs Survey first and also writes the ledger.
+
 ### Writing a document
 
 1. **Gather evidence first, structure second.** Read the files the catalog entry names in `covers`. If the
@@ -194,6 +205,9 @@ The whole CLI surface. Every helper takes a positional `repo` (default `.`) and 
 | `docdna_select.py` | `--answer key=value` record an interview answer, repeatable; `--unattended` take every unanswered question at its default and never ask; `--scan <path>` validate scanner JSON, reproduce it with a fresh scan, and reject changed contents; `--exclude-dir <dir>` repeatable |
 | `docdna_backfill.py` | `--only <id>` plan this catalog id instead of the derivable ten, repeatable; `--all` lift the five-document cap, prints an estimate and waits; `--yes` answer that confirmation; `--limit <n>` never above 5; `--branch` own branch, one commit per document; `--verify <path>` re-read a written document and check every claim, see Backfill step 6; refused stubs are retained by default; `--delete-stub` remove only a guarded stub written in this run; `--keep` explicitly retain it for compatibility; `--confirm-sensitive` below |
 | `docdna_check.py` | `--fail-on blocker\|major\|minor\|never` default `major`; `--only drift\|lint\|prose\|hygiene\|gaps\|spine\|tripwires\|orphans` repeatable; prose never gates; `--scan <path>` validates and reproduces a fresh scan before use; `--no-write` never touch `DOCDNA.md`; `--exclude-dir <dir>` repeatable |
+| `docdna_doctor.py` | `--source-checkout` also validates checkout-only evidence paths and replay IDs; default installed validation checks registry structure only; always read-only |
+| `docdna_proof.py` | Read-only claim matrix; installed mode skips checkout-only evidence and replay fixtures; neither mode proves host parity |
+| `docdna_status.py` | Read-only manifest inspection returning exactly one next action; never executes it |
 | `docdna_wire.py` | `--agent agents\|claude\|gemini\|copilot\|cursor\|cascade` repeatable; `--all` create or update every supported target |
 
 **`--confirm-sensitive` is a decision, not a lever.** It records that a person knows this repository is
@@ -211,6 +225,10 @@ is a decision a human owns. Numbers are cited to a file that states them, or the
 under analysis; one naming no place binds nothing. A `run:` number is self-attested and supports nothing;
 a `human:` one is shape-checked. Every line after the frontmatter is read, headings and table header rows
 included, and the banner and control table answer to what docdna derived, not to a citation.
+Verified means a deterministic local check observed evidence; human input is attested, `run:` is
+self-attested, and unsupported evidence is refused.
+Protected comparison inventory: `frontmatter`, `citations`, `gap_markers`, `numbers`, `inline_code`, `link_targets`, `fenced_blocks`, `path_tokens`, `table_shape`.
+Raw HTML comment contents, command-like prose, and identifiers are not separately inventoried.
 
 **An exhaustive or negative claim needs a `run` citation.** "Every declared key has a read site", "no flag
 guards a write path": a `code` citation resolves one symbol in one file and carries neither. Cite the
@@ -232,36 +250,18 @@ missing document, because it launders a gap into a decision.
 
 State these when asked, rather than attempting them.
 
-1. **Does not write, fix, or change code.** It reports where code and document disagree, and never
-   reconciles them by editing the code.
-2. **Does not invent numbers, and does not claim the check catches every one.** The writing rule is
-   absolute; the verifier reaches only `code` and `ref` numbers, since docdna never runs the documented
-   repository's own commands (non-goal 7), so a `run:` number is never observed.
-3. **Does not certify, attest, or sign.** No authority to operate, CE marking, declaration of conformity,
-   or completed VPAT. It produces the inputs an assessor needs and names who must sign, empty.
-4. **Does not draft legal or regulator-facing instruments.** No SSP, HIPAA risk assessment, BAA, SOC 2
-   system description, PCI attestation, PIA, DPIA, AIA, FRIA, ACR, or AI Act Annex IV file. **Seventeen
-   entries are `producible: R`**, so each is ruled on rather than absent: backfill declines it and prints
-   its `refusal_reason` and `signed_by` role, which quote verbatim, since naming the signer is what makes
-   a refusal actionable. Only an interview answer may raise an R entry to `required`, never a signal
-   (I6); I1 fails the build if a template ships for one. It emits an evidence annex under
-   `docs/assure/inputs/` instead, and the thirty-seven `M` entries name what a human must write.
-5. **Does not give legal advice or assert that a regime applies.** It reports the signal, names the regime
-   that signal might trigger, and says to confirm with counsel.
-6. **Does not generate an SBOM.** Real dependency resolution is not a stdlib job. It detects the ecosystem,
-   emits the exact `syft` or `cdxgen` command, and records that output as `run` evidence. A hand-written
-   dependency list is a lie with a filename.
+1. **Does not write, fix, or change code.** It reports disagreement and never reconciles it by editing code.
+2. **Does not invent numbers or claim the check catches every one.** Only `code` and `ref` numbers are verified; a `run:` number is never observed.
+3. **Does not certify, attest, or sign.** No authority to operate, CE marking, declaration of conformity, or completed VPAT.
+4. **Does not draft legal or regulator-facing instruments.** The seventeen `producible: R` entries are declined with a signer; I6 prevents a signal making one required and I1 prevents a template shipping for one.
+5. **Does not give legal advice or assert that a regime applies.** It reports the signal and says to confirm with counsel.
+6. **Does not generate an SBOM.** It emits the exact `syft` or `cdxgen` command and records output as `run` evidence.
 7. **Does not run tests, scanners, the application, or anything on the network.**
-8. **Does not write a runbook procedure or a completed access-control matrix.** Inventory only: an alert
-   list with "no documented remediation", a route-to-guard table with explicit unknown cells.
-9. **Does not fabricate decision rationale.** Reconstructed ADRs live in a separate `adr-draft-` id space
-   with the Considered Options section absent, not filled with "unknown".
-10. **Does not maintain the documentation.** It backfills and it lints. It does not auto-commit, run on a
-    schedule, or overwrite a document a human edited since generation.
-11. **Does not emit a folder named `rfc/`.** In any ITSM-adjacent shop "RFC" reads as Request for Change.
-    The debate artifact is a **design proposal**.
-12. **Does not write an `internal` or higher document into a public or unknown-visibility repository**
-    without `--confirm-sensitive`. Visibility is one of the things the scanner refuses to guess.
+8. **Does not write a runbook procedure or completed access-control matrix.** It writes inventory with explicit unknowns.
+9. **Does not fabricate decision rationale.** Reconstructed ADRs omit Considered Options rather than filling it with "unknown".
+10. **Does not maintain documentation.** It does not schedule, auto-commit, or overwrite human-edited output.
+11. **Does not emit `rfc/`.** The debate artifact is a **design proposal**.
+12. **Does not write `internal` or higher content into public or unknown visibility** without `--confirm-sensitive`.
 13. **Does not fingerprint code style.** Naming conventions and comment voice are a different problem.
 
 ## Wiring

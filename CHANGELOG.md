@@ -4,6 +4,28 @@ All notable changes to docdna are documented in this file. The format is based o
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-08-19
+
+### Added
+
+- Added a read-only runtime doctor driven by the shared runtime registry, with distinct source-checkout
+  and installed proof boundaries, deterministic verdicts, exit codes, and recovery guidance.
+- Added a read-only status command that returns one prioritized next action, plus complete one-document
+  fresh-context packets for agent handoff.
+- Added a product-claim proof registry and command that keep verified, attested, self-attested, refused,
+  replayed, measured, adjudicated, host-captured, and external-tool-dependent evidence distinct.
+- Protected comparison inventory: `frontmatter`, `citations`, `gap_markers`, `numbers`, `inline_code`, `link_targets`, `fenced_blocks`, `path_tokens`, `table_shape`.
+  Raw HTML comment contents, command-like prose, and identifiers are not separately inventoried.
+
+### Changed
+
+- Installer, wiring, and CI now consume `skill/catalog/runtimes.json` through `docdna_runtime.py`. Wiring
+  surfaces carry validated renderer and path-cardinality metadata and are all preflighted before writes.
+  CI validates both runtime and proof registries, compiles registry members on Python 3.8 and current
+  Python, and verifies Doctor, Proof, Status, and packet flows from an isolated installed copy.
+- Immutable installation examples now select tag `v1.4.0`, and marked release samples are regenerated
+  from real stdout byte for byte.
+
 ## [1.3.0] - 2026-08-19
 
 ### Added
