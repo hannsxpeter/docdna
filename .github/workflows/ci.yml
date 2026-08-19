@@ -30,6 +30,7 @@ jobs:
       - name: Compile helpers
         run: |
           python -m py_compile skill/scripts/docdna_fs.py
+          python -m py_compile skill/scripts/docdna_proof.py
           python -m py_compile skill/scripts/docdna_prose.py
           python -m py_compile skill/scripts/docdna_unicode.py
           python -m py_compile skill/scripts/docdna_scan.py
@@ -47,6 +48,13 @@ jobs:
 
       - name: Run tests
         run: python -m unittest discover -s tests
+
+      - name: Proof output matches stable cross-version fixtures
+        run: |
+          python skill/scripts/docdna_proof.py --json > /tmp/docdna-proof.json
+          python skill/scripts/docdna_proof.py > /tmp/docdna-proof.txt
+          diff -u proof/replay/expected-proof-output.json /tmp/docdna-proof.json
+          diff -u proof/replay/expected-proof-output.txt /tmp/docdna-proof.txt
 
       # These files are generated and committed. Snapshot the bytes from the checkout before any
       # helper can rewrite them, then rebuild from a full-history checkout and compare. The generated

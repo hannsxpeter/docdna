@@ -1,0 +1,209 @@
+{
+  "schema": 1,
+  "evidence_levels": [
+    "shipped",
+    "unit-tested",
+    "install-tested",
+    "artifact-proven",
+    "replay-tested",
+    "measured",
+    "adjudicated",
+    "host-capture-ready",
+    "host-captured",
+    "external-tool-dependent"
+  ],
+  "promotion_requirements": {
+    "shipped": {
+      "requires_evidence": [
+        "implementation"
+      ]
+    },
+    "unit-tested": {
+      "requires_evidence": [
+        "unit-test"
+      ]
+    },
+    "install-tested": {
+      "requires_evidence": [
+        "install-test"
+      ]
+    },
+    "artifact-proven": {
+      "requires_evidence": [
+        "artifact"
+      ]
+    },
+    "replay-tested": {
+      "requires_evidence": [
+        "replay"
+      ]
+    },
+    "measured": {
+      "requires_evidence": [
+        "measurement"
+      ]
+    },
+    "adjudicated": {
+      "requires_evidence": [
+        "adjudication"
+      ]
+    },
+    "host-capture-ready": {
+      "requires_evidence": [
+        "capture-procedure"
+      ]
+    },
+    "host-captured": {
+      "requires_evidence": [
+        "host-capture"
+      ]
+    },
+    "external-tool-dependent": {
+      "requires_evidence": [
+        "external-dependency"
+      ]
+    }
+  },
+  "claims": [
+    {
+      "id": "backfill.boundary-verification",
+      "mode": "backfill",
+      "claim": "The committed backfill fixture replays a blocked verification outcome for unsupported claims.",
+      "evidence_level": "replay-tested",
+      "boundary": "The replay verifies one committed document and never promotes the result to host parity or broad backfill correctness.",
+      "evidence": [
+        {
+          "kind": "implementation",
+          "path": "skill/scripts/docdna_backfill.py"
+        },
+        {
+          "kind": "replay",
+          "path": "proof/replay/golden-workflows.json"
+        }
+      ],
+      "replay_id": "golden.backfill"
+    },
+    {
+      "id": "backfill.unit-verification",
+      "mode": "backfill",
+      "claim": "Backfill verification distinguishes repository evidence, human attestation, self-attested run output, and refusals in unit tests.",
+      "evidence_level": "unit-tested",
+      "boundary": "The tests exercise committed fixtures and temporary repositories, not every document shape or external reference system.",
+      "evidence": [
+        {
+          "kind": "unit-test",
+          "path": "tests/test_regression.py"
+        }
+      ]
+    },
+    {
+      "id": "check.artifact-classification",
+      "mode": "check",
+      "claim": "The documented repository fixture exposes deterministic evidence, attestation, gap, and refusal fields to the checker.",
+      "evidence_level": "artifact-proven",
+      "boundary": "The artifact proves the saved fixture shape only and does not establish behavior on an uninspected repository.",
+      "evidence": [
+        {
+          "kind": "artifact",
+          "path": "tests/fixtures/documented_repo"
+        }
+      ]
+    },
+    {
+      "id": "check.command-adjudication",
+      "mode": "check",
+      "claim": "Command drift findings retain low standing where the recorded adjudication found poor precision.",
+      "evidence_level": "adjudicated",
+      "corpus": "The 51-repository command-reference adjudication recorded in tests/test_drift.py.",
+      "boundary": "The adjudication covers command-reference findings only and does not label every checker pass.",
+      "limitations": "The raw external repositories are not redistributed, so the shipped evidence preserves the decision, cases, and aggregate rather than the source corpus.",
+      "evidence": [
+        {
+          "kind": "adjudication",
+          "path": "tests/test_drift.py"
+        }
+      ]
+    },
+    {
+      "id": "runtime.external-tool-boundary",
+      "mode": "runtime",
+      "claim": "Host and external-tool dependencies are labeled separately from repository-local proof.",
+      "evidence_level": "external-tool-dependent",
+      "boundary": "A declared dependency is not evidence that the external tool ran or that a host integration succeeded.",
+      "evidence": [
+        {
+          "kind": "external-dependency",
+          "path": "proof/runtime/README.md"
+        }
+      ]
+    },
+    {
+      "id": "runtime.host-capture-procedure",
+      "mode": "runtime",
+      "claim": "The source-checkout runtime proof bundle gives a bounded procedure for recording host evidence.",
+      "evidence_level": "host-capture-ready",
+      "boundary": "The procedure is available in the source checkout only; installed-registry validation skips checkout-only evidence and does not claim a host run.",
+      "evidence": [
+        {
+          "kind": "capture-procedure",
+          "path": "proof/runtime/README.md"
+        }
+      ]
+    },
+    {
+      "id": "runtime.proof-command",
+      "mode": "runtime",
+      "claim": "A standard-library command validates the product claim registry without writing project files.",
+      "evidence_level": "shipped",
+      "boundary": "Shipped means the implementation is present in this tree; replay and host execution are separate evidence levels.",
+      "evidence": [
+        {
+          "kind": "implementation",
+          "path": "skill/scripts/docdna_proof.py"
+        }
+      ]
+    },
+    {
+      "id": "runtime.proof-command-tests",
+      "mode": "runtime",
+      "claim": "Registry validation, closed evidence levels, path checks, stable output, and replay outcomes are covered by unit tests.",
+      "evidence_level": "unit-tested",
+      "boundary": "Unit tests run in the repository process and do not substitute for an isolated installation test.",
+      "evidence": [
+        {
+          "kind": "unit-test",
+          "path": "tests/test_proofs.py"
+        }
+      ]
+    },
+    {
+      "id": "survey.fixture-measurement",
+      "mode": "survey",
+      "claim": "The internal service fixture contains three inventory documents and produces two drift observations.",
+      "evidence_level": "measured",
+      "corpus": "tests/fixtures/internal_service at the committed fixture state.",
+      "boundary": "The measurement covers one synthetic service fixture with the default shallow survey only.",
+      "limitations": "Repository history and host filesystem behavior outside the fixture are not measured by this claim.",
+      "evidence": [
+        {
+          "kind": "measurement",
+          "path": "tests/fixtures/internal_service"
+        }
+      ]
+    },
+    {
+      "id": "survey.golden-replay",
+      "mode": "survey",
+      "claim": "The internal service survey replays its saved inventory and drift outcome.",
+      "evidence_level": "replay-tested",
+      "boundary": "The replay checks stable selected fields and does not compare volatile timestamps, commit ids, or absolute paths.",
+      "evidence": [
+        {
+          "kind": "replay",
+          "path": "proof/replay/golden-workflows.json"
+        }
+      ],
+      "replay_id": "golden.survey"
+    }
+  ]
+}

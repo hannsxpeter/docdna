@@ -1,5 +1,7 @@
 # Catalog schema
 
+<!-- Implements: P-MUST-02 -->
+
 Normative. This is the one schema document. Prose references in `references/` describe intent; where
 they disagree with this file, this file wins. `docdna_select.py` enforces every invariant in section 9
 as a hard error, not a warning.
@@ -13,10 +15,13 @@ as a hard error, not a warning.
 | `rules.json` | The verdict rules, each a predicate plus an effect | `docdna_select.py` |
 | `archetypes.json` | Primaries with scoring weights, overlays with triggers, the unknown floor | `docdna_select.py` |
 | `interview.json` | The eight questions, their defaults, their counterfactual text | `docdna_select.py` |
+| `proofs.json` | Product claims, evidence levels, promotion requirements, and evidence paths | `docdna_proof.py` |
 
-All five are JSON, never YAML. stdlib has no `yaml` module and a hand-rolled parser breaks on the first
-user who writes a comment or an anchor. Every file is a single top-level object with `schema` and a
-payload array, so a version bump is detectable without parsing the payload.
+All six are JSON, never YAML. stdlib has no `yaml` module and a hand-rolled parser breaks on the first
+user who writes a comment or an anchor. Every file is a single top-level object with `schema` and its
+named payload fields, so a version bump is detectable before parsing those payloads. `signals.json`,
+`documents.json`, `rules.json`, and `interview.json` each have one payload array. `archetypes.json` has
+`primaries` and `overlays`; `proofs.json` has the evidence-level list, promotion mapping, and claims.
 
 ```json
 {"schema": 1, "signals": [ ... ]}
@@ -335,3 +340,73 @@ I will review it later".
   always the full count.
 - `manifest.excluded[]` lives in JSON only. `DOCDNA.md` prints a count plus the exclusions whose
   `revisit_when` is within one signal of firing.
+
+## 11. `proofs.json`
+
+The proof registry is schema 1 with three top-level fields after `schema`:
+
+| Field | Contract |
+| --- | --- |
+| `evidence_levels` | The closed, ordered vocabulary below. Missing, added, or reordered values are invalid. |
+| `promotion_requirements` | One entry for every evidence level, each matching the normative code mapping exactly. |
+| `claims` | Product claims sorted by stable id. Every core mode has at least one claim. |
+
+Every claim has `id`, `mode`, `claim`, `evidence_level`, `boundary`, and a non-empty `evidence` list.
+Evidence records contain a `kind` and a project-root relative `path`. The path must stay inside the
+project and exist. The evidence kinds required by the claim's level must occur in the claim itself. A
+file with the right name but the wrong kind cannot promote a claim.
+
+Schema 1 is closed at every object layer. The registry accepts only `schema`, `evidence_levels`,
+`promotion_requirements`, and `claims`. A promotion object accepts only `requires_evidence`. A claim may
+also carry only `corpus`, `limitations`, and `replay_id` beyond its required fields. An evidence record
+accepts only `kind` and `path`. Claim and workflow ids must match their id grammar across the entire
+string, including the final character.
+
+The level-to-kind pairs in `docdna_proof.py` are normative. The registry repeats them so a consumer can
+inspect the contract without importing Python, but it cannot redefine them. A changed kind, extra kind,
+non-list `requires_evidence`, missing level, or additional promotion field makes the registry invalid.
+
+| Evidence level | Required evidence kind | Meaning |
+| --- | --- | --- |
+| `shipped` | `implementation` | The implementation is present in the tree. |
+| `unit-tested` | `unit-test` | A focused automated test names the behavior. |
+| `install-tested` | `install-test` | An isolated installation test exercises the behavior. |
+| `artifact-proven` | `artifact` | A committed artifact exposes the claimed state. |
+| `replay-tested` | `replay` | A golden workflow reproduces selected saved outcomes. |
+| `measured` | `measurement` | A named corpus produced the recorded measurement. |
+| `adjudicated` | `adjudication` | A named corpus received a recorded human judgment. |
+| `host-capture-ready` | `capture-procedure` | A bounded host capture procedure exists, but no run is claimed. |
+| `host-captured` | `host-capture` | An inspectable host capture exists. |
+| `external-tool-dependent` | `external-dependency` | The claim depends on a named boundary outside local proof. |
+
+`measured` and `adjudicated` claims also require `corpus` and `limitations`. Their required `boundary`
+states what was not measured or judged. `replay-tested` claims require a `replay_id` that exists in
+`proof/replay/golden-workflows.json`.
+
+The proof command validates the registry and golden workflow schema before it executes a replay. Survey,
+Backfill, and Check replays may call only their declared DocDNA command and exact flag schema. Every
+repository operand is normalized, resolved inside the project, and required to exist. Backfill's
+`--verify` value is resolved inside its repository operand. Check must pass `--no-write` and
+`--fail-on never`. Backfill must use `--verify` and may not pass an undeclared flag. Runtime replay is an
+internal registry presence check. A malformed registry, duplicate id, missing path, missing promotion
+evidence, invalid replay declaration, or path escape exits 2 without a traceback. A valid registry with a
+changed replay outcome exits 1.
+
+The replay document accepts only `schema` and `workflows`. Each workflow accepts its common identity,
+mode, exit, and assertion fields plus exactly one of `command` or `builtin` as its mode requires. An
+assertion accepts only `path` and one of `equals` or `length`. Any undeclared field requires a schema
+change and is rejected under schema 1.
+
+Control JSON is read through a bounded regular-file reader. It rejects symbolic links, FIFOs, devices,
+files over 1 MiB, identity changes between path inspection and open, and size or modification changes
+during the read. Replay children run in their own process group with bounded stdout and stderr. A timeout
+or output overflow terminates the entire group and produces a stable failed replay instead of a traceback.
+
+In a source checkout the command validates every evidence path and runs all golden workflows. The
+installer ships `skill/catalog/proofs.json` and `skill/scripts/docdna_proof.py`, but not the checkout's
+tests or top-level `proof/` directory. From that installed layout the command therefore runs in explicit
+`installed-registry` mode: it validates the closed registry schema and normative promotion mapping, skips
+checkout-only path existence and replay checks, and prints that boundary in text and JSON.
+
+`proof/replay/expected-proof-output.json` and `expected-proof-output.txt` pin the entire stable claim
+matrix and replay result. CI compares both artifacts under Python 3.8 and the latest matrix interpreter.
