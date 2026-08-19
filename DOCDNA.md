@@ -1,4 +1,4 @@
-docdna  solo-utility  ·  overlays: agent-skill-package  ·  43339 lines Python/Shell  ·  2 authors  ·  MIT  ·  6 tags  ·  CI only
+docdna  solo-utility  ·  overlays: agent-skill-package  ·  43339 lines Python/Shell  ·  2 authors  ·  MIT  ·  7 tags  ·  CI only
 
 Documentation  5 of 14        Leads  1 possible stale reference
 
