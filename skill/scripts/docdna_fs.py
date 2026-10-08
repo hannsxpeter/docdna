@@ -9,11 +9,14 @@ import re
 import secrets
 import stat
 import subprocess
+import sys
+import tempfile
 from datetime import datetime, timezone
 
 _LISTDIR = os.listdir
 _LISTDIR_SUPPORTED = _LISTDIR in os.supports_fd
 MAX_CONTROL_BYTES = 5 * 1024 * 1024
+SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
 MANIFEST_STAGES = ("frame", "decide", "design", "build", "verify", "assure", "operate",
                    "serve", "govern", "retire")
 DENY_READ = (".env",)
@@ -215,6 +218,42 @@ def run_in_root(root, command, timeout=None, stdout=subprocess.PIPE,
             return None
         raise ValueError("repository root changed while %s ran" % label)
     return process
+
+
+def git_output(root, args, timeout=60):
+    """Return git's decoded stdout for args run inside the bound root, or None on any failure."""
+    process = run_in_root(root, ["git"] + list(args), timeout)
+    if process is None or process.returncode != 0:
+        return None
+    return process.stdout.decode("utf-8", "replace")
+
+
+def run_scan(root, exclude_dirs=None):
+    """Run docdna_scan.py --json inside the bound root and return its size-bounded, parsed output."""
+    # One argv item per directory, so a name that starts with a dash is a value, not an option.
+    command = [sys.executable, os.path.join(SCRIPTS_DIR, "docdna_scan.py"), "--json", "."]
+    command.extend("--exclude-dir=" + directory for directory in exclude_dirs or [])
+    with tempfile.TemporaryFile() as output:
+        process = run_in_root(root, command, stdout=output, stderr=subprocess.PIPE,
+                              label="docdna_scan.py")
+        output.seek(0)
+        raw = output.read(MAX_CONTROL_BYTES + 1)
+    if process.returncode != 0:
+        raise ValueError("docdna_scan.py failed: %s"
+                         % process.stderr.decode("utf-8", "replace").strip())
+    if len(raw) > MAX_CONTROL_BYTES:
+        raise ValueError("docdna_scan.py output exceeds the %d byte limit" % MAX_CONTROL_BYTES)
+    return parse_json(raw.decode("utf-8", "replace"), "docdna_scan.py output")
+
+
+def run_select(root):
+    """Run docdna_select.py --unattended inside the bound root so a manifest exists."""
+    command = [sys.executable, os.path.join(SCRIPTS_DIR, "docdna_select.py"), "--unattended", "."]
+    process = run_in_root(root, command, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+                          label="docdna_select.py")
+    if process.returncode != 0:
+        raise ValueError("docdna_select.py failed: %s"
+                         % process.stderr.decode("utf-8", "replace").strip())
 
 
 def require_root_identity(root, claimed, source="input"):

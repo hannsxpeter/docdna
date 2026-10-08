@@ -24,7 +24,7 @@ from docdna_fs import (MANIFEST_STAGES, FileTooLarge, bind_root as safe_bind_roo
                        listdir as safe_listdir, now_utc, read_text as safe_read_text,
                        path_stat as safe_path_stat,
                        root_identity as safe_root_identity,
-                       run_in_root as safe_run_in_root,
+                       git_output as safe_git_output, run_in_root as safe_run_in_root,
                        walk_paths as safe_walk_paths)
 
 SIGNALS_PATH = os.path.normpath(os.path.join(HERE, "..", "catalog", "signals.json"))
@@ -409,10 +409,7 @@ def evidence_record(rel, line=None, symbol=None, text=None):
 
 
 def run_git(root, args, timeout=60):
-    proc = safe_run_in_root(root, ["git"] + args, timeout)
-    if proc is None or proc.returncode != 0:
-        return None
-    return proc.stdout.decode("utf-8", "replace")
+    return safe_git_output(root, args, timeout)
 
 
 def git_ignores(root, rel):

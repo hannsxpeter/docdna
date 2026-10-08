@@ -5,9 +5,7 @@ import argparse
 import json
 import os
 import re
-import subprocess
 import sys
-import tempfile
 from collections import Counter
 from datetime import datetime, timezone
 
@@ -17,14 +15,14 @@ VERSION = "1.4.0"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CATALOG_DIR = os.path.normpath(os.path.join(HERE, "..", "catalog"))
-SCAN_SCRIPT = os.path.join(HERE, "docdna_scan.py")
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
+from docdna_fs import run_scan
 from docdna_fs import (FileTooLarge, MAX_CONTROL_BYTES, bind_root as safe_bind_root,
                        control_file_exists as safe_control_file_exists,
                        is_dir as safe_is_dir, is_file as safe_is_file,
-                       listdir as safe_listdir, open_root as safe_open_root,
+                       listdir as safe_listdir,
                        path_exists as safe_path_exists,
                        parse_json as safe_parse_json,
                        read_bounded_path as safe_read_bounded_path, read_text as safe_read_text,
@@ -32,7 +30,7 @@ from docdna_fs import (FileTooLarge, MAX_CONTROL_BYTES, bind_root as safe_bind_r
                        require_manifest as safe_require_manifest,
                        require_root_identity as safe_require_root_identity,
                        require_scan as safe_require_scan,
-                       root_is_current as safe_root_is_current,
+                       git_output as safe_git_output, now_utc,
                        walk_paths as safe_walk_paths,
                        write_text as safe_write_text)
 from docdna_claims import (BIND_LINES, GAP_QUOTE, GAP_REACH, MAX_SPANS, PROVENANCE_REGIONS,
@@ -250,10 +248,6 @@ UNVERIFIABLE_NOTE = ("covers is empty, which is the honest state for frame and g
                      "and is never a failure")
 
 
-def now_utc():
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
 def today():
     return datetime.now(timezone.utc).date()
 
@@ -293,24 +287,7 @@ def read_text(root, path):
 
 
 def run_git(root, args):
-    if not safe_root_is_current(root):
-        return None
-    descriptor = safe_open_root(root)
-
-    def enter_bound_root():
-        os.fchdir(descriptor)
-
-    try:
-        process = subprocess.run(["git"] + args, stdout=subprocess.PIPE,
-                                 stderr=subprocess.PIPE, timeout=60,
-                                 preexec_fn=enter_bound_root, pass_fds=(descriptor,))
-    except (OSError, subprocess.SubprocessError):
-        return None
-    finally:
-        os.close(descriptor)
-    if process.returncode != 0 or not safe_root_is_current(root):
-        return None
-    return process.stdout.decode("utf-8", "replace")
+    return safe_git_output(root, args)
 
 
 def commit_name(value):
@@ -629,37 +606,6 @@ def config_excludes(repo):
     raw = safe_parse_json(text, CONFIG_REL)
     safe_require_config(raw, CONFIG_REL)
     return [item for item in as_list(raw.get("exclude_dirs")) if isinstance(item, str)]
-
-
-def run_scan(repo, exclude_dirs=None):
-    if not safe_root_is_current(repo):
-        raise ValueError("repository root changed before docdna_scan.py ran")
-    descriptor = safe_open_root(repo)
-
-    def enter_bound_root():
-        os.fchdir(descriptor)
-
-    command = [sys.executable, SCAN_SCRIPT, "--json", "."]
-    for directory in exclude_dirs or []:
-        # One argv item, so a directory whose name starts with a dash is a value and never an option
-        # docdna_scan.py's parser rejects.
-        command.append("--exclude-dir=" + directory)
-    try:
-        with tempfile.TemporaryFile() as output:
-            process = subprocess.run(command, stdout=output, stderr=subprocess.PIPE,
-                                     preexec_fn=enter_bound_root, pass_fds=(descriptor,))
-            output.seek(0)
-            raw = output.read(MAX_CONTROL_BYTES + 1)
-    finally:
-        os.close(descriptor)
-    if not safe_root_is_current(repo):
-        raise ValueError("repository root changed while docdna_scan.py ran")
-    if process.returncode != 0:
-        raise ValueError("docdna_scan.py failed: %s"
-                         % process.stderr.decode("utf-8", "replace").strip())
-    if len(raw) > MAX_CONTROL_BYTES:
-        raise ValueError("docdna_scan.py output exceeds the %d byte limit" % MAX_CONTROL_BYTES)
-    return safe_parse_json(raw.decode("utf-8", "replace"), "docdna_scan.py output")
 
 
 def adopted_frontmatter(data):

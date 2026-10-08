@@ -5,7 +5,6 @@ import argparse
 import json
 import os
 import re
-import subprocess
 import sys
 import textwrap
 from urllib.parse import quote
@@ -17,6 +16,7 @@ VERSION = "1.4.0"
 HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
+from docdna_fs import run_select
 from docdna_fs import (MANIFEST_STAGES, MAX_CONTROL_BYTES, bind_root as safe_bind_root,
                        denied_read, is_dir as safe_is_dir,
                        is_file as safe_is_file,
@@ -27,7 +27,6 @@ from docdna_fs import (MANIFEST_STAGES, MAX_CONTROL_BYTES, bind_root as safe_bin
                        run_in_root as safe_run_in_root, today, write_repository_text)
 from docdna_unicode import clean_generated_text
 
-SELECT_SCRIPT = os.path.join(HERE, "docdna_select.py")
 DOCUMENTS_PATH = os.path.normpath(os.path.join(HERE, "..", "catalog", "documents.json"))
 
 MANIFEST_REL = os.path.join(".docdna", "manifest.json")
@@ -115,15 +114,6 @@ def readable_repository_path(root, candidate, paths):
 def read_repository_text(root, rel, max_bytes=None):
     output_path(root, rel)
     return safe_read_text(root, rel, max_bytes=max_bytes)
-
-
-def run_select(repo):
-    command = [sys.executable, SELECT_SCRIPT, "--unattended", "."]
-    process = safe_run_in_root(repo, command, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
-                               label="docdna_select.py")
-    if process.returncode != 0:
-        raise ValueError("docdna_select.py failed: %s"
-                         % process.stderr.decode("utf-8", "replace").strip())
 
 
 def read_manifest(root):

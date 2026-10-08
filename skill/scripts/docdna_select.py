@@ -6,9 +6,7 @@ import json
 import os
 import re
 import stat
-import subprocess
 import sys
-import tempfile
 import textwrap
 
 SCHEMA = 1
@@ -18,6 +16,7 @@ VERSION = "1.4.0"
 HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
+from docdna_fs import run_scan
 from docdna_fs import (FileTooLarge, MANIFEST_STAGES, MAX_CONTROL_BYTES,
                        bind_root as safe_bind_root, file_size as safe_file_size,
                        control_file_exists as safe_control_file_exists,
@@ -32,12 +31,11 @@ from docdna_fs import (FileTooLarge, MANIFEST_STAGES, MAX_CONTROL_BYTES,
                        require_manifest as safe_require_manifest,
                        require_root_identity as safe_require_root_identity,
                        require_scan as safe_require_scan,
-                       run_in_root as safe_run_in_root, today, write_repository_text)
+                       today, write_repository_text)
 from docdna_unicode import clean_generated_text
 
 CATALOG_DIR = os.path.normpath(os.path.join(HERE, "..", "catalog"))
 TEMPLATE_DIR = os.path.normpath(os.path.join(HERE, "..", "templates"))
-SCAN_SCRIPT = os.path.join(HERE, "docdna_scan.py")
 
 MANIFEST_REL = os.path.join(".docdna", "manifest.json")
 CONFIG_REL = os.path.join(".docdna", "config.json")
@@ -58,7 +56,6 @@ SENSITIVITIES = ("public", "internal", "restricted")
 CADENCE_WORDS = ("none", "on-release", "on-change")
 CADENCE_ISO = re.compile(r"^P(?=\w)(\d+Y)?(\d+M)?(\d+W)?(\d+D)?(T(?=\d)(\d+H)?(\d+M)?(\d+S)?)?$")
 SIGNAL_STATES = ("present", "absent", "unknown", "hint")
-DOC_STATES = ("absent", "present-fresh", "present-drifted", "present-stub", "present-elsewhere")
 
 HINT_MAX_STATE = "hint"
 HINT_PROBE_PIN = ("hint", "absent")
@@ -1525,23 +1522,6 @@ def parse_answers(catalog, pairs):
             raise ValueError("--answer %s has no value" % key)
         answers[key] = chosen if question["multi_select"] else chosen[0]
     return answers
-
-
-def run_scan(repo, exclude_dirs=None):
-    # One argv item per directory, so a name that starts with a dash is a value, not an option.
-    command = [sys.executable, SCAN_SCRIPT, "--json", "."]
-    command.extend("--exclude-dir=" + directory for directory in exclude_dirs or [])
-    with tempfile.TemporaryFile() as output:
-        process = safe_run_in_root(repo, command, stdout=output, stderr=subprocess.PIPE,
-                                   label="docdna_scan.py")
-        output.seek(0)
-        raw = output.read(MAX_CONTROL_BYTES + 1)
-    if process.returncode != 0:
-        raise ValueError("docdna_scan.py failed: %s"
-                         % process.stderr.decode("utf-8", "replace").strip())
-    if len(raw) > MAX_CONTROL_BYTES:
-        raise ValueError("docdna_scan.py output exceeds the %d byte limit" % MAX_CONTROL_BYTES)
-    return safe_parse_json(raw.decode("utf-8", "replace"), "docdna_scan.py output")
 
 
 def write_outputs(root, manifest, report):

@@ -9,7 +9,6 @@ import re
 import shlex
 import subprocess
 import sys
-import tempfile
 from datetime import datetime, timezone
 
 SCHEMA = 1
@@ -20,12 +19,11 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SKILL_ROOT = os.path.normpath(os.path.join(HERE, ".."))
 CATALOG_DIR = os.path.join(SKILL_ROOT, "catalog")
 TEMPLATE_DIR = os.path.join(SKILL_ROOT, "templates")
-SELECT_SCRIPT = os.path.join(HERE, "docdna_select.py")
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
 from docdna_fs import (FileTooLarge, MAX_CONTROL_BYTES, bind_root as safe_bind_root,
-                       is_file as safe_is_file, open_root as safe_open_root,
+                       is_file as safe_is_file,
                        parse_json as safe_parse_json,
                        path_exists as safe_path_exists,
                        read_text as safe_read_text,
@@ -34,9 +32,10 @@ from docdna_fs import (FileTooLarge, MAX_CONTROL_BYTES, bind_root as safe_bind_r
                        require_manifest as safe_require_manifest,
                        require_root_identity as safe_require_root_identity,
                        require_scan as safe_require_scan,
-                       root_is_current as safe_root_is_current,
                        unlink_file as safe_unlink_file,
                        walk_paths as safe_walk_paths, write_text as safe_write_text)
+from docdna_fs import (git_output as safe_git_output, glob_match, load_json, now_utc,
+                       run_in_root as safe_run_in_root, run_scan, run_select, today)
 from docdna_claims import (BIND_LINES, CODE_ANCHOR, CODE_SYMBOL, DIGEST_VALUE, GAP_QUOTE,
                            HUMAN_CITE, MAX_SPANS, PROVENANCE_REGIONS, REF_CITE, RUN_CITE, SHA_VALUE,
                            TIGHT_STAGES, anchor_spans, as_list, banner_span, claim_blocks, contained,
@@ -316,83 +315,15 @@ JOBS_KEY = re.compile(r"^([A-Za-z_][A-Za-z0-9_-]*):")
 INDENT_KEY = re.compile(r"^  ([A-Za-z_][A-Za-z0-9_-]*):")
 CHECKLIST_ITEM = re.compile(r"^\s*[-*]\s*\[[ xX]?\]\s+(.+?)\s*$")
 
-GLOB_CACHE = {}
-
-
-def now_utc():
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
-def today():
-    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
-
-
-def load_json(path):
-    with open(path, encoding="utf-8") as handle:
-        return json.load(handle)
-
-
 def load_documents():
     payload = load_json(os.path.join(CATALOG_DIR, "documents.json"))
     return dict((doc["id"], doc) for doc in payload["documents"])
 
 
-def glob_re(pattern):
-    cached = GLOB_CACHE.get(pattern)
-    if cached is not None:
-        return cached
-    parts = []
-    index = 0
-    while index < len(pattern):
-        char = pattern[index]
-        if char == "*":
-            if pattern[index:index + 3] == "**/":
-                parts.append("(?:.*/)?")
-                index += 3
-                continue
-            if pattern[index:index + 2] == "**":
-                parts.append(".*")
-                index += 2
-                continue
-            parts.append("[^/]*")
-        elif char == "?":
-            parts.append("[^/]")
-        else:
-            parts.append(re.escape(char))
-        index += 1
-    compiled = re.compile("^" + "".join(parts) + "$")
-    GLOB_CACHE[pattern] = compiled
-    return compiled
-
-
-def glob_match(path, patterns):
-    for pattern in patterns or []:
-        if glob_re(pattern).match(path):
-            return True
-    return False
-
-
 def run_git(root, args):
     # Bounded like every other git call docdna makes. --branch runs checkout and commit through
     # here, so a hook or a lock that never returns would otherwise hang the run with no message.
-    if not safe_root_is_current(root):
-        return None
-    descriptor = safe_open_root(root)
-
-    def enter_bound_root():
-        os.fchdir(descriptor)
-
-    try:
-        process = subprocess.run(["git"] + args, stdout=subprocess.PIPE,
-                                 stderr=subprocess.PIPE, timeout=GIT_TIMEOUT,
-                                 preexec_fn=enter_bound_root, pass_fds=(descriptor,))
-    except (OSError, subprocess.SubprocessError):
-        return None
-    finally:
-        os.close(descriptor)
-    if process.returncode != 0 or not safe_root_is_current(root):
-        return None
-    return process.stdout.decode("utf-8", "replace")
+    return safe_git_output(root, args, GIT_TIMEOUT)
 
 
 def prune_dir(name, parent=""):
@@ -1270,54 +1201,6 @@ def write_manifest(root, manifest):
                     json.dumps(manifest, indent=2, sort_keys=True) + "\n")
 
 
-def run_select(repo):
-    if not safe_root_is_current(repo):
-        raise ValueError("repository root changed before docdna_select.py ran")
-    descriptor = safe_open_root(repo)
-
-    def enter_bound_root():
-        os.fchdir(descriptor)
-
-    command = [sys.executable, SELECT_SCRIPT, "--unattended", "."]
-    try:
-        process = subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
-                                 preexec_fn=enter_bound_root, pass_fds=(descriptor,))
-    finally:
-        os.close(descriptor)
-    if not safe_root_is_current(repo):
-        raise ValueError("repository root changed while docdna_select.py ran")
-    if process.returncode != 0:
-        raise ValueError("docdna_select.py failed: %s"
-                         % process.stderr.decode("utf-8", "replace").strip())
-
-
-def run_scan(root):
-    if not safe_root_is_current(root):
-        raise ValueError("repository root changed before docdna_scan.py ran")
-    descriptor = safe_open_root(root)
-
-    def enter_bound_root():
-        os.fchdir(descriptor)
-
-    command = [sys.executable, os.path.join(HERE, "docdna_scan.py"), "--json", "."]
-    try:
-        with tempfile.TemporaryFile() as output:
-            process = subprocess.run(command, stdout=output, stderr=subprocess.PIPE,
-                                     preexec_fn=enter_bound_root, pass_fds=(descriptor,))
-            output.seek(0)
-            raw = output.read(MAX_CONTROL_BYTES + 1)
-    finally:
-        os.close(descriptor)
-    if not safe_root_is_current(root):
-        raise ValueError("repository root changed while docdna_scan.py ran")
-    if process.returncode != 0:
-        raise ValueError("docdna_scan.py failed: %s"
-                         % process.stderr.decode("utf-8", "replace").strip())
-    if len(raw) > MAX_CONTROL_BYTES:
-        raise ValueError("docdna_scan.py output exceeds the %d byte limit" % MAX_CONTROL_BYTES)
-    return safe_parse_json(raw.decode("utf-8", "replace"), "docdna_scan.py output")
-
-
 def set_status(root, doc_id, status, extra=None):
     manifest = read_manifest(root)
     if manifest is None:
@@ -1362,25 +1245,10 @@ def make_branch(root):
 
 
 def path_ignored(root, rel):
-    if not safe_root_is_current(root):
-        return True
-    descriptor = safe_open_root(root)
-
-    def enter_bound_root():
-        os.fchdir(descriptor)
-
-    try:
-        process = subprocess.run(["git", "check-ignore", "-q", "--", rel],
-                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                 timeout=GIT_TIMEOUT, preexec_fn=enter_bound_root,
-                                 pass_fds=(descriptor,))
-    except (OSError, subprocess.SubprocessError):
-        return True
-    finally:
-        os.close(descriptor)
-    if not safe_root_is_current(root):
-        return True
-    return process.returncode == 0
+    # A git that cannot answer, or a root swapped meanwhile, reads as ignored: never commit blind.
+    process = safe_run_in_root(root, ["git", "check-ignore", "-q", "--", rel], GIT_TIMEOUT,
+                               stdout=subprocess.DEVNULL)
+    return process is None or process.returncode == 0
 
 
 def commit_document(root, doc_id, title, path):
