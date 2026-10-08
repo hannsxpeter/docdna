@@ -14,18 +14,17 @@ from datetime import datetime, timedelta, timezone
 
 SCHEMA = 1
 TOOL = "docdna_scan"
-# Implements: P-MUST-05
 VERSION = "1.4.0"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
-from docdna_fs import (FileTooLarge, bind_root as safe_bind_root,
-                       file_size as safe_file_size, listdir as safe_listdir,
-                       open_root as safe_open_root, read_text as safe_read_text,
+from docdna_fs import (MANIFEST_STAGES, FileTooLarge, bind_root as safe_bind_root,
+                       denied_read, file_size as safe_file_size, glob_match,
+                       listdir as safe_listdir, now_utc, read_text as safe_read_text,
                        path_stat as safe_path_stat,
                        root_identity as safe_root_identity,
-                       root_is_current as safe_root_is_current,
+                       run_in_root as safe_run_in_root,
                        walk_paths as safe_walk_paths)
 
 SIGNALS_PATH = os.path.normpath(os.path.join(HERE, "..", "catalog", "signals.json"))
@@ -37,10 +36,7 @@ IGNORE = {".git", "node_modules", "dist", "build", "out", "target", "vendor", ".
           ".svelte-kit", "venv", ".venv", "__pycache__", "coverage", ".terraform",
           ".mypy_cache", ".pytest_cache", ".gradle", "Pods"}
 DOC_ROOTS = {"docs", "doc", "documentation"}
-STAGE_DIRS = {"frame", "decide", "design", "build", "verify", "assure", "operate", "serve",
-              "govern", "retire"}
-DENY_READ = (".env",)
-DENY_READ_ALLOW = (".example", ".sample", ".template")
+STAGE_DIRS = set(MANIFEST_STAGES)
 
 # Files docdna writes itself. They stay in the inventory, because DOCDNA.md is govern.manifest and
 # llms.txt is build.llms-txt, but they are never read for drift: the report quotes the broken
@@ -292,12 +288,7 @@ PATTERN_COUNT = "lines matched by the iface.http route pattern"
 DRIFT_FILTER_NOTE = ("path findings are a filtered view: the recall gates below drop candidates "
                      "before anything is reported")
 
-GLOB_CACHE = {}
 PATTERN_CACHE = {}
-
-
-def now_utc():
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def parse_iso(value):
@@ -330,41 +321,6 @@ def days_since(value):
     return max(0, int(delta.total_seconds() // 86400))
 
 
-def glob_re(pattern):
-    cached = GLOB_CACHE.get(pattern)
-    if cached is not None:
-        return cached
-    parts = []
-    index = 0
-    while index < len(pattern):
-        char = pattern[index]
-        if char == "*":
-            if pattern[index:index + 3] == "**/":
-                parts.append("(?:.*/)?")
-                index += 3
-                continue
-            if pattern[index:index + 2] == "**":
-                parts.append(".*")
-                index += 2
-                continue
-            parts.append("[^/]*")
-        elif char == "?":
-            parts.append("[^/]")
-        else:
-            parts.append(re.escape(char))
-        index += 1
-    compiled = re.compile("^" + "".join(parts) + "$")
-    GLOB_CACHE[pattern] = compiled
-    return compiled
-
-
-def glob_match(path, patterns):
-    for pattern in patterns or []:
-        if glob_re(pattern).match(path):
-            return True
-    return False
-
-
 def compile_pattern(pattern, loose=False):
     key = (pattern, loose)
     if key in PATTERN_CACHE:
@@ -376,13 +332,6 @@ def compile_pattern(pattern, loose=False):
         compiled = None
     PATTERN_CACHE[key] = compiled
     return compiled
-
-
-def denied_read(rel):
-    name = os.path.basename(rel)
-    if not name.startswith(DENY_READ):
-        return False
-    return not name.endswith(DENY_READ_ALLOW)
 
 
 def resolves_inside(root, path):
@@ -460,43 +409,16 @@ def evidence_record(rel, line=None, symbol=None, text=None):
 
 
 def run_git(root, args, timeout=60):
-    if not safe_root_is_current(root):
-        return None
-    descriptor = safe_open_root(root)
-
-    def enter_bound_root():
-        os.fchdir(descriptor)
-
-    try:
-        proc = subprocess.run(["git"] + args, stdout=subprocess.PIPE,
-                              stderr=subprocess.DEVNULL, timeout=timeout,
-                              preexec_fn=enter_bound_root, pass_fds=(descriptor,))
-    except (OSError, subprocess.SubprocessError):
-        return None
-    finally:
-        os.close(descriptor)
-    if proc.returncode != 0 or not safe_root_is_current(root):
+    proc = safe_run_in_root(root, ["git"] + args, timeout)
+    if proc is None or proc.returncode != 0:
         return None
     return proc.stdout.decode("utf-8", "replace")
 
 
 def git_ignores(root, rel):
-    if not safe_root_is_current(root):
-        return None
-    descriptor = safe_open_root(root)
-
-    def enter_bound_root():
-        os.fchdir(descriptor)
-
-    try:
-        proc = subprocess.run(["git", "check-ignore", "-q", "--", rel],
-                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=20,
-                              preexec_fn=enter_bound_root, pass_fds=(descriptor,))
-    except (OSError, subprocess.SubprocessError):
-        return None
-    finally:
-        os.close(descriptor)
-    if not safe_root_is_current(root):
+    proc = safe_run_in_root(root, ["git", "check-ignore", "-q", "--", rel], 20,
+                            stdout=subprocess.DEVNULL)
+    if proc is None:
         return None
     if proc.returncode == 0:
         return True
@@ -577,17 +499,32 @@ def collect_git(root):
     if last and last.strip():
         facts["last_commit"] = iso_z(last.strip())
         facts["last_commit_days"] = days_since(last.strip())
-    cutoff = (datetime.now(timezone.utc) - timedelta(days=WINDOW_DAYS)).strftime("%Y-%m-%d")
-    count = run_git(root, ["rev-list", "--no-merges", "--count", "--since=" + cutoff, "HEAD"])
-    if count and count.strip().isdigit():
-        facts["commits_window"] = int(count.strip())
-    emails = run_git(root, ["log", "--no-merges", "--since=" + cutoff, "--format=%aE"])
-    if emails is not None:
-        facts["authors_window"] = len(set(line.strip().lower() for line in emails.splitlines()
-                                          if line.strip()))
+    facts["commits_window"], facts["authors_window"] = git_window(root, WINDOW_DAYS)
     facts["authors"] = git_shortlog(root)
     collect_git_paths(root, facts)
     return facts
+
+
+def git_window(root, days):
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
+    commits = 0
+    authors = 0
+    count = run_git(root, ["rev-list", "--no-merges", "--count", "--since=" + cutoff, "HEAD"])
+    if count and count.strip().isdigit():
+        commits = int(count.strip())
+    emails = run_git(root, ["log", "--no-merges", "--since=" + cutoff, "--format=%aE"])
+    if emails is not None:
+        authors = len(set(line.strip().lower() for line in emails.splitlines() if line.strip()))
+    return commits, authors
+
+
+def window_counts(ctx, days):
+    if days == WINDOW_DAYS:
+        return ctx["git"]["commits_window"], ctx["git"]["authors_window"]
+    cache = ctx.setdefault("git_windows", {})
+    if days not in cache:
+        cache[days] = git_window(ctx["root"], days)
+    return cache[days]
 
 
 def git_shortlog(root):
@@ -602,8 +539,10 @@ def git_shortlog(root):
 
 
 def collect_git_paths(root, facts):
-    text = run_git(root, ["log", "--no-merges", "-n", str(MAX_LOG_COMMITS), "--name-only",
-                          "--format=%x00%H|%aI|%aN"])
+    # ls-files -z never quotes a path and log quotes any non-ASCII one by default, as an octal
+    # escaped string that matches nothing in the index, so the document loses its history.
+    text = run_git(root, ["-c", "core.quotePath=false", "log", "--no-merges", "-n",
+                          str(MAX_LOG_COMMITS), "--name-only", "--format=%x00%H|%aI|%aN"])
     if text is None:
         return
     chunks = text.split("\x00")
@@ -753,15 +692,63 @@ def flatten_json(value, prefix, flat):
                 flatten_json(child, prefix, flat)
 
 
+# A # or a bracket inside a string is text, so each TOML line is read with its quotes tracked. A
+# basic or literal string cannot span lines, so the quote state starts fresh on every line and only
+# the bracket depth carries over: "uvicorn[standard]>=0.2" does not end an array, "requests>=2,<3"
+# is one item, and a trailing comment is never a dependency.
+def toml_unquoted(text):
+    quote = None
+    escaped = False
+    for index, char in enumerate(text):
+        if quote is None:
+            if char in "\"'":
+                quote = char
+            else:
+                yield index, char
+        elif escaped:
+            escaped = False
+        elif char == "\\" and quote == "\"":
+            escaped = True
+        elif char == quote:
+            quote = None
+
+
+def toml_line(line, depth):
+    for index, char in toml_unquoted(line):
+        if char == "#":
+            return line[:index].strip(), depth
+        if char in "[{":
+            depth += 1
+        elif char in "]}":
+            depth -= 1
+    return line.strip(), depth
+
+
+def toml_items(body):
+    items = []
+    depth = 0
+    start = 0
+    for index, char in toml_unquoted(body):
+        if char in "[{":
+            depth += 1
+        elif char in "]}":
+            depth -= 1
+        elif char == "," and depth == 0:
+            items.append(body[start:index])
+            start = index + 1
+    items.append(body[start:])
+    return [item for item in items if item.strip()]
+
+
 def flatten_toml(text):
     flat = {}
     section = ""
     lines = text.splitlines()
     index = 0
     while index < len(lines):
-        stripped = lines[index].strip()
+        stripped, depth = toml_line(lines[index], 0)
         index += 1
-        if not stripped or stripped.startswith("#"):
+        if not stripped:
             continue
         if stripped.startswith("["):
             section = stripped.strip("[]").strip().strip("\"'")
@@ -772,15 +759,17 @@ def flatten_toml(text):
             continue
         name = match.group(1).strip("\"'")
         value = match.group(2)
-        if value.startswith("[") and "]" not in value:
+        if value.startswith("[") and depth > 0:
             collected = [value]
-            while index < len(lines) and "]" not in collected[-1]:
-                collected.append(lines[index].strip())
+            while index < len(lines) and depth > 0:
+                part, depth = toml_line(lines[index], depth)
                 index += 1
+                if part:
+                    collected.append(part)
             value = " ".join(collected)
         path = section + "." + name if section else name
         if value.startswith("[") and value.endswith("]"):
-            flat[path] = [scalar(part) for part in value[1:-1].split(",") if part.strip()]
+            flat[path] = [scalar(part) for part in toml_items(value[1:-1])]
         else:
             flat[path] = scalar(value)
     return flat
@@ -812,9 +801,7 @@ def json_deps(flat):
     for key in ("dependencies", "devDependencies", "peerDependencies", "optionalDependencies",
                 "require", "require-dev"):
         value = flat.get(key)
-        if isinstance(value, dict):
-            deps.update(dep_name(name) for name in value)
-        elif isinstance(value, list):
+        if isinstance(value, (dict, list)):
             deps.update(dep_name(name) for name in value)
     return deps
 
@@ -823,10 +810,12 @@ def toml_deps(flat):
     deps = set()
     for key, value in flat.items():
         tail = key.rsplit(".", 1)
-        if isinstance(value, list) and key.endswith("dependencies"):
+        # [project.optional-dependencies] maps an extra's name to a list of requirements, so
+        # postgres = ["psycopg2-binary"] declares psycopg2-binary, not a package named postgres.
+        extra = len(tail) == 2 and tail[0].endswith("optional-dependencies")
+        if isinstance(value, list) and (key.endswith("dependencies") or extra):
             deps.update(dep_name(item) for item in value if item)
-        elif len(tail) == 2 and (tail[0].endswith("dependencies") or
-                                 tail[0].endswith("dev-dependencies")):
+        elif len(tail) == 2 and tail[0].endswith("dependencies"):
             deps.add(dep_name(tail[1]))
     return deps
 
@@ -1044,7 +1033,7 @@ def detect_path(ctx, sig, detect, max_evidence):
         detail = {"distinct": names[:MAX_DISTINCT]}
     if sig["id"] == "supply.license":
         spdx = license_spdx(ctx, only_files)
-        detail = {"spdx": spdx} if spdx else {"spdx": None}
+        detail = {"spdx": spdx}
     if hits <= 0:
         return finish(sig, "absent", 0, [], max_evidence, detail)
     evidence = [evidence_record(rel, 1) for rel in ranked[:max_evidence * 2]]
@@ -1078,7 +1067,6 @@ def detect_manifest(ctx, sig, detect, max_evidence):
     hits = 0
     evidence = []
     found = []
-    seen_manifest = False
     for rel in ctx["paths"]:
         if excludes and glob_match(rel, excludes):
             continue
@@ -1087,7 +1075,6 @@ def detect_manifest(ctx, sig, detect, max_evidence):
         text = read_text(ctx, rel)
         if text is None:
             continue
-        seen_manifest = True
         flat = manifest_flat(rel, text)
         if any(manifest_key_set(flat, text, key) for key in not_keys):
             continue
@@ -1101,8 +1088,6 @@ def detect_manifest(ctx, sig, detect, max_evidence):
                 hits += 1
                 found.append(key)
                 evidence.append(line_evidence(rel, text, key.rsplit(".", 1)[-1]))
-    if not seen_manifest:
-        return finish(sig, "absent", 0, [], max_evidence)
     if not hits:
         return finish(sig, "absent", 0, [], max_evidence)
     detail = {"distinct": sorted(set(found))[:MAX_DISTINCT]}
@@ -1180,13 +1165,13 @@ def detect_git(ctx, sig, detect, max_evidence):
     if detect.get("scope") == "per_document":
         return detect_git_documents(ctx, sig, detect, max_evidence)
     metric = detect.get("metric")
-    window = detect.get("window_days")
+    window = detect.get("window_days") or WINDOW_DAYS
     if metric == "distinct_authors":
-        hits = git["authors_window"]
-        summary = "%d distinct authors in %d days" % (hits, window or WINDOW_DAYS)
+        hits = window_counts(ctx, window)[1]
+        summary = "%d distinct authors in %d days" % (hits, window)
     elif metric == "commit_count":
-        hits = git["commits_window"]
-        summary = "%d commits in %d days" % (hits, window or WINDOW_DAYS)
+        hits = window_counts(ctx, window)[0]
+        summary = "%d commits in %d days" % (hits, window)
     elif metric == "tag_count":
         hits = git["tags"]
         summary = "%d tags" % hits
@@ -1548,8 +1533,6 @@ def build_inventory(ctx, generator_globs):
     opaque = []
     counts = Counter()
     for rel in ctx["paths"]:
-        if excluded_path(rel, ctx["excludes"]):
-            continue
         ext = os.path.splitext(rel)[1].lower()
         if ext in OPAQUE_EXT:
             opaque.append({"path": rel, "bytes": file_bytes(ctx, rel), "parsed": False})
@@ -1766,7 +1749,6 @@ def command_surface(ctx):
         elif base == "setup.cfg":
             text = read_text(ctx, rel) or ""
             entry = python_manifest(surface, rel)
-            entry["packaged"] = True
             for match in ENTRY_POINT.finditer(text):
                 entry["entries"].add(match.group(1))
             for match in re.finditer(r"(?m)^\s*name\s*=\s*([A-Za-z0-9_.-]+)\s*$", text):
@@ -2341,7 +2323,8 @@ def openapi_routes(ctx):
                 data = json.loads(text)
             except (ValueError, RecursionError):
                 continue
-            count = len(data.get("paths") or {})
+            paths = data.get("paths") if isinstance(data, dict) else None
+            count = len(paths) if isinstance(paths, (dict, list)) else 0
         else:
             count = len(re.findall(r"^\s{2}/\S*:\s*$", text, re.M))
         if count:
@@ -2368,6 +2351,9 @@ def check_counts(ctx, doc, text, routes, routes_path, source):
 def doc_references(ctx, docs):
     lag = {}
     for doc in docs:
+        doc_stamp = parse_iso(doc["last_commit_date"])
+        if doc_stamp is None:
+            continue
         rel = doc["path"]
         text = ctx["cache"].get(rel) or ""
         base = os.path.dirname(rel)
@@ -2380,9 +2366,6 @@ def doc_references(ctx, docs):
             if resolved and resolved in ctx["pathset"] and resolved != rel:
                 named.append(resolved)
         named = sorted(set(named))
-        doc_stamp = parse_iso(doc["last_commit_date"])
-        if doc_stamp is None:
-            continue
         newest = None
         newest_path = None
         for code in named:
@@ -2479,7 +2462,7 @@ def build_ownership(ctx):
             "top_authors": top, "single_author_paths": single[:10]}
 
 
-def build_unknown(ctx, signals, results, families):
+def build_unknown(signals, results, families):
     by_family = {}
     for sig in signals:
         result = results.get(sig["id"])
@@ -2551,12 +2534,12 @@ def scan_bound(root, families, deep, max_evidence, excludes=None):
     for doc in inventory["docs"]:
         doc.pop("top_author", None)
     return {"schema": SCHEMA, "tool": TOOL, "version": VERSION, "generated": now_utc(),
-            "root": root, "root_identity": {"device": device, "inode": inode},
+            "root": str(root), "root_identity": {"device": device, "inode": inode},
             "content_fingerprint": fingerprint,
             "commit": ctx["git"]["head"], "dirty": ctx["git"]["dirty"],
             "scan": ctx["scan"], "signals": emitted, "inventory": inventory, "drift": drift,
             "ownership": build_ownership(ctx),
-            "unknown": build_unknown(ctx, signals, results, families)}
+            "unknown": build_unknown(signals, results, families)}
 
 
 def print_text(report):
@@ -2622,7 +2605,8 @@ def main(argv=None):
                         help="limit gated passes and output to this signal family")
     parser.add_argument("--deep", action="store_true", help="run pass 3 per-document git metrics")
     parser.add_argument("--exclude-dir", action="append",
-                        help="keep a directory out of the document inventory and drift pass")
+                        help="keep a directory out of signal detection, the document "
+                             "inventory, and the drift pass")
     parser.add_argument("--max-evidence", type=int, default=MAX_EVIDENCE,
                         help="evidence records kept per signal")
     args = parser.parse_args(argv)

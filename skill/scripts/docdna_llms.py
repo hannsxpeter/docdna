@@ -8,26 +8,23 @@ import re
 import subprocess
 import sys
 import textwrap
-from datetime import datetime, timezone
 from urllib.parse import quote
 
 SCHEMA = 1
 TOOL = "docdna_llms"
-# Implements: P-MUST-05
 VERSION = "1.4.0"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
-from docdna_fs import (MAX_CONTROL_BYTES, bind_root as safe_bind_root,
-                       is_dir as safe_is_dir,
+from docdna_fs import (MANIFEST_STAGES, MAX_CONTROL_BYTES, bind_root as safe_bind_root,
+                       denied_read, is_dir as safe_is_dir,
                        is_file as safe_is_file,
-                       listdir as safe_listdir, path_exists as safe_exists,
-                       open_root as safe_open_root, parse_json as safe_parse_json,
-                       read_text as safe_read_text,
+                       listdir as safe_listdir, load_json, now_utc, output_path,
+                       path_exists as safe_exists, parse_json as safe_parse_json, plural,
+                       read_text as safe_read_text, repository_path,
                        require_manifest as safe_require_manifest,
-                       root_is_current as safe_root_is_current,
-                       write_text as safe_write_text)
+                       run_in_root as safe_run_in_root, today, write_repository_text)
 from docdna_unicode import clean_generated_text
 
 SELECT_SCRIPT = os.path.join(HERE, "docdna_select.py")
@@ -40,8 +37,7 @@ OUTPUT_ID = "build.llms-txt"
 OUTPUT_TITLE = "Agent documentation index"
 REPORT_REL = "DOCDNA.md"
 
-STAGES = ("frame", "decide", "design", "build", "verify", "assure", "operate", "serve",
-          "govern", "retire")
+STAGES = MANIFEST_STAGES
 STAGE_TITLES = {
     "frame": "Frame: why this exists, for whom, and what counts as success",
     "decide": "Decide: what was chosen, and what was rejected",
@@ -64,8 +60,6 @@ STATE_NOTES = {"present-drifted": ("Lead: at least one path or command in it did
                                    "against the code, at low confidence and for a human to read."),
                "present-stub": "Stub: under 400 bytes, so treat it as a placeholder."}
 
-DENY_READ = (".env",)
-DENY_READ_ALLOW = (".example", ".sample", ".template")
 LINE_WIDTH = 100
 MAX_DIR_FILES = 500
 
@@ -73,50 +67,9 @@ PRECEDENCE = ("If a document below contradicts the code, the code is correct and
               "stale; say so rather than repeating it.")
 
 
-def now_utc():
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
-def repository_path(root, candidate):
-    prefix = os.path.abspath(root)
-    target = (os.path.abspath(candidate) if os.path.isabs(candidate)
-              else os.path.abspath(os.path.join(prefix, candidate)))
-    if target != prefix and not target.startswith(prefix + os.sep):
-        return None
-    root_real = os.path.realpath(prefix)
-    target_real = os.path.realpath(target)
-    try:
-        if os.path.commonpath([root_real, target_real]) != root_real:
-            return None
-    except ValueError:
-        return None
-    return target
-
-
-def denied_read(rel):
-    name = os.path.basename(rel)
-    if not name.startswith(DENY_READ):
-        return False
-    return not name.endswith(DENY_READ_ALLOW)
-
-
 def tracked_paths(root):
-    if not safe_root_is_current(root):
-        return None
-    descriptor = safe_open_root(root)
-
-    def enter_bound_root():
-        os.fchdir(descriptor)
-
-    try:
-        process = subprocess.run(["git", "ls-files", "-z", "--cached"],
-                                 stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=60,
-                                 preexec_fn=enter_bound_root, pass_fds=(descriptor,))
-    except (OSError, subprocess.SubprocessError):
-        return None
-    finally:
-        os.close(descriptor)
-    if process.returncode != 0 or not safe_root_is_current(root):
+    process = safe_run_in_root(root, ["git", "ls-files", "-z", "--cached"], 60)
+    if process is None or process.returncode != 0:
         return None
     return set(item for item in process.stdout.decode("utf-8", "replace").split("\0") if item)
 
@@ -124,22 +77,8 @@ def tracked_paths(root):
 def repository_name(root):
     # The origin name survives a renamed checkout, unlike the local directory name.
     fallback = os.path.basename(os.path.abspath(root))
-    if not safe_root_is_current(root):
-        return fallback
-    descriptor = safe_open_root(root)
-
-    def enter_bound_root():
-        os.fchdir(descriptor)
-
-    try:
-        process = subprocess.run(["git", "config", "--get", "remote.origin.url"],
-                                 stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=10,
-                                 preexec_fn=enter_bound_root, pass_fds=(descriptor,))
-    except (OSError, subprocess.SubprocessError):
-        return fallback
-    finally:
-        os.close(descriptor)
-    if process.returncode != 0 or not safe_root_is_current(root):
+    process = safe_run_in_root(root, ["git", "config", "--get", "remote.origin.url"], 10)
+    if process is None or process.returncode != 0:
         return fallback
     remote = process.stdout.decode("utf-8", "replace").strip()
     name = os.path.basename(os.path.normpath(remote))
@@ -173,55 +112,15 @@ def readable_repository_path(root, candidate, paths):
     return target
 
 
-def output_path(root, rel):
-    if os.path.isabs(rel):
-        raise ValueError("output path must be relative to the repository: %s" % rel)
-    prefix = os.path.abspath(root)
-    target = os.path.abspath(os.path.join(prefix, rel))
-    if target != prefix and not target.startswith(prefix + os.sep):
-        raise ValueError("output path leaves the repository: %s" % rel)
-    current = prefix
-    for part in os.path.relpath(target, prefix).split(os.sep):
-        if part in ("", "."):
-            continue
-        current = os.path.join(current, part)
-        if os.path.lexists(current) and os.path.islink(current):
-            raise ValueError("output path uses a symlink: %s" % rel)
-    if repository_path(prefix, target) is None:
-        raise ValueError("output path resolves outside the repository: %s" % rel)
-    return target
-
-
 def read_repository_text(root, rel, max_bytes=None):
     output_path(root, rel)
     return safe_read_text(root, rel, max_bytes=max_bytes)
 
 
-def write_repository_text(root, rel, text):
-    descriptor = safe_open_root(root)
-    try:
-        output_path(root, rel)
-        safe_write_text(root, rel, text, root_descriptor=descriptor)
-    finally:
-        os.close(descriptor)
-
-
 def run_select(repo):
-    if not safe_root_is_current(repo):
-        raise ValueError("repository root changed before docdna_select.py ran")
-    descriptor = safe_open_root(repo)
-
-    def enter_bound_root():
-        os.fchdir(descriptor)
-
     command = [sys.executable, SELECT_SCRIPT, "--unattended", "."]
-    try:
-        process = subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
-                                 preexec_fn=enter_bound_root, pass_fds=(descriptor,))
-    finally:
-        os.close(descriptor)
-    if not safe_root_is_current(repo):
-        raise ValueError("repository root changed while docdna_select.py ran")
+    process = safe_run_in_root(repo, command, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+                               label="docdna_select.py")
     if process.returncode != 0:
         raise ValueError("docdna_select.py failed: %s"
                          % process.stderr.decode("utf-8", "replace").strip())
@@ -237,10 +136,6 @@ def read_manifest(root):
     text = read_repository_text(root, MANIFEST_REL, max_bytes=MAX_CONTROL_BYTES)
     manifest = safe_parse_json(text, MANIFEST_REL)
     return safe_require_manifest(manifest, MANIFEST_REL, SCHEMA)
-
-
-def plural(count, word, suffix="s"):
-    return "%d %s%s" % (count, word, "" if count == 1 else suffix)
 
 
 def stage_rank(stage):
@@ -288,8 +183,7 @@ def summary_for(root, full, paths):
 
 
 def trusted_documents():
-    with open(DOCUMENTS_PATH, encoding="utf-8") as handle:
-        rows = json.load(handle)["documents"]
+    rows = load_json(DOCUMENTS_PATH)["documents"]
     return dict((row["id"], {"title": row["title"], "stage": row["stage"]}) for row in rows)
 
 
@@ -368,7 +262,7 @@ def collect(root, manifest):
     return sections, skipped
 
 
-def blockquote(root, manifest, listed, name=None):
+def blockquote(root, listed, name=None):
     name = name or repository_name(root)
     text = ("Documentation index for %s. It lists %s committed to this repository, grouped by "
             "lifecycle stage. Generated by docdna v%s from %s."
@@ -396,11 +290,11 @@ def notes(skipped):
     return rows
 
 
-def render(root, manifest, sections, skipped):
+def render(root, sections, skipped):
     listed = sum(len(rows) for rows in sections.values())
     name = repository_name(root)
     lines = ["# %s" % name, ""]
-    lines.extend(blockquote(root, manifest, listed, name))
+    lines.extend(blockquote(root, listed, name))
     lines.append("")
     lines.extend(notes(skipped))
     lines.append("")
@@ -425,10 +319,8 @@ def render(root, manifest, sections, skipped):
 
 
 def write_output(root, text):
-    path = output_path(root, OUTPUT_REL)
     clean_text, _stats = clean_generated_text(text)
-    write_repository_text(root, OUTPUT_REL, clean_text)
-    return path
+    return write_repository_text(root, OUTPUT_REL, clean_text)
 
 
 def manifest_row(manifest, ident):
@@ -488,15 +380,13 @@ def sidecar_fields(manifest, stamp):
 
 def write_sidecar(root, manifest):
     output_path(root, META_REL)
-    path = output_path(root, os.path.join(META_REL, OUTPUT_ID + ".yml"))
-    stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    stamp = today()
     lines = ["---"]
     for key, value in sidecar_fields(manifest, stamp):
         lines.append("%s: %s" % (key, yaml_scalar(value)))
     lines.append("---")
     clean_text, _stats = clean_generated_text("\n".join(lines) + "\n")
-    write_repository_text(root, os.path.join(META_REL, OUTPUT_ID + ".yml"), clean_text)
-    return path
+    return write_repository_text(root, os.path.join(META_REL, OUTPUT_ID + ".yml"), clean_text)
 
 
 def selected_state(manifest):
@@ -521,14 +411,14 @@ def build(repo):
 def build_bound(root):
     manifest = read_manifest(root)
     sections, skipped = collect(root, manifest)
-    text = render(root, manifest, sections, skipped)
+    text = render(root, sections, skipped)
     path = write_output(root, text)
     sidecar = write_sidecar(root, manifest)
     documents = []
     for stage in STAGES:
         documents.extend(sections.get(stage) or [])
     return {"schema": SCHEMA, "tool": TOOL, "version": VERSION, "generated": now_utc(),
-            "root": root, "path": path, "sidecar": sidecar, "listed": len(documents),
+            "root": str(root), "path": path, "sidecar": sidecar, "listed": len(documents),
             "skipped": skipped, "profile": selected_state(manifest),
             "sections": [{"stage": stage, "title": STAGE_TITLES[stage],
                           "count": len(sections[stage])}

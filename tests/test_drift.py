@@ -280,6 +280,18 @@ class ManifestResolutionTests(unittest.TestCase):
             self.assertEqual(rows[0]["precision_note"], self.scan.COMMAND_PRECISION_NOTE)
             self.assertEqual(rows[0]["resolution_note"], self.scan.SETUP_PY_NOTE)
 
+    # setup.cfg declares its entry points as data, so the build-time note belongs to setup.py alone.
+    def test_a_setup_cfg_entry_point_does_not_carry_the_setup_py_note(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            write(tmp, "setup.cfg", "[metadata]\nname = oldtool\n")
+            write(tmp, "README.md", COMMAND_DOC % ("oldtool", "oldtool build"))
+            report = self.scan.scan(str(tmp), set(), False, 5)
+            rows = rows_of(report, "command-not-found", "README.md")
+
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["checked_against"], "setup.cfg:project.scripts")
+            self.assertNotIn("resolution_note", rows[0])
+
     # The whole point of the demotion. Every runtime, every resolution, one confidence, and it is
     # the same one every path finding already carries. A field that ranked these rows against each
     # other was wrong 27 times out of 27, which is worse than having no field.

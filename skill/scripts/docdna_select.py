@@ -10,32 +10,29 @@ import subprocess
 import sys
 import tempfile
 import textwrap
-from datetime import datetime, timezone
 
 SCHEMA = 1
 TOOL = "docdna_select"
-# Implements: P-MUST-05
 VERSION = "1.4.0"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
-from docdna_fs import (FileTooLarge, MAX_CONTROL_BYTES,
+from docdna_fs import (FileTooLarge, MANIFEST_STAGES, MAX_CONTROL_BYTES,
                        bind_root as safe_bind_root, file_size as safe_file_size,
                        control_file_exists as safe_control_file_exists,
                        is_dir as safe_is_dir,
-                       is_file as safe_is_file, listdir as safe_listdir,
-                       open_root as safe_open_root,
-                       parse_json as safe_parse_json,
+                       is_file as safe_is_file, listdir as safe_listdir, load_json,
+                       output_path, parse_json as safe_parse_json,
                        path_stat as safe_path_stat,
-                       path_exists as safe_exists, read_bounded_path as safe_read_bounded_path,
-                       read_text as safe_read_text,
+                       path_exists as safe_exists, plural,
+                       read_bounded_path as safe_read_bounded_path,
+                       read_text as safe_read_text, repository_path,
                        require_config as safe_require_config,
                        require_manifest as safe_require_manifest,
                        require_root_identity as safe_require_root_identity,
                        require_scan as safe_require_scan,
-                       root_is_current as safe_root_is_current,
-                       write_text as safe_write_text)
+                       run_in_root as safe_run_in_root, today, write_repository_text)
 from docdna_unicode import clean_generated_text
 
 CATALOG_DIR = os.path.normpath(os.path.join(HERE, "..", "catalog"))
@@ -52,8 +49,7 @@ CATALOG_FILES = [("signals", "signals.json", "signals"),
                  ("archetypes", "archetypes.json", None),
                  ("interview", "interview.json", "questions")]
 
-STAGES = ("frame", "decide", "design", "build", "verify", "assure", "operate", "serve",
-          "govern", "retire")
+STAGES = MANIFEST_STAGES
 DURABILITIES = ("durable", "evidence", "transient")
 SCOPES = ("repo", "product", "org")
 PRODUCIBLES = ("Y", "M", "R")
@@ -74,6 +70,8 @@ EFFECT_VERDICT = {"require": "required", "recommend": "recommended",
 SOFT_EFFECTS = ("ask", "note")
 LAYER_RANK = {"baseline": 0, "signal": 10, "overlay": 20, "answer": 30, "override": 40}
 WRITE_STATUS = ("pending", "in-progress", "written", "verified", "failed")
+# Stages whose documents are not written while the archetype is a low-confidence guess.
+LOW_CONFIDENCE_BLOCKED_STAGES = ("assure",)
 
 ACTIONS = {
     ("required", "absent"): "write",
@@ -159,59 +157,6 @@ LANG_NAMES = {"c": "C", "cpp": "C++", "cs": "C#", "elixir": "Elixir", "go": "Go"
               "svelte": "Svelte", "swift": "Swift", "ts": "TypeScript", "vue": "Vue"}
 
 
-def today():
-    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
-
-
-def load_json(path):
-    with open(path, encoding="utf-8") as handle:
-        return json.load(handle)
-
-
-def repository_path(root, candidate):
-    prefix = os.path.abspath(root)
-    target = (os.path.abspath(candidate) if os.path.isabs(candidate)
-              else os.path.abspath(os.path.join(prefix, candidate)))
-    if target != prefix and not target.startswith(prefix + os.sep):
-        return None
-    root_real = os.path.realpath(prefix)
-    target_real = os.path.realpath(target)
-    try:
-        if os.path.commonpath([root_real, target_real]) != root_real:
-            return None
-    except ValueError:
-        return None
-    return target
-
-
-def output_path(root, rel):
-    if os.path.isabs(rel):
-        raise ValueError("output path must be relative to the repository: %s" % rel)
-    prefix = os.path.abspath(root)
-    target = os.path.abspath(os.path.join(prefix, rel))
-    if target != prefix and not target.startswith(prefix + os.sep):
-        raise ValueError("output path leaves the repository: %s" % rel)
-    current = prefix
-    for part in os.path.relpath(target, prefix).split(os.sep):
-        if part in ("", "."):
-            continue
-        current = os.path.join(current, part)
-        if os.path.lexists(current) and os.path.islink(current):
-            raise ValueError("output path uses a symlink: %s" % rel)
-    if repository_path(prefix, target) is None:
-        raise ValueError("output path resolves outside the repository: %s" % rel)
-    return target
-
-
-def write_repository_text(root, rel, text):
-    descriptor = safe_open_root(root)
-    try:
-        output_path(root, rel)
-        safe_write_text(root, rel, text, root_descriptor=descriptor)
-    finally:
-        os.close(descriptor)
-
-
 def load_catalog():
     catalog = {}
     for key, name, payload in CATALOG_FILES:
@@ -226,6 +171,8 @@ def load_catalog():
     catalog["question_by_id"] = dict((item["id"], item) for item in catalog["interview"])
     catalog["primary_ids"] = set(item["id"] for item in catalog["archetypes"]["primaries"])
     catalog["overlay_ids"] = set(item["id"] for item in catalog["archetypes"]["overlays"])
+    catalog["hint_capped"] = set(item["id"] for item in catalog["signals"]
+                                 if item.get("max_state") == HINT_MAX_STATE)
     catalog["ordered_rules"] = sorted(catalog["rules"],
                                       key=lambda item: (LAYER_RANK.get(item.get("layer"), 0),
                                                         item["id"]))
@@ -392,13 +339,8 @@ def residual(node, target, state):
     return opaque_term(node)
 
 
-def hint_capped(catalog):
-    return set(signal["id"] for signal in catalog["signals"]
-               if signal.get("max_state") == HINT_MAX_STATE)
-
-
 def hint_dependent_signals(catalog, node):
-    capped = hint_capped(catalog)
+    capped = catalog["hint_capped"]
     found = []
     for leaf in predicate_leaves(node, []):
         target = leaf.get("signal")
@@ -534,7 +476,7 @@ def check_archetypes(catalog, errors):
             if signal_id not in catalog["signal_ids"]:
                 errors.append("I3 archetype %s requires_absent %s, absent from signals.json"
                               % (primary["id"], signal_id))
-            elif signal_id in hint_capped(catalog):
+            elif signal_id in catalog["hint_capped"]:
                 # requires_absent zeroes an archetype when the signal reaches present, and a
                 # hint-capped signal never reaches present. Naming one here reads as a guard and
                 # is a rule that can never fire, which is the mirror of letting a hint decide.
@@ -672,8 +614,6 @@ def firing_distance(ctx, node):
         return min([firing_distance(ctx, child) for child in node["any"]] or [FAR])
     if predicate(ctx, node):
         return 0
-    if "not" in node:
-        return 1
     return 1
 
 
@@ -1195,10 +1135,6 @@ def build_assumptions(answers, dial):
     return rows
 
 
-def plural(count, word, suffix="s"):
-    return "%d %s%s" % (count, word, "" if count == 1 else suffix)
-
-
 def near_firing(ctx, excluded):
     rows = []
     for row in excluded:
@@ -1341,18 +1277,13 @@ def row_line(name, text, lines):
         lines.append((prefix + chunk).rstrip())
 
 
-def section(title, total, shown, lines):
+def section(title, total, shown, lines, counted=False):
     if total > shown:
         lines.append("%s  (%d, showing %d)" % (title, total, shown))
+    elif counted:
+        lines.append("%s  (%d)" % (title, total))
     else:
         lines.append(title)
-
-
-def stale_section(total, shown, lines):
-    if total > shown:
-        lines.append("%s  (%d, showing %d)" % (STALE_TITLE, total, shown))
-    else:
-        lines.append("%s  (%d)" % (STALE_TITLE, total))
 
 
 def discarded_paths(scan):
@@ -1473,8 +1404,8 @@ def render_assumed(manifest, lines):
         blocked = [row for row in manifest["documents"] if "write_block" in row]
         tail = "the document delta is in the manifest"
         if blocked:
-            tail = ("and %d assure stage documents will not be written until you confirm"
-                    % len(blocked))
+            tail = ("and %d %s stage documents will not be written until you confirm"
+                    % (len(blocked), "/".join(LOW_CONFIDENCE_BLOCKED_STAGES)))
         lines.append("")
         labelled("UNCERTAIN", ["%s scores %s points above %s, %s."
                                % (archetype["primary"], archetype["margin_points"],
@@ -1499,7 +1430,7 @@ def render_stale(manifest, scan, lines):
     if not rows:
         return
     lines.append("")
-    stale_section(len(rows), min(len(rows), MAX_STALE_ROWS), lines)
+    section(STALE_TITLE, len(rows), min(len(rows), MAX_STALE_ROWS), lines, counted=True)
     for row in rows[:MAX_STALE_ROWS]:
         row_line(row["doc"], drift_sentence(row), lines)
     labelled("", [stale_note(rows, scan)], lines)
@@ -1597,26 +1528,14 @@ def parse_answers(catalog, pairs):
 
 
 def run_scan(repo, exclude_dirs=None):
-    if not safe_root_is_current(repo):
-        raise ValueError("repository root changed before docdna_scan.py ran")
-    descriptor = safe_open_root(repo)
-
-    def enter_bound_root():
-        os.fchdir(descriptor)
-
+    # One argv item per directory, so a name that starts with a dash is a value, not an option.
     command = [sys.executable, SCAN_SCRIPT, "--json", "."]
-    for directory in exclude_dirs or []:
-        command.extend(["--exclude-dir", directory])
-    try:
-        with tempfile.TemporaryFile() as output:
-            process = subprocess.run(command, stdout=output, stderr=subprocess.PIPE,
-                                     preexec_fn=enter_bound_root, pass_fds=(descriptor,))
-            output.seek(0)
-            raw = output.read(MAX_CONTROL_BYTES + 1)
-    finally:
-        os.close(descriptor)
-    if not safe_root_is_current(repo):
-        raise ValueError("repository root changed while docdna_scan.py ran")
+    command.extend("--exclude-dir=" + directory for directory in exclude_dirs or [])
+    with tempfile.TemporaryFile() as output:
+        process = safe_run_in_root(repo, command, stdout=output, stderr=subprocess.PIPE,
+                                   label="docdna_scan.py")
+        output.seek(0)
+        raw = output.read(MAX_CONTROL_BYTES + 1)
     if process.returncode != 0:
         raise ValueError("docdna_scan.py failed: %s"
                          % process.stderr.decode("utf-8", "replace").strip())
@@ -1635,10 +1554,8 @@ def write_outputs(root, manifest, report):
     # failure cannot publish a new machine-readable decision ledger beside an old report.
     clean_report, _stats = clean_generated_text(report)
     write_repository_text(root, REPORT_REL, clean_report)
-    manifest_path = output_path(root, MANIFEST_REL)
-    write_repository_text(root, MANIFEST_REL,
-                          json.dumps(manifest, indent=2, sort_keys=True) + "\n")
-    return manifest_path
+    return write_repository_text(root, MANIFEST_REL,
+                                 json.dumps(manifest, indent=2, sort_keys=True) + "\n")
 
 
 def config_excludes(repo):
@@ -1689,11 +1606,10 @@ def select_bound(root, scan_path, answer_pairs, unattended, exclude_dirs=None):
     answers = resolve_answers(ctx, catalog, overrides,
                               prior_answers(prior, catalog, unattended))
     ctx, base = engine_for(ctx, catalog, answer_values(answers))
-    ctx["unattended"] = bool(unattended)
     dial = counterfactual_rows(ctx, catalog, answers, base)
     opens = open_question_rows(ctx, catalog, answers, base)
     archetype["document_delta"] = archetype_counterfactual(ctx, catalog, answers, base, archetype)
-    blocked = ("assure",) if archetype["confidence"] == "low" else ()
+    blocked = LOW_CONFIDENCE_BLOCKED_STAGES if archetype["confidence"] == "low" else ()
     documents, excluded = build_rows(ctx, catalog, base, answers, states, found, scan,
                                      prior_write_status(prior), blocked)
     manifest = build_manifest(ctx, catalog, scan, answers, archetype, base, dial, opens,
@@ -1715,9 +1631,9 @@ def main(argv=None):
     parser.add_argument("--scan", metavar="PATH",
                         help="validate scanner JSON, reproduce a fresh scan, and reject changed contents")
     parser.add_argument("--exclude-dir", action="append", metavar="DIR",
-                        help="keep a directory out of the document inventory and drift pass, "
-                             "for vendored or fixture repositories that carry their own "
-                             "documentation, repeatable")
+                        help="keep a directory out of signal detection, the document inventory, "
+                             "and the drift pass, for vendored or fixture repositories that "
+                             "carry their own documentation, repeatable")
     args = parser.parse_args(argv)
 
     try:
