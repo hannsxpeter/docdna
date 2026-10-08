@@ -5,6 +5,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from datetime import datetime, timedelta, timezone
 from unittest import mock
 from pathlib import Path
 
@@ -369,6 +370,119 @@ class ScanTests(unittest.TestCase):
 
             self.assertEqual(tagged["tags"], before["tags"])
             self.assertEqual(after["tags"], before["tags"] + 1)
+
+    def test_git_window_metrics_count_the_window_the_catalog_names(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "repo"
+            repo.mkdir()
+            past = (datetime.now(timezone.utc) - timedelta(days=100)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+            def commit(name, rel, stamp=None):
+                env = dict(os.environ)
+                if stamp:
+                    env.update(GIT_AUTHOR_DATE=stamp, GIT_COMMITTER_DATE=stamp)
+                write(repo, rel, "X = 1\n")
+                for args in (["add", rel], ["commit", "-q", "-m", rel]):
+                    subprocess.run(["git", "-C", str(repo), "-c", "user.name=" + name,
+                                    "-c", "user.email=%s@example.invalid" % name.lower()] + args,
+                                   check=True, capture_output=True, text=True, env=env)
+
+            subprocess.run(["git", "init", "-q", "-b", "main", str(repo)], check=True)
+            commit("Earlier", "old.py", past)
+            commit("Recent", "new.py")
+            ctx = {"root": str(repo), "git": self.scan.collect_git(str(repo))}
+            sig = {"id": "proc.window_probe", "family": "proc", "label": "window probe"}
+
+            def detect(metric, days):
+                return self.scan.detect_git(ctx, sig, {"kind": "git", "metric": metric,
+                                                       "window_days": days}, 5)
+
+            self.assertEqual(detect("commit_count", 365)["hits"], 2)
+            self.assertEqual(detect("distinct_authors", 365)["hits"], 2)
+            self.assertEqual(detect("commit_count", 30)["hits"], 1)
+            self.assertEqual(detect("distinct_authors", 30)["hits"], 1)
+            self.assertEqual(detect("commit_count", 30)["evidence"][0]["text"],
+                             "1 commits in 30 days")
+
+    def test_git_history_reaches_a_document_with_a_non_ascii_path(self):
+        rel = "docs/gu\u00eda.md"
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "repo"
+            write(repo, rel, "# guide\n")
+            # A user's own core.quotePath=false would hide the default this test is about.
+            hermetic = {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1"}
+            with mock.patch.dict(os.environ, hermetic):
+                for args in (["init", "-q"], ["add", "."], ["-c", "user.name=Docs Author",
+                             "-c", "user.email=docs@example.invalid", "commit", "-q", "-m", "x"]):
+                    subprocess.run(["git", "-C", str(repo)] + args, check=True,
+                                   capture_output=True)
+                report = self.scan.scan(str(repo), set(), False, 5)
+
+            docs = dict((doc["path"], doc) for doc in report["inventory"]["docs"])
+            self.assertIn(rel, docs)
+            self.assertIsNotNone(docs[rel]["last_commit_date"])
+            self.assertIsNotNone(docs[rel]["last_commit_sha"])
+
+    def test_openapi_documents_that_are_not_objects_are_skipped_without_a_traceback(self):
+        for name, body in (("openapi.json", "[1, 2, 3]\n"), ("swagger.json", '{"paths": 7}\n'),
+                           ("openapi-v2.json", '{"paths": "/a"}\n')):
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as tmp:
+                write(tmp, name, body)
+                write(tmp, "README.md", "# api\n\nThe service has 3 endpoints.\n")
+                ctx = read_ctx(tmp)
+                ctx["paths"] = [name]
+
+                report = self.scan.scan(tmp, set(), False, 5)
+
+                self.assertEqual(self.scan.openapi_routes(ctx), (0, None))
+                self.assertEqual([row for row in report["drift"]
+                                  if row["kind"] == "count-mismatch"], [])
+
+    def test_pyproject_dependency_arrays_survive_comments_extras_and_version_ranges(self):
+        text = ("[project]\n"
+                "name = \"thing\"\n"
+                "dependencies = [\n"
+                "    \"uvicorn[standard]>=0.2\",\n"
+                "    \"requests>=2,<3\",  # HTTP, pinned below 3\n"
+                "    \"fastapi\",\n"
+                "]\n"
+                "keywords = [\"docs\", \"#tag\"]  # trailing comment\n")
+        flat = self.scan.flatten_toml(text)
+
+        self.assertEqual(flat["project.dependencies"],
+                         ["uvicorn[standard]>=0.2", "requests>=2,<3", "fastapi"])
+        self.assertEqual(flat["project.keywords"], ["docs", "#tag"])
+        self.assertEqual(self.scan.toml_deps(flat), {"uvicorn", "requests", "fastapi"})
+        with tempfile.TemporaryDirectory() as tmp:
+            write(tmp, "pyproject.toml", text)
+            results = by_id(self.scan.scan(tmp, set(), False, 5))
+
+            self.assertEqual(results["arch.service"]["state"], "present")
+
+    def test_pyproject_optional_dependencies_declare_packages_not_extra_names(self):
+        text = ("[project]\n"
+                "name = \"thing\"\n"
+                "\n"
+                "[project.optional-dependencies]\n"
+                "postgres = [\"psycopg2-binary\", \"sqlalchemy>=2\"]\n"
+                "billing = [\"stripe>=5\"]  # payments\n")
+        flat = self.scan.flatten_toml(text)
+
+        self.assertEqual(self.scan.toml_deps(flat), {"psycopg2-binary", "sqlalchemy", "stripe"})
+        with tempfile.TemporaryDirectory() as tmp:
+            write(tmp, "pyproject.toml", text)
+            results = by_id(self.scan.scan(tmp, set(), False, 5))
+
+            self.assertEqual(results["data.orm"]["state"], "present")
+            self.assertEqual(results["sec.payments"]["state"], "present")
+
+    def test_an_in_process_report_root_is_a_plain_string(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            write(tmp, "README.md", "# hi\n")
+            report = self.scan.scan(tmp, set(), False, 5)
+
+            self.assertIs(type(report["root"]), str)
+            self.assertEqual(report["root"], os.path.abspath(tmp))
 
     def test_opaque_documents_are_indexed_but_not_parsed(self):
         with tempfile.TemporaryDirectory() as tmp:

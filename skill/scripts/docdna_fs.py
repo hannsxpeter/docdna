@@ -1,18 +1,83 @@
 #!/usr/bin/env python3
-"""Race-safe, repository-contained filesystem access for docdna helpers."""
+"""Race-safe, repository-contained filesystem access and the small helpers docdna scripts share."""
 
 import hashlib
 import errno
 import json
 import os
+import re
 import secrets
 import stat
+import subprocess
+from datetime import datetime, timezone
 
 _LISTDIR = os.listdir
 _LISTDIR_SUPPORTED = _LISTDIR in os.supports_fd
 MAX_CONTROL_BYTES = 5 * 1024 * 1024
 MANIFEST_STAGES = ("frame", "decide", "design", "build", "verify", "assure", "operate",
                    "serve", "govern", "retire")
+DENY_READ = (".env",)
+DENY_READ_ALLOW = (".example", ".sample", ".template")
+GLOB_CACHE = {}
+
+
+def now_utc():
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def today():
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+
+def plural(count, word, suffix="s"):
+    return "%d %s%s" % (count, word, "" if count == 1 else suffix)
+
+
+def load_json(path):
+    with open(path, encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+def glob_re(pattern):
+    cached = GLOB_CACHE.get(pattern)
+    if cached is not None:
+        return cached
+    parts = []
+    index = 0
+    while index < len(pattern):
+        char = pattern[index]
+        if char == "*":
+            if pattern[index:index + 3] == "**/":
+                parts.append("(?:.*/)?")
+                index += 3
+                continue
+            if pattern[index:index + 2] == "**":
+                parts.append(".*")
+                index += 2
+                continue
+            parts.append("[^/]*")
+        elif char == "?":
+            parts.append("[^/]")
+        else:
+            parts.append(re.escape(char))
+        index += 1
+    compiled = re.compile("^" + "".join(parts) + "$")
+    GLOB_CACHE[pattern] = compiled
+    return compiled
+
+
+def glob_match(path, patterns):
+    for pattern in patterns or []:
+        if glob_re(pattern).match(path):
+            return True
+    return False
+
+
+def denied_read(rel):
+    name = os.path.basename(rel)
+    if not name.startswith(DENY_READ):
+        return False
+    return not name.endswith(DENY_READ_ALLOW)
 
 
 def parse_json(text, source):
@@ -118,6 +183,40 @@ def root_is_current(root):
         os.close(descriptor)
 
 
+def run_in_root(root, command, timeout=None, stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL, label=None):
+    """Run command inside the bound root and return the finished process.
+
+    The child enters the root through a descriptor of the bound directory, never by path, and the
+    binding is checked before and after the run, so a root swapped meanwhile cannot answer for it.
+    Without label, a changed root, a command that cannot start and a timeout all return None. With
+    label, each raises ValueError naming the command instead.
+    """
+    if not root_is_current(root):
+        if label is None:
+            return None
+        raise ValueError("repository root changed before %s ran" % label)
+    descriptor = open_root(root)
+
+    def enter_bound_root():
+        os.fchdir(descriptor)
+
+    try:
+        process = subprocess.run(command, stdout=stdout, stderr=stderr, timeout=timeout,
+                                 preexec_fn=enter_bound_root, pass_fds=(descriptor,))
+    except (OSError, subprocess.SubprocessError) as error:
+        if label is None:
+            return None
+        raise ValueError("%s could not run: %s" % (label, error))
+    finally:
+        os.close(descriptor)
+    if not root_is_current(root):
+        if label is None:
+            return None
+        raise ValueError("repository root changed while %s ran" % label)
+    return process
+
+
 def require_root_identity(root, claimed, source="input"):
     device, inode = root_identity(root)
     if (not isinstance(claimed, dict)
@@ -149,9 +248,7 @@ def require_shape(value, source, schema=None, mapping_fields=(), object_list_fie
         rows = value[field]
         if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
             raise ValueError("%s field %s must be an array of objects" % (source, field))
-    for field in string_fields:
-        if field in value and value[field] is not None and not isinstance(value[field], str):
-            raise ValueError("%s field %s must be a string" % (source, field))
+    _require_string_fields(value, string_fields, source)
     for field in object_map_fields:
         if field not in value or value[field] is None:
             continue
@@ -229,7 +326,6 @@ def require_manifest(value, source, schema):
             elif collection == "excluded":
                 _require_present_string_fields(row, ("id", "title", "because", "rule"),
                                                row_source)
-                _require_string_fields(row, ("because", "rule"), row_source)
                 _require_string_list_fields(row, ("cite",), row_source)
                 if "revisit_when" in row:
                     _require_predicate(row["revisit_when"], "%s revisit_when" % row_source)
@@ -347,10 +443,7 @@ def _parts(root, candidate):
             raise ValueError("repository path resolves outside the root: %s" % candidate)
     else:
         target = os.path.abspath(os.path.join(root_path, candidate))
-        try:
-            if os.path.commonpath([root_path, target]) != root_path:
-                raise ValueError("repository path resolves outside the root: %s" % candidate)
-        except ValueError:
+        if os.path.commonpath([root_path, target]) != root_path:
             raise ValueError("repository path resolves outside the root: %s" % candidate)
         rel = os.path.relpath(target, root_path)
     parts = [part for part in rel.split(os.sep) if part not in ("", ".")]
@@ -547,20 +640,6 @@ def is_dir(root, candidate):
     return details is not None and stat.S_ISDIR(details.st_mode)
 
 
-def is_symlink(root, candidate):
-    _require_read_support()
-    parent = None
-    try:
-        parent, name = _open_parent(root, candidate)
-        details = os.stat(name, dir_fd=parent, follow_symlinks=False)
-        return stat.S_ISLNK(details.st_mode)
-    except (OSError, ValueError):
-        return False
-    finally:
-        if parent is not None:
-            os.close(parent)
-
-
 def listdir(root, candidate):
     _require_read_support()
     if not _LISTDIR_SUPPORTED:
@@ -674,6 +753,52 @@ def write_text(root, candidate, text, encoding="utf-8", root_descriptor=None):
             except OSError:
                 pass
         os.close(parent)
+
+
+def repository_path(root, candidate):
+    prefix = os.path.abspath(root)
+    target = (os.path.abspath(candidate) if os.path.isabs(candidate)
+              else os.path.abspath(os.path.join(prefix, candidate)))
+    if target != prefix and not target.startswith(prefix + os.sep):
+        return None
+    root_real = os.path.realpath(prefix)
+    target_real = os.path.realpath(target)
+    try:
+        if os.path.commonpath([root_real, target_real]) != root_real:
+            return None
+    except ValueError:
+        return None
+    return target
+
+
+def output_path(root, rel):
+    if os.path.isabs(rel):
+        raise ValueError("output path must be relative to the repository: %s" % rel)
+    prefix = os.path.abspath(root)
+    target = os.path.abspath(os.path.join(prefix, rel))
+    if target != prefix and not target.startswith(prefix + os.sep):
+        raise ValueError("output path leaves the repository: %s" % rel)
+    current = prefix
+    for part in os.path.relpath(target, prefix).split(os.sep):
+        if part in ("", "."):
+            continue
+        current = os.path.join(current, part)
+        if os.path.lexists(current) and os.path.islink(current):
+            raise ValueError("output path uses a symlink: %s" % rel)
+    if repository_path(prefix, target) is None:
+        raise ValueError("output path resolves outside the repository: %s" % rel)
+    return target
+
+
+def write_repository_text(root, rel, text):
+    """Validate rel as an output path, write it through the bound root, and return its path."""
+    descriptor = open_root(root)
+    try:
+        target = output_path(root, rel)
+        write_text(root, rel, text, root_descriptor=descriptor)
+    finally:
+        os.close(descriptor)
+    return target
 
 
 def unlink_file(root, candidate, expected_identity=None):

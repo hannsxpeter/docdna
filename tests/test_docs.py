@@ -721,14 +721,12 @@ class GeneratedArtifactContractTests(unittest.TestCase):
 
     def test_committed_llms_text_does_not_embed_volatile_generation_metadata(self):
         llms = load("docdna_llms_contract", LLMS)
-        manifest = {"archetype": {"primary": "solo-utility"}, "generated_by": "docdna v1.3.0",
-                    "generated_at": "2026-08-05", "repo_head": "abc1234"}
         with tempfile.TemporaryDirectory() as tmp:
-            lines = llms.blockquote(tmp, manifest, 1)
+            lines = llms.blockquote(tmp, 1)
 
         text = "\n".join(lines)
-        self.assertNotIn("abc1234", text)
-        self.assertNotIn("2026-08-05", text)
+        self.assertNotRegex(text, r"\d{4}-\d{2}-\d{2}")
+        self.assertIn("docdna v%s" % llms.VERSION, text.replace("\n> ", " "))
 
     def test_llms_project_name_survives_a_renamed_checkout(self):
         llms = load("docdna_llms_repository_name", LLMS)
@@ -1028,7 +1026,7 @@ class GeneratedArtifactContractTests(unittest.TestCase):
                                              encoding="utf-8")
 
             sections, skipped = llms.collect(str(root), manifest)
-            output = llms.render(str(root), manifest, sections, skipped)
+            output = llms.render(str(root), sections, skipped)
 
         self.assertNotIn(marker, output)
         self.assertIn("[README](README.md)", output)
@@ -1314,19 +1312,19 @@ class GeneratedArtifactContractTests(unittest.TestCase):
             outside.mkdir()
             external = outside / (llms.OUTPUT_ID + ".yml")
             external.write_text("untouched\n", encoding="utf-8")
-            original = llms.output_path
-            calls = {"count": 0}
+            # The shared writer validates the path after binding the root descriptor, so the
+            # swap lands between its validation and its write.
+            filesystem = llms.write_repository_text.__globals__
+            original = filesystem["output_path"]
 
             def swap_parent(root, rel):
                 path = original(root, rel)
-                calls["count"] += 1
-                if calls["count"] == 3:
-                    meta.rename(repo / ".docdna" / "meta-original")
-                    os.symlink(str(outside), str(meta))
+                meta.rename(repo / ".docdna" / "meta-original")
+                os.symlink(str(outside), str(meta))
                 return path
 
             error = None
-            with mock.patch.object(llms, "output_path", side_effect=swap_parent):
+            with mock.patch.dict(filesystem, {"output_path": swap_parent}):
                 try:
                     llms.write_sidecar(str(repo), manifest)
                 except (OSError, ValueError) as caught:
