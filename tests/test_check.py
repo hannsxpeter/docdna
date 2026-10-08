@@ -287,6 +287,33 @@ class CheckTests(unittest.TestCase):
             self.assertEqual(len(rows), 1)
             self.assertIn("3 declaration changes over budget 2", rows[0]["detail"])
 
+    def test_a_covered_file_past_the_size_bound_reads_as_absent_at_the_commit_too(self):
+        # The working tree reads a file past MAX_FILE_BYTES as absent. Reading the same file at
+        # last_validated_commit without that bound made the two sides disagree, so a document
+        # covering one large file could never be compared declaration by declaration.
+        large = "".join("VALUE_%d = %d\n" % (number, number) for number in range(90000))
+        self.assertGreater(len(large.encode("utf-8")), self.check.MAX_FILE_BYTES)
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = write_repo(tmp, {"src/config/settings.py": SETTINGS, "src/big.py": large})
+            git(repo, "init", "--quiet")
+            git(repo, "add", "src")
+            git(repo, "commit", "--quiet", "-m", "settings")
+            commit = subprocess.run(["git", "-C", str(repo), "rev-parse", "HEAD"],
+                                    check=True, text=True, capture_output=True).stdout.strip()
+            covers = ["src/config/settings.py", "src/big.py"]
+            digest = self.check.covers_state(str(repo), covers)["digest"]
+            extra = [("covers_digest", digest), ("drift_budget", 2),
+                     ("last_validated_commit", commit)]
+            write_repo(tmp, {"docs/build/config-reference.md": document(covers, extra)})
+            settings = repo / "src" / "config" / "settings.py"
+            settings.write_text(SETTINGS + 'SENTRY_DSN = os.environ.get("SENTRY_DSN", "")\n',
+                                encoding="utf-8")
+
+            record = drift_record(self.check_repo(repo), "docs/build/config-reference.md")
+
+            self.assertEqual(record["method"], "git")
+            self.assertEqual(record["added"], ["SENTRY_DSN"])
+
     def test_owner_unassigned_never_fails(self):
         with tempfile.TemporaryDirectory() as tmp:
             digest_source = {"src/config/settings.py": SETTINGS}

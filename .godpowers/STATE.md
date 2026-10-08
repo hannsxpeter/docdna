@@ -1,7 +1,7 @@
 ---
 godpowers: 7
 project: docdna
-stage: build
+stage: review
 verify: "python3 -m unittest discover -s tests"
 updated: 2026-10-08
 ---
@@ -14,11 +14,12 @@ cited or marked as a gap, and CI proving that the published samples, counts, and
 code.
 
 ## Now
-- Maintenance pass after 1.4.0: code review, documentation drift, obsolete files, and the open installer
-  finding. See PLAN.md.
+- Maintenance pass after 1.4.0 is merged: review fixes, shared claim engine and fs runners, installer
+  staging, documentation drift, and doc-fact tests. Recorded under [Unreleased] in CHANGELOG.md.
 
 ## Next
-- Finish the maintenance slices in PLAN.md, record the check, and merge to main.
+- Cut 1.4.1 when the owner wants the fixes installable by tag (CONTRIBUTING.md, Cutting a release).
+- Close the two Medium provenance risks with a signed release manifest that Doctor verifies.
 
 ## Risks
 - [ ] medium: release installation is not bound to verifiable provenance (no signed tag, digest, or

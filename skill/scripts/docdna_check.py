@@ -438,7 +438,16 @@ def covers_state(root, covers, commit=None):
     # frontmatter it plans. With a commit, every covered file is read as it stood at that commit.
     if commit is None:
         return shared_covers_state(root, covers)
-    return shared_covers_state(root, covers, lambda rel: git_show(root, commit, rel))
+    return shared_covers_state(root, covers, lambda rel: committed_source(root, commit, rel))
+
+
+def committed_source(root, commit, rel):
+    # Bounded exactly as docdna_claims.source_text bounds the working tree, so a file past the size
+    # bound or a binary file reads as absent on both sides of the comparison, not only on one.
+    text = git_show(root, commit, rel)
+    if text is None or "\x00" in text or len(text.encode("utf-8")) > MAX_FILE_BYTES:
+        return None
+    return text
 
 
 def document_blocks(doc):

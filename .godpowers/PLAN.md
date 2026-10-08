@@ -31,11 +31,11 @@ sample, and repository setting agree with the code.
 - Output bytes for committed fixtures stay unchanged except where a listed bug fix requires a change.
 
 ## Slices
-- [ ] 1. Scan, select, fs, llms fixes and consolidation: full suite plus new regression tests
-- [ ] 2. Check, backfill, prose, unicode fixes and claim-engine consolidation: full suite plus dogfood gate
-- [ ] 3. Installer staging and rollback, CI cleanup: shellcheck plus installer failure probe
-- [ ] 4. Documentation drift, naming, and P-MUST marker removal: sample test and link check
-- [ ] 5. CHANGELOG, GitHub description and topics, merge to main, push
+- [x] 1. Scan, select, fs, llms fixes and consolidation: full suite plus new regression tests
+- [x] 2. Check, backfill, prose, unicode fixes and claim-engine consolidation: full suite plus dogfood gate
+- [x] 3. Installer staging and rollback, CI cleanup: shellcheck plus installer failure probe
+- [x] 4. Documentation drift, naming, and P-MUST marker removal: sample test and link check
+- [x] 5. CHANGELOG, GitHub description and topics, merge to main, push
 
 ## Open questions
 - none

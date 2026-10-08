@@ -20,6 +20,8 @@ All notable changes to docdna are documented in this file. The format is based o
   compute the covers digest with one implementation.
 - Check treats a claim block within six lines of a GAP marker as covered, matching `--verify`, and no
   longer accepts a bracketed code span with no anchor and no real path, such as `TODO`, as a citation.
+- Check reads a covered file at `last_validated_commit` with the same size and binary bounds as the
+  working tree, so a document covering a large file is still compared declaration by declaration.
 - Check refuses to rewrite the open-gaps block when `DOCDNA.md` has a start marker but no end marker,
   so text after the orphaned marker is no longer deleted.
 - Scan no longer crashes on an OpenAPI or Swagger JSON file whose top level is not an object.
