@@ -28,6 +28,9 @@ SPACE_REPLACEMENTS = {
     0x200A: " ", 0x202F: " ", 0x205F: " ", 0x3000: " ",
 }
 EMOJI_GLUE = {0x200D, 0xFE0E, 0xFE0F}
+# A digit, #, and * are emoji only as the base of a keycap sequence, which a variation selector
+# joins. A zero width joiner never joins a keycap, so between two of them it is hidden glue.
+KEYCAP_BASES = frozenset(list(range(0x0030, 0x003A)) + [0x0023, 0x002A])
 
 
 def _is_variation_selector(point):
@@ -39,31 +42,30 @@ def _is_noncharacter(point):
     return 0xFDD0 <= point <= 0xFDEF or (point & 0xFFFF) in (0xFFFE, 0xFFFF)
 
 
-def _is_emoji_base(point):
+def _is_emoji_base(point, keycap=True):
     if 0x1F000 <= point <= 0x1FAFF:
         return True
     if 0x2600 <= point <= 0x27BF or 0x2B00 <= point <= 0x2BFF:
         return True
-    if point in (0x00A9, 0x00AE, 0x2122, 0x3030, 0x303D, 0x3297, 0x3299,
-                 0x0023, 0x002A):
+    if point in (0x00A9, 0x00AE, 0x2122, 0x3030, 0x303D, 0x3297, 0x3299):
         return True
-    return 0x0030 <= point <= 0x0039
+    return keycap and point in KEYCAP_BASES
 
 
-def _previous_emoji_base(text, index):
+def _previous_emoji_base(text, index, keycap=True):
     previous = index - 1
     while previous >= 0 and ord(text[previous]) in (0xFE0E, 0xFE0F):
         previous -= 1
-    return previous >= 0 and _is_emoji_base(ord(text[previous]))
+    return previous >= 0 and _is_emoji_base(ord(text[previous]), keycap)
 
 
 def _emoji_glue_is_legitimate(text, index):
     point = ord(text[index])
     if point in (0xFE0E, 0xFE0F):
         return _previous_emoji_base(text, index)
-    if point != 0x200D or not _previous_emoji_base(text, index):
+    if point != 0x200D or not _previous_emoji_base(text, index, keycap=False):
         return False
-    return index + 1 < len(text) and _is_emoji_base(ord(text[index + 1]))
+    return index + 1 < len(text) and _is_emoji_base(ord(text[index + 1]), keycap=False)
 
 
 def _classification(text, index):

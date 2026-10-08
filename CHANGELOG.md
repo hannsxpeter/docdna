@@ -226,7 +226,7 @@ Stated here so the next round starts from a list rather than from a surprise.
 
 First public release. Point docdna at a repository and it answers three questions from the code: which documents this project owes, which of the ones it already has are now false, and which of those the code can write without asking anyone. It is a portable coding-agent skill with no service, no account, no build step, and no dependency beyond Python 3.8.
 
-Nothing before this was released, so there is nothing here to correct. The reasoning that produced the shape below, including the arguments that were lost, is recorded in [`docs/design/` at v1.0.0](https://github.com/hannsxpeter/docdna/tree/v1.0.0/docs/design).
+Nothing before this was released, so there is nothing here to correct. The reasoning that produced the shape below, including the arguments that were lost, is recorded in the [design notes shipped with v1.0.0](https://github.com/hannsxpeter/docdna/tree/v1.0.0/docs/design).
 
 ### Added
 

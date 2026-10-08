@@ -200,7 +200,7 @@ docdna doctor: PASS
 checks: 4 pass, 0 fail, 0 error
 PASS runtime-registry: runtime registry schema is valid
 PASS python-compatibility: Python meets the declared 3.8 minimum
-PASS runtime-members: 46 registered runtime resources are present and readable
+PASS runtime-members: 47 registered runtime resources are present and readable
 PASS proof-registry: proof registry is valid in installed-registry mode
 ```
 
