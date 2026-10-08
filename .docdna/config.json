@@ -1,6 +1,5 @@
 {
   "exclude_dirs": [
-    "docs/design",
     "skill/references",
     "skill/templates",
     "tests/fixtures"
