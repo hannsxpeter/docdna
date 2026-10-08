@@ -211,6 +211,11 @@
       "path": "scripts/docdna_check.py"
     },
     {
+      "id": "module.claims",
+      "kind": "module",
+      "path": "scripts/docdna_claims.py"
+    },
+    {
       "id": "command.doctor",
       "kind": "command",
       "path": "scripts/docdna_doctor.py"

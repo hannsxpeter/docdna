@@ -91,6 +91,24 @@ class UnicodeHygieneTests(unittest.TestCase):
         self.assertEqual(cleaned, "plaintext")
         self.assertEqual(stats["removed_count"], 2)
 
+    def test_a_joiner_between_keycap_characters_is_hidden_glue(self):
+        # A digit, # and * are emoji only as a keycap base, which a variation selector joins. A zero
+        # width joiner between two of them hid inside a number and was never reported.
+        for text, cleaned in (("4\u200d8", "48"), ("#\u200d*", "#*"),
+                              ("4\u200d\U0001f525", "4\U0001f525")):
+            with self.subTest(text=text):
+                findings = self.hygiene.inspect_text(text)
+
+                self.assertEqual([(row["codepoint"], row["kind"]) for row in findings],
+                                 [("U+200D", "zero-width")])
+                self.assertEqual(self.hygiene.clean_generated_text(text)[0], cleaned)
+
+    def test_a_keycap_sequence_keeps_its_presentation_selector(self):
+        for text in ("1\ufe0f\u20e3", "#\ufe0f\u20e3", "\u2764\ufe0e"):
+            with self.subTest(text=text):
+                self.assertEqual(self.hygiene.inspect_text(text), [])
+                self.assertEqual(self.hygiene.clean_generated_text(text)[0], text)
+
     def test_plain_unicode_text_is_left_byte_identical(self):
         text = "Configuration for caf\u00e9 and \u6771\u4eac.\n"
 

@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """Advisory prose inspection and protected-inventory comparison for Markdown."""
 
-# Implements: P-MUST-01
-
 import argparse
 import json
 import os
@@ -15,6 +13,9 @@ if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
 from docdna_fs import MAX_CONTROL_BYTES, read_bounded_path
+# The token docdna_check.py and docdna_backfill.py --verify read a number as. A unit glued to the
+# digits ends the number rather than hiding it: 30s is 30, 250MB is 250, 3x is 3.
+from docdna_claims import NUMBER_TOKEN as NUMBER
 
 
 MAX_PROSE_BYTES = MAX_CONTROL_BYTES
@@ -124,7 +125,6 @@ CITATION = re.compile(
     re.I,
 )
 GAP_MARKER = re.compile(r"\bGAP\s+[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+\b")
-NUMBER = re.compile(r"(?<![A-Za-z_])\d+(?:\.\d+)*(?![A-Za-z_])")
 PATH_TOKEN = re.compile(
     r"(?<![A-Za-z0-9_])(?:\.?\.?/)?(?:[A-Za-z0-9_.-]+/)+[A-Za-z0-9_.#-]+"
 )

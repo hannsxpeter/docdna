@@ -662,7 +662,6 @@ class CheckTests(unittest.TestCase):
 
             self.assertEqual((repo / "README.md").read_text(encoding="utf-8"), body)
 
-    # Implements: P-MUST-01
     def test_prose_check_fixture_is_read_only_and_never_gates(self):
         fixture = FIXTURES / "prose"
         before = {path.relative_to(fixture): path.read_bytes()
@@ -828,6 +827,117 @@ class CheckTests(unittest.TestCase):
             self.assertIn("## Open gaps", written)
             self.assertEqual((repo / "README.md").read_text(encoding="utf-8"),
                              "# App\n" + GAP_PAIR)
+
+    def test_an_unterminated_gaps_block_is_refused_and_the_report_left_alone(self):
+        # Appending a second block after an unclosed one made the next run read everything between
+        # the two opening markers as the old block and delete it.
+        with tempfile.TemporaryDirectory() as tmp:
+            report = ("# Report\n\n" + self.check.GAPS_START + "\n## Open gaps\n\n"
+                      "A paragraph a person wrote after the marker.\n")
+            repo = write_repo(tmp, {"DOCDNA.md": report,
+                                    "src/config/settings.py": SETTINGS,
+                                    "docs/build/config-reference.md":
+                                    document([], body=BODY + GAP_PAIR)})
+
+            for _ in range(2):
+                result = self.check.check(str(repo), {"gaps"}, "minor", None, True)
+                self.assertEqual((repo / "DOCDNA.md").read_text(encoding="utf-8"), report)
+
+            rows = kinds(result, "gaps-block-unterminated")
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["path"], "DOCDNA.md")
+            self.assertEqual(rows[0]["line"], 3)
+            self.assertFalse(rows[0]["gating"])
+            self.assertFalse(result["gaps"]["written"])
+            self.assertEqual(result["summary"]["exit"], 0)
+
+    @unittest.skipUnless(GIT, "git is not installed")
+    def test_a_last_validated_commit_shaped_like_an_option_never_reaches_git(self):
+        # The frontmatter value went into `git show <commit>:<path>` as typed, so
+        # --output=PATH made git write a file outside the repository, --no-write or not.
+        with tempfile.TemporaryDirectory() as tmp:
+            outside = Path(tmp) / "outside"
+            outside.mkdir()
+            repo = write_repo(Path(tmp) / "repo", {"settings.py": SETTINGS})
+            git(repo, "init", "--quiet")
+            git(repo, "add", "settings.py")
+            git(repo, "commit", "--quiet", "-m", "settings")
+            extra = [("covers_digest", "sha256:" + "0" * 64),
+                     ("last_validated_commit", "--output=%s" % (outside / "pwned"))]
+            write_repo(repo, {"docs/build/config-reference.md":
+                              document(["settings.py"], extra)})
+
+            report = self.check_repo(repo)
+            record = drift_record(report, "docs/build/config-reference.md")
+
+            self.assertEqual(sorted(path.name for path in outside.iterdir()), [])
+            self.assertEqual(record["method"], "digest")
+            self.assertFalse(record["budget_applied"])
+            self.assertIn("not a hexadecimal commit name", record["reason"])
+            self.assertIsNone(self.check.git_show(str(repo), "--output=%s" % (outside / "x"),
+                                                  "settings.py"))
+            self.assertEqual(sorted(path.name for path in outside.iterdir()), [])
+
+    def test_a_bracketed_code_span_with_no_anchor_and_no_file_is_not_a_citation(self):
+        cases = (("The defaults are documented elsewhere [`TODO`].\n", 1),
+                 ("The defaults are read from the settings module "
+                  "[`src/config/settings.py`].\n", 0),
+                 ("The defaults are read from a module that is gone [`src/config/gone.py`].\n", 1),
+                 ("The database URL is read from the environment "
+                  "[`src/config/settings.py#DATABASE_URL`].\n", 0))
+        for body, expected in cases:
+            with self.subTest(body=body), tempfile.TemporaryDirectory() as tmp:
+                repo = write_repo(tmp, {"src/config/settings.py": SETTINGS,
+                                        "docs/build/config-reference.md":
+                                        document(["src/config/settings.py"], body=body)})
+                report = self.check_repo(repo)
+
+                self.assertEqual(len(kinds(report, "citation-coverage")), expected)
+                self.assertEqual(report["documents"][0]["claims"]["cited"], 1 - expected)
+
+    def test_a_claim_block_beside_a_gap_marker_is_covered_and_its_numbers_still_read(self):
+        # The window --verify counts as gap-covered. It shields the block from the citation rule
+        # and from nothing else.
+        body = ("# Configuration reference\n\n"
+                "The database URL is read from the environment "
+                "[`src/config/settings.py#DATABASE_URL`].\n" + GAP_PAIR +
+                "\nRequest log retention is not stated anywhere in the repository.\n")
+        far = body + "\n" + "\n".join("Filler paragraph %s.\n" % word for word in
+                                      ("one", "two", "three", "four", "five")) + \
+            "\nThis last paragraph sits far below the marker.\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = write_repo(tmp, {"src/config/settings.py": SETTINGS,
+                                    "docs/build/config-reference.md":
+                                    document(["src/config/settings.py"], body=body)})
+            self.assertEqual(kinds(self.check_repo(repo), "citation-coverage"), [])
+
+            write_repo(repo, {"docs/build/config-reference.md":
+                              document(["src/config/settings.py"], body=far)})
+            rows = kinds(self.check_repo(repo), "citation-coverage")
+            self.assertEqual(len(rows), 1)
+            self.assertIn("nor a GAP marker within 6 lines", rows[0]["detail"])
+
+            numbered = body.replace("Request log retention is not stated anywhere in the "
+                                    "repository.", "Request logs are retained for 2555 days.")
+            write_repo(repo, {"docs/build/config-reference.md":
+                              document(["src/config/settings.py"], body=numbered)})
+            report = self.check_repo(repo)
+            self.assertEqual(kinds(report, "citation-coverage"), [])
+            self.assertEqual(len(kinds(report, "generated-number")), 1)
+
+    def test_an_excluded_directory_whose_name_starts_with_a_dash_reaches_the_scan(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = write_repo(tmp, {"README.md": "# App\n",
+                                    "-vendor/README.md": "# Vendored\n"})
+
+            report = self.check.check(str(repo), set(self.check.PASSES), "major", None, False,
+                                      ["-vendor"])
+            process = cli(repo, "--json", "--exclude-dir=-vendor")
+
+            self.assertEqual([row["path"] for row in report["prose"]], ["README.md"])
+            self.assertEqual(process.returncode, 0, process.stderr)
+            self.assertEqual([row["path"] for row in json.loads(process.stdout)["prose"]],
+                             ["README.md"])
 
 
 if __name__ == "__main__":
