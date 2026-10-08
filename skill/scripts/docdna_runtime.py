@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
-"""Load and validate the shared DocDNA runtime registry.
-
-Implements: P-MUST-03, P-MUST-05
-"""
+"""Load and validate the shared docdna runtime registry."""
 
 import os
 import re
@@ -310,7 +307,7 @@ def _workflow_command_errors(workflow, checkout_root, where):
         try:
             repo_kind = inspect_bound_path(checkout_root, repo)
         except RuntimeRegistryError as error:
-            errors.append("%s operand %s" % (where, error))
+            errors.append("%s operand %s is unsafe: %s" % (where, repo, error))
         else:
             if repo_kind != "directory":
                 errors.append("%s operand %s is not a repository directory" % (where, repo))
@@ -478,13 +475,18 @@ def validate_proof_contract(registry, workflows=None, checkout_root=None):
                 kinds.add(kind)
             try:
                 _safe_path(relative, "%s path" % label)
-                state = (inspect_bound_path(checkout_root, relative)
-                         if checkout_root is not None else None)
+            except RuntimeRegistryError as error:
+                errors.append(str(error))
+                continue
+            if checkout_root is None:
+                continue
+            try:
+                state = inspect_bound_path(checkout_root, relative)
             except RuntimeRegistryError as error:
                 errors.append("%s %s" % (label, error))
-            else:
-                if checkout_root is not None and state not in ("file", "directory"):
-                    errors.append("%s path %s does not exist" % (where, relative))
+                continue
+            if state not in ("file", "directory"):
+                errors.append("%s path %s does not exist" % (where, relative))
         required = PROOF_REQUIRED.get(level) if isinstance(level, str) else None
         if required is not None and required not in kinds:
             errors.append("%s cannot use %s without evidence kind %s"
@@ -614,7 +616,7 @@ def _validate_members(rows):
             _error("%s kind is invalid" % where)
         path = _safe_path(row.get("path"), "%s path" % where)
         if not path.startswith("scripts/docdna_") or not path.endswith(".py"):
-            _error("%s path must name a DocDNA Python script" % where)
+            _error("%s path must name a docdna Python script" % where)
     _unique_sorted(rows, "runtime members", "path")
     ids = [row["id"] for row in rows]
     duplicate = _first_duplicate(ids)
@@ -711,17 +713,6 @@ def load_registry(skill_root, registry_path=REGISTRY_PATH):
     except (OSError, UnicodeError, ValueError, TypeError, RecursionError) as error:
         raise RuntimeRegistryError("unsafe or invalid runtime registry %s: %s"
                                    % (registry_path, error))
-
-
-def command_paths(registry):
-    """Return command paths in registry order."""
-    return [row["path"] for row in registry["runtime_members"] if row["kind"] == "command"]
-
-
-def install_targets(registry):
-    """Return only installer selectors with declared install support."""
-    return [row["install"]["selector"] for row in registry["host_targets"]
-            if row["install"]["support"] == "supported"]
 
 
 def install_metadata(registry):

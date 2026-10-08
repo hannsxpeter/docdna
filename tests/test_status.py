@@ -1,4 +1,4 @@
-"""P-MUST-04: standalone read-only status behavior."""
+"""Standalone read-only status behavior."""
 
 import importlib.util
 import json
@@ -252,6 +252,54 @@ class StatusCliTests(unittest.TestCase):
         self.assertEqual(status.repository_relative("docs/decide/proposals/"),
                          "docs/decide/proposals/")
         self.assertEqual(snapshot(repo), before)
+
+    def test_status_routes_written_directories_and_unsafe_rows_to_manual_gates(self):
+        # A written directory row reached control_file_exists, which refuses anything that is not
+        # a regular file, so one catalog directory such as docs/adr/ made the whole run exit 2.
+        cases = (
+            ("directory", row("decide.adr", "written", extra={"path": "docs/adr/"}),
+             {"docs/adr/0001-record.md": "decision\n"}, "verify:decide.adr"),
+            ("file-for-directory", row("decide.adr", "in-progress", extra={"path": "docs/adr/"}),
+             {"docs/adr": "not a directory\n"}, "inspect:decide.adr"),
+            ("directory-for-file", row("build.written", "written"),
+             {"docs/build/written.md/nested.md": "nested\n"}, "inspect:build.written"),
+        )
+        for label, document, files, expected in cases:
+            with self.subTest(case=label):
+                repo = self.make_repo(manifest([document, row("build.pending")]), files)
+                before = snapshot(repo)
+
+                process = self.run_status(repo)
+
+                self.assertEqual(process.returncode, 0, process.stderr)
+                action_row = json.loads(process.stdout)["next_action"]
+                self.assertEqual(action_row["id"], expected)
+                self.assertEqual(action_row["lane"], "manual-gated")
+                self.assertIsNone(action_row["argv"])
+                self.assertIsNone(action_row["command"])
+                self.assertEqual(snapshot(repo), before)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            outside = base / "outside-adr"
+            outside.mkdir()
+            repo = self.make_repo(manifest([row("decide.adr", "written",
+                                                extra={"path": "docs/adr/"})]))
+            (repo / "docs").mkdir()
+            os.symlink(str(outside), str(repo / "docs" / "adr"))
+
+            process = self.run_status(repo)
+
+            self.assertEqual(process.returncode, 0, process.stderr)
+            action_row = json.loads(process.stdout)["next_action"]
+            self.assertEqual(action_row["id"], "inspect:decide.adr")
+            self.assertIn("not a directory", action_row["reason"])
+
+        absent = self.make_repo(manifest([row("decide.adr", "written",
+                                              extra={"path": "docs/adr/"})]))
+        process = self.run_status(absent)
+        self.assertEqual(process.returncode, 0, process.stderr)
+        self.assertEqual(json.loads(process.stdout)["next_action"]["id"], "packet:decide.adr")
 
     def test_status_commands_expose_argv_and_quote_every_hostile_argument(self):
         repo = self.make_repo(repo_name="repo with spaces $(not-executed)")

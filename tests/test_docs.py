@@ -12,8 +12,6 @@ from unittest import mock
 from pathlib import Path
 
 
-# Implements: P-MUST-05
-
 ROOT = Path(__file__).resolve().parents[1]
 SKILL = ROOT / "skill" / "SKILL.md"
 SCRIPTS = ROOT / "skill" / "scripts"
@@ -366,7 +364,8 @@ class ReleaseContractTests(unittest.TestCase):
         metadata = runtime.install_metadata(registry)
 
         self.assertEqual([row["selector"] for row in metadata],
-                         runtime.install_targets(registry))
+                         [row["install"]["selector"] for row in registry["host_targets"]
+                          if row["install"]["support"] == "supported"])
         self.assertTrue(all(set(row) == {"selector", "label", "default_location"}
                             for row in metadata))
 
@@ -488,6 +487,128 @@ class ReleaseContractTests(unittest.TestCase):
             self.assertTrue((override / "docdna" / "SKILL.md").is_file())
             self.assertIn(claude["label"], process.stdout)
             self.assertFalse((workspace / "home" / ".unused-default" / "docdna").exists())
+
+    @staticmethod
+    def release_copy(release):
+        release.mkdir(parents=True)
+        shutil.copy2(str(INSTALLER), str(release / "install.sh"))
+        shutil.copytree(str(ROOT / "skill"), str(release / "skill"),
+                        ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+        return release
+
+    @staticmethod
+    def tree(root):
+        rows = []
+        for path in sorted(root.rglob("*")):
+            relative = str(path.relative_to(root))
+            if path.is_symlink():
+                rows.append((relative, "symlink", os.readlink(str(path))))
+            elif path.is_file():
+                rows.append((relative, "file", path.read_bytes()))
+            else:
+                rows.append((relative, "dir", None))
+        return rows
+
+    def test_installer_keeps_the_previous_install_when_any_install_step_fails(self):
+        real_mv = shutil.which("mv")
+        shims = {
+            "copy": ("cp", "#!/bin/sh\necho 'cp: simulated copy failure' >&2\nexit 1\n"),
+            "swap": ("mv", "#!/bin/sh\ncase \"$2\" in\n  */new) echo 'mv: simulated failure' >&2;"
+                           " exit 1 ;;\nesac\nexec %s \"$@\"\n" % real_mv),
+            "doctor": (None, None),
+        }
+        for case, (tool, script) in shims.items():
+            with self.subTest(case=case), tempfile.TemporaryDirectory() as tmp:
+                workspace = Path(tmp)
+                release = self.release_copy(workspace / "release")
+                path = os.environ.get("PATH", "")
+                if tool is not None:
+                    shim_dir = workspace / "shims"
+                    shim_dir.mkdir()
+                    shim = shim_dir / tool
+                    shim.write_text(script, encoding="utf-8")
+                    shim.chmod(0o755)
+                    path = "%s%s%s" % (shim_dir, os.pathsep, path)
+                else:
+                    (release / "skill" / "templates" / "_banner.md").unlink()
+                skills = workspace / "skills"
+                previous = skills / "docdna"
+                previous.mkdir(parents=True)
+                (previous / "sentinel.txt").write_text("previous install\n", encoding="utf-8")
+                before = self.tree(skills)
+                environment = dict(os.environ, HOME=str(workspace / "home"), PATH=path,
+                                   CLAUDE_SKILLS_DIR=str(skills), PYTHON=sys.executable)
+
+                process = subprocess.run(["sh", str(release / "install.sh"), "claude"],
+                                         cwd=str(release), env=environment,
+                                         text=True, capture_output=True)
+
+                self.assertNotEqual(process.returncode, 0, process.stdout)
+                self.assertNotIn("Installed docdna", process.stdout)
+                self.assertNotIn("Traceback", process.stderr)
+                self.assertEqual(self.tree(skills), before, process.stderr)
+                if case == "swap":
+                    self.assertIn("restored the previous install", process.stderr)
+                if case == "doctor":
+                    self.assertEqual(process.returncode, 1, process.stderr)
+                    self.assertIn("failed docdna_doctor", process.stderr)
+
+    def test_installer_replaces_an_install_and_leaves_no_bytecode_or_staging(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            release = self.release_copy(workspace / "release")
+            cache = release / "skill" / "scripts" / "__pycache__"
+            cache.mkdir()
+            (cache / "docdna_fs.cpython-38.pyc").write_bytes(b"stale bytecode")
+            skills = workspace / "skills"
+            (skills / "docdna").mkdir(parents=True)
+            (skills / "docdna" / "sentinel.txt").write_text("previous\n", encoding="utf-8")
+            environment = dict(os.environ, HOME=str(workspace / "home"),
+                               CLAUDE_SKILLS_DIR=str(skills), PYTHON=sys.executable)
+
+            process = subprocess.run(["sh", str(release / "install.sh"), "claude"],
+                                     cwd=str(release), env=environment,
+                                     text=True, capture_output=True)
+
+            installed = skills / "docdna"
+            self.assertEqual(process.returncode, 0, process.stderr)
+            self.assertEqual(process.stderr, "")
+            self.assertTrue((installed / "SKILL.md").is_file())
+            self.assertFalse((installed / "sentinel.txt").exists())
+            self.assertEqual(list(installed.rglob("__pycache__")), [])
+            self.assertEqual(sorted(path.name for path in skills.iterdir()), ["docdna"])
+
+    def test_installer_refuses_a_destination_that_contains_the_source_checkout(self):
+        cases = ["checkout", "ancestor"]
+        with tempfile.TemporaryDirectory() as probe:
+            if os.path.isdir(os.path.join(probe.upper(), ".")) and probe != probe.upper():
+                cases.append("case-insensitive")
+        for case in cases:
+            with self.subTest(case=case), tempfile.TemporaryDirectory() as tmp:
+                workspace = Path(tmp)
+                if case == "ancestor":
+                    checkout = workspace / "skills" / "docdna" / "src" / "docdna"
+                elif case == "case-insensitive":
+                    checkout = workspace / "skills" / "DocDNA"
+                else:
+                    checkout = workspace / "skills" / "docdna"
+                self.release_copy(checkout)
+                (checkout / ".git").mkdir()
+                (checkout / ".git" / "HEAD").write_text("ref: refs/heads/main\n",
+                                                        encoding="utf-8")
+                before = self.tree(workspace)
+                environment = dict(os.environ, HOME=str(workspace / "home"),
+                                   CLAUDE_SKILLS_DIR=str(workspace / "skills"),
+                                   PYTHON=sys.executable)
+
+                process = subprocess.run(["sh", str(checkout / "install.sh"), "claude"],
+                                         cwd=str(checkout), env=environment,
+                                         text=True, capture_output=True)
+
+                self.assertEqual(process.returncode, 2, process.stdout + process.stderr)
+                self.assertIn("contains this source checkout", process.stderr)
+                self.assertEqual(process.stdout, "")
+                self.assertEqual(self.tree(workspace), before)
 
     def test_wire_cli_catches_malformed_and_unsafe_registry_before_writing(self):
         for case in ("malformed", "symlink"):
@@ -685,7 +806,7 @@ class ReleaseContractTests(unittest.TestCase):
     def test_ci_derives_runtime_checks_from_the_registry(self):
         workflow = (WORKFLOWS / "ci.yml").read_text(encoding="utf-8")
 
-        self.assertIn("skill/catalog/runtimes.json", workflow)
+        self.assertIn('load_registry("skill")', workflow)
         self.assertIn("docdna_runtime", workflow)
         self.assertIn("runtime_members", workflow)
         self.assertNotRegex(workflow, r"python -m py_compile skill/scripts/docdna_[a-z_]+\.py")

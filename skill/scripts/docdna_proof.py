@@ -1,14 +1,10 @@
 #!/usr/bin/env python3
-"""Validate and render DocDNA product claim evidence.
-
-Implements: P-MUST-02
-"""
+"""Validate and render docdna product claim evidence."""
 
 import argparse
 import errno
 import json
 import os
-import re
 import selectors
 import signal
 import stat
@@ -17,10 +13,21 @@ import sys
 import time
 
 
+# The shared validator lives beside this script. Importing it must not leave bytecode in an
+# installed skill directory, which this command promises not to modify.
+sys.dont_write_bytecode = True
+HERE = os.path.dirname(os.path.abspath(__file__))
+if HERE not in sys.path:
+    sys.path.insert(0, HERE)
+
+from docdna_fs import bind_root
+from docdna_runtime import (INSTALLED_PROOF_BOUNDARY, PROOF_LEVELS, PROOF_PROMOTIONS,
+                            validate_proof_contract)
+
+
 SCHEMA = 1
 TOOL = "docdna_proof"
 
-HERE = os.path.dirname(os.path.abspath(__file__))
 SKILL_ROOT = os.path.normpath(os.path.join(HERE, ".."))
 CHECKOUT_ROOT = os.path.normpath(os.path.join(SKILL_ROOT, ".."))
 CHECKOUT_LAYOUT = (os.path.basename(SKILL_ROOT) == "skill"
@@ -30,54 +37,12 @@ REGISTRY_PATH = os.path.join(SKILL_ROOT, "catalog", "proofs.json")
 WORKFLOWS_PATH = (os.path.join(CHECKOUT_ROOT, "proof", "replay", "golden-workflows.json")
                   if CHECKOUT_LAYOUT else None)
 
-PROMOTION_REQUIREMENTS = (
-    ("shipped", "implementation"),
-    ("unit-tested", "unit-test"),
-    ("install-tested", "install-test"),
-    ("artifact-proven", "artifact"),
-    ("replay-tested", "replay"),
-    ("measured", "measurement"),
-    ("adjudicated", "adjudication"),
-    ("host-capture-ready", "capture-procedure"),
-    ("host-captured", "host-capture"),
-    ("external-tool-dependent", "external-dependency"),
-)
-EVIDENCE_LEVELS = tuple(level for level, _ in PROMOTION_REQUIREMENTS)
-EVIDENCE_KINDS = tuple(kind for _, kind in PROMOTION_REQUIREMENTS)
-REQUIRED_EVIDENCE = dict(PROMOTION_REQUIREMENTS)
-CORE_MODES = ("survey", "backfill", "check", "runtime")
-COMMAND_SCHEMAS = {
-    "survey": {
-        "script": "skill/scripts/docdna_scan.py",
-        "flags": {"--json": None},
-    },
-    "backfill": {
-        "script": "skill/scripts/docdna_backfill.py",
-        "flags": {"--json": None, "--verify": "repo-path"},
-    },
-    "check": {
-        "script": "skill/scripts/docdna_check.py",
-        "flags": {"--json": None, "--no-write": None, "--fail-on": ("never",)},
-    },
-}
-ID_RE = re.compile(r"^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$")
 REPLAY_TIMEOUT_SECONDS = 30
 MAX_CONTROL_BYTES = 1024 * 1024
 MAX_CHILD_OUTPUT_BYTES = 256 * 1024
 MAX_CHILD_ERROR_TEXT = 2000
 READ_CHUNK_BYTES = 64 * 1024
 PROCESS_GRACE_SECONDS = 0.25
-INSTALLED_BOUNDARY = ("installed validation checks registry schema and promotion structure only; "
-                      "checkout-only evidence paths and golden replays are not shipped or revalidated")
-
-REGISTRY_KEYS = frozenset(("schema", "evidence_levels", "promotion_requirements", "claims"))
-PROMOTION_KEYS = frozenset(("requires_evidence",))
-CLAIM_KEYS = frozenset(("id", "mode", "claim", "evidence_level", "boundary", "evidence",
-                        "corpus", "limitations", "replay_id"))
-EVIDENCE_KEYS = frozenset(("kind", "path"))
-WORKFLOW_ROOT_KEYS = frozenset(("schema", "workflows"))
-WORKFLOW_COMMON_KEYS = frozenset(("id", "mode", "expected_exit", "assertions"))
-ASSERTION_KEYS = frozenset(("path", "equals", "length"))
 
 
 def control_signature(details):
@@ -85,10 +50,7 @@ def control_signature(details):
 
 
 def read_control(path, max_bytes=MAX_CONTROL_BYTES):
-    try:
-        path_details = os.lstat(path)
-    except OSError:
-        raise
+    path_details = os.lstat(path)
     if stat.S_ISLNK(path_details.st_mode):
         raise ValueError("control file %s refuses symbolic links" % path)
     if not stat.S_ISREG(path_details.st_mode):
@@ -141,299 +103,20 @@ def read_json(path):
     return data
 
 
-def text(value):
-    return isinstance(value, str) and bool(value.strip())
+def validate_registry(registry, root, workflows):
+    """Validate proof data with the shared runtime contract.
 
-
-def schema_one(value):
-    return isinstance(value, int) and not isinstance(value, bool) and value == SCHEMA
-
-
-def undeclared_fields(value, allowed, where):
-    return ["%s has undeclared field %s" % (where, field)
-            for field in sorted(set(value) - allowed)]
-
-
-def duplicate_values(values):
-    seen = set()
-    duplicates = set()
-    for value in values:
-        if value in seen:
-            duplicates.add(value)
-        else:
-            seen.add(value)
-    return sorted(duplicates)
-
-
-def safe_evidence_path(root, relative):
-    if not text(relative) or os.path.isabs(relative):
-        return None
-    normalized = os.path.normpath(relative)
-    if normalized == ".." or normalized.startswith(".." + os.sep):
-        return None
-    root_real = os.path.realpath(root)
-    candidate = os.path.realpath(os.path.join(root_real, normalized))
-    try:
-        inside = os.path.commonpath((root_real, candidate)) == root_real
-    except ValueError:
-        inside = False
-    return candidate if inside else None
-
-
-def command_path(root, relative):
-    candidate = safe_evidence_path(root, relative)
-    if candidate is None:
-        return None, None
-    return os.path.normpath(relative), candidate
-
-
-def parse_replay_command(workflow, root, where):
-    errors = []
-    mode = workflow.get("mode")
-    schema = COMMAND_SCHEMAS.get(mode)
-    if schema is None:
-        return errors
-    command = workflow.get("command")
-    if not isinstance(command, list) or not command or not all(text(arg) for arg in command):
-        return ["%s command must be a non-empty string list" % where]
-
-    script_normalized, script_path = command_path(root, command[0])
-    if script_normalized != schema["script"]:
-        errors.append("%s command must use %s" % (where, schema["script"]))
-    elif not os.path.isfile(script_path):
-        errors.append("%s command script %s does not exist" % (where, command[0]))
-
-    seen = {}
-    operands = []
-    index = 1
-    while index < len(command):
-        token = command[index]
-        if not token.startswith("-"):
-            operands.append(token)
-            index += 1
-            continue
-        if token not in schema["flags"]:
-            errors.append("%s does not allow flag %s" % (where, token))
-            index += 1
-            continue
-        if token in seen:
-            errors.append("%s repeats flag %s" % (where, token))
-            index += 1
-            continue
-        value_schema = schema["flags"][token]
-        if value_schema is None:
-            seen[token] = True
-            index += 1
-            continue
-        if index + 1 >= len(command) or command[index + 1].startswith("-"):
-            errors.append("%s flag %s needs a value" % (where, token))
-            index += 1
-            continue
-        seen[token] = command[index + 1]
-        index += 2
-
-    for flag in schema["flags"]:
-        if flag not in seen:
-            errors.append("%s command needs flag %s" % (where, flag))
-    if len(operands) != 1:
-        errors.append("%s command needs exactly one repository operand" % where)
-        repo_path = None
-    else:
-        operand = operands[0]
-        _, repo_path = command_path(root, operand)
-        if repo_path is None:
-            errors.append("%s operand %s must stay inside the project" % (where, operand))
-        elif not os.path.isdir(repo_path):
-            errors.append("%s operand %s is not a repository directory" % (where, operand))
-
-    for flag, value_schema in schema["flags"].items():
-        if flag not in seen or value_schema is None:
-            continue
-        value = seen[flag]
-        if value_schema == "repo-path":
-            if repo_path is None:
-                continue
-            _, candidate = command_path(repo_path, value)
-            if candidate is None:
-                errors.append("%s flag %s path %s must stay inside the repository"
-                              % (where, flag, value))
-            elif not os.path.isfile(candidate):
-                errors.append("%s flag %s path %s does not exist" % (where, flag, value))
-        elif value not in value_schema:
-            errors.append("%s flag %s value must be %s"
-                          % (where, flag, ", ".join(value_schema)))
-    return errors
-
-
-def validate_workflows(data, root):
-    errors = undeclared_fields(data, WORKFLOW_ROOT_KEYS, "golden workflows")
-    if not schema_one(data.get("schema")):
-        errors.append("golden workflows schema must be 1")
-    workflows = data.get("workflows")
-    if not isinstance(workflows, list):
-        return errors + ["golden workflows must be a list"]
-    ids = []
-    modes = []
-    for index, workflow in enumerate(workflows):
-        where = "workflow %d" % (index + 1)
-        if not isinstance(workflow, dict):
-            errors.append("%s must be an object" % where)
-            continue
-        ident = workflow.get("id")
-        mode = workflow.get("mode")
-        if not text(ident) or ID_RE.fullmatch(ident) is None:
-            errors.append("%s has an invalid id" % where)
-        else:
-            ids.append(ident)
-            where = "workflow %s" % ident
-        if mode not in CORE_MODES:
-            errors.append("%s has an invalid mode" % where)
-        else:
-            modes.append(mode)
-        allowed = WORKFLOW_COMMON_KEYS | ({"builtin"} if mode == "runtime" else {"command"})
-        errors.extend(undeclared_fields(workflow, allowed, where))
-        if mode == "runtime":
-            if workflow.get("builtin") != "proof-registry":
-                errors.append("%s must use builtin proof-registry" % where)
-            if "command" in workflow:
-                errors.append("%s may not declare a command" % where)
-        elif isinstance(mode, str) and mode in COMMAND_SCHEMAS:
-            errors.extend(parse_replay_command(workflow, root, where))
-        expected_exit = workflow.get("expected_exit")
-        if isinstance(expected_exit, bool) or not isinstance(expected_exit, int):
-            errors.append("%s expected_exit must be an integer" % where)
-        assertions = workflow.get("assertions")
-        if not isinstance(assertions, list) or not assertions:
-            errors.append("%s assertions must be a non-empty list" % where)
-        else:
-            for number, assertion in enumerate(assertions, 1):
-                if not isinstance(assertion, dict) or not text(assertion.get("path")):
-                    errors.append("%s assertion %d is invalid" % (where, number))
-                    continue
-                errors.extend(undeclared_fields(assertion, ASSERTION_KEYS,
-                                                "%s assertion %d" % (where, number)))
-                operators = set(assertion) & {"equals", "length"}
-                if len(operators) != 1:
-                    errors.append("%s assertion %d needs exactly one operator" % (where, number))
-                if "length" in assertion:
-                    length = assertion["length"]
-                    if isinstance(length, bool) or not isinstance(length, int) or length < 0:
-                        errors.append("%s assertion %d length must be a non-negative integer"
-                                      % (where, number))
-    for ident in duplicate_values(ids):
-        errors.append("duplicate workflow id %s" % ident)
-    if tuple(modes) != CORE_MODES:
-        errors.append("golden workflows must name survey, backfill, check, and runtime once in order")
-    return errors
-
-
-def validate_registry(registry, root, workflows, check_evidence=True):
-    errors = undeclared_fields(registry, REGISTRY_KEYS, "proof registry")
-    if not schema_one(registry.get("schema")):
-        errors.append("proof registry schema must be 1")
-    levels = registry.get("evidence_levels")
-    if not isinstance(levels, list) or tuple(levels) != EVIDENCE_LEVELS:
-        errors.append("evidence_levels must match the closed vocabulary in schema order")
-    requirements = registry.get("promotion_requirements")
-    if not isinstance(requirements, dict):
-        requirements = {}
-        errors.append("promotion_requirements must be an object")
-    if set(requirements) != set(EVIDENCE_LEVELS):
-        errors.append("promotion_requirements must name every evidence level exactly once")
-    for level in EVIDENCE_LEVELS:
-        rule = requirements.get(level)
-        expected = [REQUIRED_EVIDENCE[level]]
-        if isinstance(rule, dict):
-            errors.extend(undeclared_fields(rule, PROMOTION_KEYS,
-                                            "promotion requirement %s" % level))
-        if rule != {"requires_evidence": expected}:
-            errors.append("promotion requirement %s must be %s"
-                          % (level, REQUIRED_EVIDENCE[level]))
-
+    With golden workflows, the project root is bound and every evidence, script, and operand
+    path is inspected below it without following a symlink. Without them, as in an installed
+    skill, only the registry structure and lexical path safety are checked.
+    """
     if workflows is None:
-        workflow_ids = None
-    else:
-        workflow_errors = validate_workflows(workflows, root)
-        errors.extend(workflow_errors)
-        workflow_rows = workflows.get("workflows")
-        if not isinstance(workflow_rows, list):
-            workflow_rows = []
-        workflow_ids = set(workflow.get("id") for workflow in workflow_rows
-                           if isinstance(workflow, dict) and text(workflow.get("id")))
-
-    claims = registry.get("claims")
-    if not isinstance(claims, list) or not claims:
-        return {"errors": errors + ["claims must be a non-empty list"], "claims": []}
-    ids = []
-    modes = []
-    for index, claim in enumerate(claims):
-        where = "claim %d" % (index + 1)
-        if not isinstance(claim, dict):
-            errors.append("%s must be an object" % where)
-            continue
-        ident = claim.get("id")
-        if not text(ident) or ID_RE.fullmatch(ident) is None:
-            errors.append("%s has an invalid id" % where)
-        else:
-            ids.append(ident)
-            where = "claim %s" % ident
-        errors.extend(undeclared_fields(claim, CLAIM_KEYS, where))
-        for field in ("claim", "boundary"):
-            if not text(claim.get(field)):
-                errors.append("%s needs a non-empty %s" % (where, field))
-        mode = claim.get("mode")
-        if mode not in CORE_MODES:
-            errors.append("%s has an invalid mode" % where)
-        else:
-            modes.append(mode)
-        level = claim.get("evidence_level")
-        if level not in EVIDENCE_LEVELS:
-            errors.append("%s has an invalid evidence_level" % where)
-        evidence = claim.get("evidence")
-        kinds = set()
-        if not isinstance(evidence, list) or not evidence:
-            errors.append("%s needs at least one evidence record" % where)
-            evidence = []
-        for number, item in enumerate(evidence, 1):
-            if not isinstance(item, dict):
-                errors.append("%s evidence %d must be an object" % (where, number))
-                continue
-            errors.extend(undeclared_fields(item, EVIDENCE_KEYS,
-                                            "%s evidence %d" % (where, number)))
-            kind = item.get("kind")
-            relative = item.get("path")
-            if kind not in EVIDENCE_KINDS:
-                errors.append("%s evidence %d has an invalid kind" % (where, number))
-            else:
-                kinds.add(kind)
-            candidate = safe_evidence_path(root, relative)
-            if candidate is None:
-                errors.append("%s evidence %d path must stay inside the project" % (where, number))
-            elif check_evidence and not os.path.exists(candidate):
-                errors.append("%s evidence path %s does not exist" % (where, relative))
-        required = REQUIRED_EVIDENCE.get(level) if isinstance(level, str) else None
-        if required is not None and required not in kinds:
-            errors.append("%s cannot use %s without evidence kind %s"
-                          % (where, level, required))
-        replay_id = claim.get("replay_id")
-        if level == "replay-tested" and not text(replay_id):
-            errors.append("%s needs replay_id at replay-tested" % where)
-        if replay_id is not None and not text(replay_id):
-            errors.append("%s replay_id must be a string" % where)
-        elif replay_id is not None and workflow_ids is not None and replay_id not in workflow_ids:
-            errors.append("%s names unknown replay_id %s" % (where, replay_id))
-        if level in ("measured", "adjudicated"):
-            for field in ("corpus", "limitations"):
-                if not text(claim.get(field)):
-                    errors.append("%s needs %s at %s" % (where, field, level))
-
-    for ident in duplicate_values(ids):
-        errors.append("duplicate claim id %s" % ident)
-    if ids != sorted(ids):
-        errors.append("claims must be sorted by id")
-    if set(modes) != set(CORE_MODES):
-        errors.append("claims must cover survey, backfill, check, and runtime")
-    return {"errors": errors, "claims": claims}
+        return validate_proof_contract(registry)
+    checkout_root = bind_root(os.path.abspath(root))
+    try:
+        return validate_proof_contract(registry, workflows, checkout_root)
+    finally:
+        checkout_root.close()
 
 
 def resolve_path(payload, dotted):
@@ -450,7 +133,7 @@ def runtime_payload(root):
     workflows_path = os.path.join(root, "proof", "replay", "golden-workflows.json")
     try:
         registry = read_json(registry_path)
-    except (OSError, ValueError, json.JSONDecodeError):
+    except (OSError, ValueError):
         return {"registry_exists": os.path.isfile(registry_path), "registry_schema": None,
                 "workflows_exists": os.path.isfile(workflows_path)}
     return {"registry_exists": True, "registry_schema": registry.get("schema"),
@@ -612,7 +295,6 @@ def replay_workflows(data, root):
                     payload = None
                     errors.append("stdout was not JSON")
             if payload is None and not errors:
-                payload = None
                 errors.append("stdout was not JSON")
         if actual_exit != workflow["expected_exit"]:
             errors.append("exit was %d, expected %d" % (actual_exit, workflow["expected_exit"]))
@@ -664,12 +346,12 @@ def render_report(registry, replays, validation=None):
     passed = sum(result["status"] == "pass" for result in replays)
     status = "pass" if passed == len(replays) else "fail"
     levels = [{"id": level, "requires_evidence": [kind]}
-              for level, kind in PROMOTION_REQUIREMENTS]
+              for level, kind in PROOF_PROMOTIONS]
     report = {"schema": SCHEMA, "tool": TOOL, "evidence_levels": levels,
               "claims": claim_rows(registry["claims"]),
               "replay": replays,
               "summary": {"status": status, "claims": len(registry["claims"]),
-                          "evidence_levels": len(EVIDENCE_LEVELS), "replays": len(replays),
+                          "evidence_levels": len(PROOF_LEVELS), "replays": len(replays),
                           "replays_passed": passed}}
     if validation is not None:
         report["validation"] = validation
@@ -703,7 +385,7 @@ def render_text(report):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="Validate and display DocDNA product claim proofs.")
+    parser = argparse.ArgumentParser(description="Validate and display docdna product claim proofs.")
     parser.add_argument("--json", action="store_true", help="emit JSON instead of text")
     parser.add_argument("--registry", default=REGISTRY_PATH,
                         help="proof registry to validate")
@@ -718,8 +400,7 @@ def main(argv=None):
         workflows = (read_json(os.path.abspath(args.workflows))
                      if args.workflows is not None else None)
         portable = workflows is None
-        validation = validate_registry(registry, os.path.abspath(args.root), workflows,
-                                       check_evidence=not portable)
+        validation = validate_registry(registry, args.root, workflows)
     except (OSError, ValueError, TypeError, RecursionError) as error:
         sys.stderr.write("docdna_proof: %s\n" % error)
         return 2
@@ -729,7 +410,8 @@ def main(argv=None):
         return 2
 
     replays = replay_workflows(workflows, os.path.abspath(args.root)) if workflows is not None else []
-    boundary = {"mode": "installed-registry", "boundary": INSTALLED_BOUNDARY} if portable else None
+    boundary = ({"mode": "installed-registry", "boundary": INSTALLED_PROOF_BOUNDARY}
+                if portable else None)
     report = render_report(registry, replays, boundary)
     if args.json:
         print(json.dumps(report, indent=2, sort_keys=True))

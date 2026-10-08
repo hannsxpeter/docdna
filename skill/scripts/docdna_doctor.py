@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
-"""Report deterministic health for a DocDNA checkout or installed skill.
-
-Implements: P-MUST-03
-"""
+"""Report deterministic health for a docdna checkout or installed skill."""
 
 import argparse
 import json
@@ -15,8 +12,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
+# Defined before the bootstrap import so argument parsing still works when that import fails.
 REGISTRY_PATH = "catalog/runtimes.json"
-MAX_MEMBER_BYTES = 5 * 1024 * 1024
 BOOTSTRAP_ERROR = None
 try:
     from docdna_fs import (FileTooLarge, RepositoryRoot, bind_root, control_file_exists,
@@ -31,7 +28,7 @@ SCHEMA = 1
 TOOL = "docdna_doctor"
 SKILL_ROOT = os.path.normpath(os.path.join(HERE, ".."))
 RESOURCE_SECTIONS = ("runtime_members", "registries", "templates", "references")
-REPAIR = ("Reinstall DocDNA from trusted release bytes, then from the skill directory run: "
+REPAIR = ("Reinstall docdna from trusted release bytes, then from the skill directory run: "
           "python3 scripts/docdna_doctor.py --json")
 CHECKOUT_PROOF_BOUNDARY = (
     "source checkout validation checks evidence paths and replay IDs against the registered "
@@ -62,10 +59,10 @@ def resource_path(registry, ident):
     raise RuntimeRegistryError("smoke check names unknown registry %s" % ident)
 
 
-def _read_bound(root, path, max_bytes=MAX_MEMBER_BYTES):
+def _read_bound(root, path):
     if not control_file_exists(root, path):
         return None
-    return read_text(root, path, max_bytes=max_bytes)
+    return read_text(root, path, max_bytes=MAX_MEMBER_BYTES)
 
 
 def check_runtime_registry(registry, smoke):
@@ -131,10 +128,6 @@ def check_members(registry, smoke, skill_root):
                         % details["registered"], details)
 
 
-def _read_proof_input(root, path):
-    return _read_bound(root, path)
-
-
 def _parse_mapping(raw, path):
     value = parse_json(raw, path)
     if not isinstance(value, dict):
@@ -160,7 +153,7 @@ def check_proof_registry(registry, smoke, skill_root, checkout_root=None):
     mode = (_checkout_proof_mode(path, workflows_path) if checkout_root is not None
             else _installed_proof_mode(path))
     try:
-        raw = _read_proof_input(skill_root, path)
+        raw = _read_bound(skill_root, path)
     except FileTooLarge as error:
         return check_result(
             smoke["id"], "error", "proof registry exceeds its bounded read limit",
@@ -180,7 +173,7 @@ def check_proof_registry(registry, smoke, skill_root, checkout_root=None):
         workflows = None
     else:
         try:
-            workflow_raw = _read_proof_input(checkout_root, workflows_path)
+            workflow_raw = _read_bound(checkout_root, workflows_path)
         except FileTooLarge as error:
             return check_result(
                 smoke["id"], "error", "golden workflow fixture exceeds its bounded read limit",
@@ -320,7 +313,7 @@ def exit_code(report):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(
-        description="Check the installed DocDNA runtime without writing.")
+        description="Check the installed docdna runtime without writing.")
     parser.add_argument("--json", action="store_true", help="emit JSON instead of text")
     parser.add_argument(
         "--skill-root", default=SKILL_ROOT,
