@@ -22,8 +22,9 @@ code.
 
 ## Risks
 - [ ] medium: release installation is not bound to verifiable provenance (no signed tag, digest, or
-  provenance; mutable CI runner and ShellCheck source), README install command and `.github/workflows/ci.yml`
+  provenance for the released tree), README install command; the CI runner is now pinned to
+  `ubuntu-24.04` and ShellCheck comes from that image
 - [ ] medium: installed runtime and proof bytes are not authenticated; Doctor and installed Proof pass after a
   same-user byte change, `skill/scripts/docdna_doctor.py` and `skill/scripts/docdna_proof.py`
-- [ ] medium: installer failure can destroy the last working install (`rm -rf` before copy, no staging or
-  rollback), `install.sh` `install_skill`
+- [x] medium: installer failure can destroy the last working install (`rm -rf` before copy, no staging or
+  rollback), `install.sh` `install_skill`; fixed by a staged, doctor-validated swap with rollback

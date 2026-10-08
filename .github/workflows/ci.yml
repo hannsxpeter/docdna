@@ -9,7 +9,9 @@ permissions:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    # Pinned rather than ubuntu-latest: actions/setup-python publishes no Python 3.8 build for
+    # Ubuntu 26.04, so the 3.8 lane would break the day ubuntu-latest moves.
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
