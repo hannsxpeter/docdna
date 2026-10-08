@@ -1,6 +1,6 @@
 # Prose discipline
 
-Normative for every document DocDNA writes. Read this after the evidence pass has accepted the draft.
+Normative for every document docdna writes. Read this after the evidence pass has accepted the draft.
 Evidence determines what may be said. This reference determines whether the accepted facts are written
 plainly enough to keep.
 
@@ -10,7 +10,7 @@ This guidance is adapted from the pstack `unslop` skill. The source and MIT noti
 The narrow advisory catalog also draws on the
 [`Humanizer`](https://github.com/Aboudjem/humanizer-skill/blob/main/skills/humanizer/SKILL.md)
 pattern definitions for chatbot artifacts,
-knowledge-cutoff disclaimers, diff-anchored writing, signposting, and clustered vocabulary. DocDNA keeps
+knowledge-cutoff disclaimers, diff-anchored writing, signposting, and clustered vocabulary. docdna keeps
 only patterns that can be checked literally with useful restraint. It does not import Humanizer's
 authorship scoring or rewriting behavior.
 

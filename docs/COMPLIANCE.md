@@ -1,7 +1,5 @@
 # Compliance, and every refusal
 
-<!-- Implements: P-MUST-05 -->
-
 The short version: docdna will help you assemble the evidence an assessor asks for, and it will not write
 the document you sign. That line is enforced in code, not promised in prose.
 
@@ -44,11 +42,12 @@ Seventeen of the ninety-six catalog entries are `producible: R`, and R is a refu
 than a promise the prose makes. `docdna_backfill.py` declines every one of them and prints why, plus the
 role that must sign it.
 
-The refused set covers the System Security Plan and authority to operate, the HIPAA security risk assessment
-and business associate agreement, the SOC 2 system description, the PCI self-assessment, the impact
-assessment family (PIA, DPIA, AIA, FRIA), the CRA technical file and EU declaration of conformity, AI Act
-Annex IV and GPAI documentation, the accessibility conformance report and statement, and the secure design
-review, penetration test, and training records.
+The refused set covers the security assessment and authorization package and authority to operate, the
+secure software development attestation, the HIPAA security risk assessment and business associate
+agreement, the SOC 2 system description, the PCI self-assessment, the impact assessment family (PIA, DPIA,
+AIA, FRIA), the CRA technical file and EU declaration of conformity, AI Act Annex IV and GPAI
+documentation, the accessibility conformance report and statement, and the secure design review,
+penetration test, and training records.
 
 Ask for one and it declines by name:
 
@@ -119,9 +118,9 @@ Version 1.4.0 exposes the product-claim registry with
 `python3 skill/scripts/docdna_proof.py --json`. The terms remain deliberately separate:
 
 - **Verified** means a deterministic repository-local check observed the registered evidence.
-- **Attested** means a person supplied a shape-checked `human:` statement that DocDNA did not independently
+- **Attested** means a person supplied a shape-checked `human:` statement that docdna did not independently
   establish.
-- **Self-attested** means a `run:` command and output were recorded together, but DocDNA did not execute
+- **Self-attested** means a `run:` command and output were recorded together, but docdna did not execute
   the target repository's command.
 - **Refused** means the requested evidence class, unsafe input, or proof promotion is outside the
   verifier's authority.

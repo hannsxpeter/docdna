@@ -14,6 +14,10 @@ All notable changes to docdna are documented in this file. The format is based o
   fresh-context packets for agent handoff.
 - Added a product-claim proof registry and command that keep verified, attested, self-attested, refused,
   replayed, measured, adjudicated, host-captured, and external-tool-dependent evidence distinct.
+- Expanded the advisory prose pass with five finding kinds: signposting, pasted chat leftovers,
+  knowledge-cutoff disclaimers, diff-anchored prose, and clustered vocabulary.
+- Added `docdna_prose.py --compare BEFORE AFTER`, which compares the protected inventory of a document
+  before and after a prose edit and exits 1 when the edit changed it.
 - Protected comparison inventory: `frontmatter`, `citations`, `gap_markers`, `numbers`, `inline_code`, `link_targets`, `fenced_blocks`, `path_tokens`, `table_shape`.
   Raw HTML comment contents, command-like prose, and identifiers are not separately inventoried.
 
@@ -222,7 +226,7 @@ Stated here so the next round starts from a list rather than from a surprise.
 
 First public release. Point docdna at a repository and it answers three questions from the code: which documents this project owes, which of the ones it already has are now false, and which of those the code can write without asking anyone. It is a portable coding-agent skill with no service, no account, no build step, and no dependency beyond Python 3.8.
 
-Nothing before this was released, so there is nothing here to correct. The reasoning that produced the shape below, including the arguments that were lost, is recorded in [`docs/design/`](docs/design/).
+Nothing before this was released, so there is nothing here to correct. The reasoning that produced the shape below, including the arguments that were lost, is recorded in [`docs/design/` at v1.0.0](https://github.com/hannsxpeter/docdna/tree/v1.0.0/docs/design).
 
 ### Added
 
@@ -243,3 +247,12 @@ Nothing before this was released, so there is nothing here to correct. The reaso
 - **`exclude_dirs` in `.docdna/config.json`, and `--exclude-dir` on the scanner, the selector, and the checker.** A repository that vendors another repository under `tests/fixtures/` or `examples/` would otherwise have that repository's documentation read as its own, and its root-relative citations resolved against the wrong root.
 - **A suite of 232 tests over 8 fixture repositories**, four of which exist only to hold false positives down: a client-side router is not a server route, a French locale is not weak crypto, a `Region` enum is not a jurisdiction, and a latitude is not personal data. Every runtime detection pattern ships with a negative fixture, not just a positive one.
 - **CI that dogfoods the tool on itself.** It compiles every helper, validates the catalog JSON, runs the suite, runs the whole pipeline end to end on this repository, requires `docdna_check.py` to report zero fabricated-number findings against docdna's own documentation, asserts that Survey converges, shellchecks the installer, and installs the skill and runs it from the installed location. docdna's own documentation is the one corpus whose every claim can be adjudicated by hand, and it is full of the shapes a number rule gets wrong.
+
+[Unreleased]: https://github.com/hannsxpeter/docdna/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/hannsxpeter/docdna/compare/v1.3.0...v1.4.0
+[1.3.0]: https://github.com/hannsxpeter/docdna/compare/v1.2.1...v1.3.0
+[1.2.1]: https://github.com/hannsxpeter/docdna/compare/v1.2.0...v1.2.1
+[1.2.0]: https://github.com/hannsxpeter/docdna/compare/v1.1.0...v1.2.0
+[1.1.0]: https://github.com/hannsxpeter/docdna/compare/v1.0.1...v1.1.0
+[1.0.1]: https://github.com/hannsxpeter/docdna/compare/v1.0.0...v1.0.1
+[1.0.0]: https://github.com/hannsxpeter/docdna/releases/tag/v1.0.0

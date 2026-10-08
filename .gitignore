@@ -1,8 +1,9 @@
 # macOS
 .DS_Store
 
-# Local agent settings (not part of the skill)
+# Local agent settings and agent worktrees (not part of the skill)
 .claude/settings.local.json
+.claude/worktrees/
 
 # Python artifacts
 __pycache__/

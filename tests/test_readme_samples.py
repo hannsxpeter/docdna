@@ -41,8 +41,6 @@ import unittest
 from pathlib import Path
 
 
-# Implements: P-MUST-05
-
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "skill" / "scripts"
 DOCUMENTS = ("README.md", "skill/SKILL.md")

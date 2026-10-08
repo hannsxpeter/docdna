@@ -12,16 +12,16 @@ must be retained for a period somebody else sets.
 
 | Value | Update contract | Backfill posture | Shipped |
 | --- | --- | --- | --- |
-| `durable` | Edited in place. `last_reviewed` and `covers_digest` bump. | Backfill these. This is the product. | 54 |
-| `evidence` | **Never edited.** A new run produces a new dated file. | Backfill the index and the inputs. Never the evidence itself. | 6 |
+| `durable` | Edited in place. `last_reviewed` and `covers_digest` bump. | Backfill these. This is the product. | 70 |
+| `evidence` | **Never edited.** A new run produces a new dated file. | Backfill the index and the inputs. Never the evidence itself. | 25 |
 | `transient` | Written once, dated, abandoned | Never generated. See `antipatterns.md`. | 1 |
 
 **Collapsing `evidence` into `durable` is the failure this split prevents.** An SBOM, an operational
 readiness review, a post-mortem, and a scan result are snapshots of a moment. Editing one in place destroys
-the only property that makes it evidence, which is that it says what was true on a date. The six shipped
-`evidence` entries are `assure.sbom`, `assure.acr-inputs`, `assure.scanning-index`, `operate.orr`,
-`operate.postmortem`, and `retire.archive-manifest`. Set `valid_until` on all six and never rewrite one in
-place.
+the only property that makes it evidence, which is that it says what was true on a date. The shipped
+`evidence` entries include `assure.sbom`, `assure.scanning-index`, `assure.pentest`, `operate.orr`,
+`operate.postmortem`, and `retire.archive-manifest`; `catalog/documents.json` marks every one with
+`"durability": "evidence"`. Set `valid_until` on each and never rewrite one in place.
 
 **Collapsing `evidence` into `transient` is the other half.** A transient artifact can be thrown away. An
 evidence artifact has a retention period that is a legal or contractual fact, not a preference, which is
@@ -38,9 +38,9 @@ describe it is two stages.
 | `frame` | Why does this exist, for whom, and what counts as success? | 4 |
 | `decide` | What did we choose, and what did we reject? | 4 |
 | `design` | What shape is it, and why that shape? | 5 |
-| `build` | How do I work on it? | 15 |
+| `build` | How do I work on it? | 14 |
 | `verify` | How do we know it works? | 4 |
-| `assure` | How do we prove to an outsider it is safe, lawful, and accessible? | 9 |
+| `assure` | How do we prove to an outsider it is safe, lawful, and accessible? | 45 |
 | `operate` | How do we run it and keep it alive? | 11 |
 | `serve` | How does someone use it? | 2 |
 | `govern` | How is the work itself managed? | 6 |
@@ -69,7 +69,7 @@ Tiering by reader guarantees N parallel document sets covering the same system, 
 quarter. Then the interesting question ("which of these is true?") has no answer, because each set was
 written for a reader rather than from a system.
 
-Every catalog entry still carries a populated `audiences` list, across eleven values from `engineering` to
+Every catalog entry still carries a populated `audiences` list, across twelve values from `engineering` to
 `agents`, and **no audience renderer ships.** The data is there the day somebody asks for a projection.
 Building a projection nobody has requested is exactly the theater this skill exists to prevent.
 
@@ -92,7 +92,7 @@ unverifiable   = covers == []
 A business case has no files to hash. Reporting one as drift-stale would be theater, and a reader who is
 shown one piece of theater discounts the rest of the page.
 
-Cadence is copied from the catalog entry, never invented. Fifteen shipped entries use `on-change`, seven
+Cadence is copied from the catalog entry, never invented. Fifteen shipped entries use `on-change`, eleven
 use `on-release`, and three use `none`; for those, `next_review` is a sentence, not a date, because a date
 implies a calendar obligation that does not exist.
 

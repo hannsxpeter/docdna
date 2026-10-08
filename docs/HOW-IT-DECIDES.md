@@ -1,7 +1,5 @@
 # How it decides
 
-<!-- Implements: P-MUST-05 -->
-
 The selection engine is the product. Everything else in docdna exists to feed it or to report what it
 concluded. This page is the technical account: what goes in, how the decision is made, what comes out, and
 where the boundaries are.
@@ -82,9 +80,8 @@ interchangeable:
 3. **An interview answer.** Including a defaulted, assumed one.
 4. **A signal's absence.** The document is owed precisely because something is not there.
 
-Only the first has a file path to give, because the other three are not places in the code. On this
-repository's own manifest, 13 of 48 selected rows fall into the last three groups. A row naming no signal is
-not thereby unrequired: `govern.manifest` is required and cites no signal at all.
+Only the first has a file path to give, because the other three are not places in the code. A row naming
+no signal is not thereby unrequired: `govern.manifest` is required and cites no signal at all.
 
 ## Every exclusion carries three things
 

@@ -1,7 +1,5 @@
 # Agent support
 
-<!-- Implements: P-MUST-05 -->
-
 Where docdna installs, what it wires, and the facts about agent context files that it depends on.
 
 Verified 2026-07-31. Host behaviour changes; confirm against your host's current docs before relying on a
@@ -10,7 +8,8 @@ row below.
 ## Install targets
 
 `./install.sh <all|claude|codex|cursor|windsurf>` copies the whole `skill/` directory, because docdna needs
-its `catalog/`, `references/`, and `templates/` beside `SKILL.md`, not just the entrypoint.
+its `catalog/`, `references/`, and `templates/` beside `SKILL.md`, not just the entrypoint. `cascade` is
+accepted as an alias for `windsurf`.
 
 | Host | Destination | Override |
 | --- | --- | --- |
@@ -21,7 +20,7 @@ its `catalog/`, `references/`, and `templates/` beside `SKILL.md`, not just the 
 
 **A skill is a directory containing `SKILL.md`, never a bare `.md` file.** A file at
 `~/.claude/skills/docdna.md` is not loaded, and nothing errors when it is there: the skill simply never
-appears. The installer removes a stale bare-file install if it finds one.
+appears. For Claude Code and Codex, the installer removes a stale bare-file install if it finds one.
 
 Restart the host after installing. Skill listings are read at startup.
 
@@ -57,7 +56,7 @@ already exist. Pass `--all` to create every supported target, or `--agent <name>
 
 | Target | File | Notes |
 | --- | --- | --- |
-| `agents` | `AGENTS.md` | Always created. The portable baseline. |
+| `agents` | `AGENTS.md` | Created by default. The portable baseline. |
 | `claude` | `CLAUDE.md` | See below. Wire this explicitly for Claude Code. |
 | `gemini` | `GEMINI.md` | |
 | `copilot` | `.github/copilot-instructions.md` | |
