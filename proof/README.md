@@ -1,6 +1,4 @@
-# DocDNA proof bundles
-
-Implements: P-MUST-02
+# docdna proof bundles
 
 These bundles connect product claims to committed evidence. The registry in
 `skill/catalog/proofs.json` is authoritative. A bundle is a route to raw evidence and an exact

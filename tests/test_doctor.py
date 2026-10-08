@@ -1,4 +1,4 @@
-"""P-MUST-03: one registry drives a deterministic, read-only runtime doctor."""
+"""One registry drives a deterministic, read-only runtime doctor."""
 
 import importlib.util
 import json
@@ -136,10 +136,7 @@ class RuntimeRegistryTests(unittest.TestCase):
         registry = runtime.load_registry(str(SKILL_ROOT))
 
         self.assertEqual(registry, load_json(REGISTRY))
-        self.assertEqual(runtime.command_paths(registry), [
-            row["path"] for row in registry["runtime_members"] if row["kind"] == "command"
-        ])
-        self.assertEqual(runtime.install_targets(registry),
+        self.assertEqual([row["selector"] for row in runtime.install_metadata(registry)],
                          ["claude", "codex", "cursor", "windsurf"])
         self.assertEqual(runtime.wiring_target_ids(registry),
                          ["agents", "cascade", "claude", "copilot", "cursor", "gemini"])
@@ -324,7 +321,7 @@ class DoctorFailureTests(unittest.TestCase):
         self.assertEqual(process.stdout, "")
         self.assertIn("missing bootstrap runtime member scripts/docdna_runtime.py",
                       process.stderr)
-        self.assertIn("Reinstall DocDNA", process.stderr)
+        self.assertIn("Reinstall docdna", process.stderr)
         self.assertNotIn("Traceback", process.stderr)
 
     def test_doctor_rejects_invalid_runtime_or_proof_registry(self):

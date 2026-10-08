@@ -1,6 +1,5 @@
 #!/usr/bin/env sh
 # Install the docdna skill into supported coding-agent skill directories.
-# Implements: P-MUST-05
 #
 # Usage:
 #   ./install.sh <all|target>
@@ -18,7 +17,11 @@ SRC_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
 VERSION=$(awk '/^Version: / { print $2; exit }' "$SRC_DIR/skill/SKILL.md")
 TARGET="${1:-}"
 PYTHON="${PYTHON:-python3}"
-SUPPORTED_TARGETS=$(
+TAB=$(printf '\t')
+
+# Load and validate the registry once. Each line is selector, label, and default location,
+# separated by tabs; the registry validator rejects control characters in all three.
+REGISTRY_ROWS=$(
   "$PYTHON" - "$SRC_DIR/skill" <<'PY'
 import os
 import sys
@@ -33,20 +36,125 @@ try:
 except RuntimeRegistryError as error:
     sys.stderr.write("install.sh: invalid runtime registry: %s\n" % error)
     raise SystemExit(2)
-print(" ".join(row["selector"] for row in rows))
+for row in rows:
+    print("\t".join((row["selector"], row["label"], row["default_location"])))
 PY
 )
+
+# Set only while one install is in flight, so the EXIT trap can put the previous install back
+# and remove the staging directory if anything fails before the swap completes.
+INSTALL_WORK=
+INSTALL_DEST=
+
+cleanup_install() {
+  if [ -z "$INSTALL_WORK" ]; then
+    return 0
+  fi
+  if { [ -e "$INSTALL_WORK/old" ] || [ -L "$INSTALL_WORK/old" ]; } \
+      && [ ! -e "$INSTALL_DEST" ] && [ ! -L "$INSTALL_DEST" ]; then
+    if mv -- "$INSTALL_WORK/old" "$INSTALL_DEST"; then
+      printf 'install.sh: restored the previous install at %s\n' "$INSTALL_DEST" >&2
+    else
+      printf 'install.sh: previous install kept at %s\n' "$INSTALL_WORK/old" >&2
+      INSTALL_WORK=
+      return 0
+    fi
+  fi
+  rm -rf -- "$INSTALL_WORK" || :
+  INSTALL_WORK=
+}
+
+trap cleanup_install EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+registry_selectors() {
+  printf '%s\n' "$REGISTRY_ROWS" | while IFS=$TAB read -r listed_selector _ _; do
+    if [ -n "$listed_selector" ]; then
+      printf '%s\n' "$listed_selector"
+    fi
+  done
+}
+
+registry_field() {
+  printf '%s\n' "$REGISTRY_ROWS" | while IFS=$TAB read -r row_selector row_label row_default; do
+    if [ "$row_selector" = "$1" ]; then
+      case "$2" in
+        label) printf '%s\n' "$row_label" ;;
+        default) printf '%s\n' "$row_default" ;;
+      esac
+    fi
+  done
+}
+
+# Exit 3 when the destination is the source checkout or one of its ancestors, 0 when it is not.
+# Inode identity, unlike a path prefix, also holds on a case-insensitive filesystem.
+destination_holds_source() {
+  "$PYTHON" - "$1" "$SRC_DIR" <<'PY'
+import os
+import sys
+
+destination, source = sys.argv[1:]
+try:
+    target = os.lstat(destination)
+    current = os.path.realpath(source)
+    while True:
+        details = os.stat(current)
+        if (details.st_dev, details.st_ino) == (target.st_dev, target.st_ino):
+            raise SystemExit(3)
+        parent = os.path.dirname(current)
+        if parent == current:
+            raise SystemExit(0)
+        current = parent
+except OSError as error:
+    sys.stderr.write("install.sh: could not inspect %s: %s\n" % (destination, error))
+    raise SystemExit(4)
+PY
+}
 
 install_skill() {
   label=$1
   skill_dest=$2
   stale_file=$3
 
-  rm -rf "$skill_dest"
-  mkdir -p "$skill_dest"
-  cp -R "$SRC_DIR/skill/." "$skill_dest/"
-  find "$skill_dest/scripts" -name '*.py' -exec chmod +x {} +
-  find "$skill_dest" -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
+  if [ -e "$skill_dest" ] || [ -L "$skill_dest" ]; then
+    holds_source=0
+    destination_holds_source "$skill_dest" || holds_source=$?
+    if [ "$holds_source" -eq 3 ]; then
+      printf 'install.sh: refusing to replace %s, which contains this source checkout\n' \
+        "$skill_dest" >&2
+      exit 2
+    elif [ "$holds_source" -ne 0 ]; then
+      exit 2
+    fi
+  fi
+
+  # Stage beside the destination so the final mv is a same-filesystem rename.
+  dest_parent=$(dirname -- "$skill_dest")
+  mkdir -p -- "$dest_parent"
+  work="$dest_parent/.$(basename -- "$skill_dest").install.$$"
+  mkdir -- "$work"
+  INSTALL_WORK=$work
+  INSTALL_DEST=$skill_dest
+  mkdir -- "$work/new"
+  cp -R "$SRC_DIR/skill/." "$work/new/"
+  find "$work/new" -name '__pycache__' -type d -prune -exec rm -rf {} +
+  find "$work/new/scripts" -name '*.py' -exec chmod +x {} +
+  if ! report=$(PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$work/new/scripts/docdna_doctor.py" \
+      --skill-root "$work/new"); then
+    printf '%s\n' "$report" >&2
+    printf 'install.sh: staged copy failed docdna_doctor; %s left unchanged\n' "$skill_dest" >&2
+    exit 1
+  fi
+
+  # Keep the old install until the new one is in place; the EXIT trap restores it on failure.
+  if [ -e "$skill_dest" ] || [ -L "$skill_dest" ]; then
+    mv -- "$skill_dest" "$work/old"
+  fi
+  mv -- "$work/new" "$skill_dest"
+  INSTALL_WORK=
+  rm -rf -- "$work" || printf 'install.sh: could not remove %s\n' "$work" >&2
 
   if [ -n "$stale_file" ] && [ -f "$stale_file" ]; then
     rm -f "$stale_file"
@@ -54,29 +162,6 @@ install_skill() {
   fi
 
   printf 'Installed docdna v%s for %s to %s\n' "$VERSION" "$label" "$skill_dest"
-}
-
-registry_metadata() {
-  "$PYTHON" - "$SRC_DIR/skill" "$1" <<'PY'
-import os
-import sys
-
-sys.dont_write_bytecode = True
-skill_root, selector = sys.argv[1:]
-sys.path.insert(0, os.path.join(skill_root, "scripts"))
-from docdna_runtime import RuntimeRegistryError, install_metadata, load_registry
-
-try:
-    metadata = install_metadata(load_registry(skill_root))
-except RuntimeRegistryError as error:
-    sys.stderr.write("install.sh: invalid runtime registry: %s\n" % error)
-    raise SystemExit(2)
-rows = [row for row in metadata if row["selector"] == selector]
-if len(rows) != 1:
-    raise SystemExit("install selector is not uniquely registered: %s" % selector)
-print(rows[0]["label"])
-print(rows[0]["default_location"])
-PY
 }
 
 default_destination() {
@@ -144,9 +229,8 @@ stale_file_for() {
 }
 
 install_target() {
-  metadata=$(registry_metadata "$1")
-  label=$(printf '%s\n' "$metadata" | sed -n '1p')
-  registry_default=$(printf '%s\n' "$metadata" | sed -n '2p')
+  label=$(registry_field "$1" label)
+  registry_default=$(registry_field "$1" default)
   skill_dest=$(override_destination "$1" "$registry_default")
   stale_file=$(stale_file_for "$1" "$skill_dest")
   install_skill "$label" "$skill_dest" "$stale_file"
@@ -166,12 +250,14 @@ usage() {
   echo "" >&2
   echo "Targets:" >&2
   echo "  all       Install every registry-supported target" >&2
-  for supported_target in $SUPPORTED_TARGETS; do
-    metadata=$(registry_metadata "$supported_target")
-    label=$(printf '%s\n' "$metadata" | sed -n '1p')
-    printf '  %-9s Install for %s\n' "$supported_target" "$label" >&2
+  printf '%s\n' "$REGISTRY_ROWS" | while IFS=$TAB read -r usage_selector usage_label _; do
+    if [ -n "$usage_selector" ]; then
+      printf '  %-9s Install for %s\n' "$usage_selector" "$usage_label" >&2
+    fi
   done
 }
+
+SUPPORTED_TARGETS=$(registry_selectors)
 
 if [ "$TARGET" = "cascade" ]; then
   TARGET="windsurf"

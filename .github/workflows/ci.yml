@@ -1,7 +1,5 @@
 name: CI
 
-# Implements: P-MUST-05
-
 on:
   push:
   pull_request:
@@ -19,13 +17,13 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           fetch-tags: true
 
       - name: Set up Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: "${{ matrix.python }}"
 
@@ -46,8 +44,6 @@ jobs:
 
       - name: Validate catalog JSON
         run: |
-          python -m json.tool skill/catalog/runtimes.json > /dev/null
-          python -m json.tool skill/catalog/proofs.json > /dev/null
           for f in skill/catalog/*.json; do
             python -c "import json,sys; json.load(open(sys.argv[1]))" "$f"
           done
@@ -55,10 +51,8 @@ jobs:
       - name: Run tests
         run: python -m unittest discover -s tests
 
-      - name: Source doctor and proof pipeline
-        run: |
-          python skill/scripts/docdna_doctor.py --json --source-checkout > /tmp/docdna-doctor.json
-          python skill/scripts/docdna_proof.py --json > /tmp/docdna-proof-source.json
+      - name: Source doctor
+        run: python skill/scripts/docdna_doctor.py --json --source-checkout > /tmp/docdna-doctor.json
 
       - name: Proof output matches stable cross-version fixtures
         run: |
@@ -86,16 +80,15 @@ jobs:
           diff -u /tmp/docdna-llms-committed.txt llms.txt
 
       # Every script, end to end, on this repository. The unit tests exercise the functions; this
-      # step is the only thing that catches a script that cannot run at all, which is how
-      # docdna_llms.py once shipped exiting 2 on any repository without a prior manifest.
+      # step and the one above are the only things that catch a script that cannot run at all,
+      # which is how docdna_llms.py once shipped exiting 2 on any repository without a prior
+      # manifest. select and llms already ran above on this same tree, so they are not repeated.
       - name: Run the whole pipeline on this repository
         run: |
           python skill/scripts/docdna_scan.py --json . > /dev/null
-          python skill/scripts/docdna_select.py . > /dev/null
           python skill/scripts/docdna_check.py . > /dev/null
           python skill/scripts/docdna_status.py --json . > /dev/null
           python skill/scripts/docdna_backfill.py --json . > /dev/null
-          python skill/scripts/docdna_llms.py . > /dev/null
 
       # The dogfood gate. The step above proves every script runs; this one proves the number rule
       # is honest about the one repository whose documentation we can actually adjudicate. A single
@@ -159,10 +152,8 @@ jobs:
               sys.exit("re-verify against primary sources: %s" % "; ".join(stale))
           PY
 
-      - name: Install ShellCheck
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y shellcheck
+      - name: Report ShellCheck version
+        run: shellcheck --version
 
       - name: Lint installer
         run: shellcheck install.sh

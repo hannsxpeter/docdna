@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
-"""Report one next DocDNA action through bounded, read-only manifest inspection."""
-
-# Implements: P-MUST-04, P-MUST-05
+"""Report one next docdna action through bounded, read-only manifest inspection."""
 
 import argparse
 import json
 import os
 import shlex
+import stat
 import sys
 
 
@@ -27,6 +26,7 @@ if HERE not in sys.path:
 
 from docdna_fs import (bind_root as safe_bind_root,
                        control_file_exists as safe_control_file_exists,
+                       open_root as safe_open_root,
                        parse_json as safe_parse_json,
                        read_text as safe_read_text,
                        require_manifest as safe_require_manifest)
@@ -61,6 +61,45 @@ def repository_relative(path):
     if normalized in ("", ".") or normalized.startswith("../") or ".." in normalized.split("/"):
         raise ValueError("manifest document path leaves the repository: %s" % path)
     return normalized + "/" if directory else normalized
+
+
+def directory_exists(root, path):
+    """Return False only for an absent directory, and reject every unsafe shape.
+
+    The directory counterpart of control_file_exists: no component may be a symlink, and the
+    final component must be a real directory rather than a file or a link to one.
+    """
+    parts = path.rstrip("/").split("/")
+    descriptor = safe_open_root(root)
+    try:
+        flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+        for part in parts[:-1]:
+            try:
+                child = os.open(part, flags, dir_fd=descriptor)
+            except FileNotFoundError:
+                return False
+            except OSError as error:
+                raise ValueError("refused unsafe manifest directory %s: %s" % (path, error))
+            os.close(descriptor)
+            descriptor = child
+        try:
+            details = os.stat(parts[-1], dir_fd=descriptor, follow_symlinks=False)
+        except FileNotFoundError:
+            return False
+        except OSError as error:
+            raise ValueError("refused unsafe manifest directory %s: %s" % (path, error))
+        if not stat.S_ISDIR(details.st_mode):
+            raise ValueError("manifest directory path is not a directory: %s" % path)
+        return True
+    finally:
+        os.close(descriptor)
+
+
+def output_exists(root, path):
+    """Check one repository-relative manifest output, routing directory rows by shape."""
+    if path.endswith("/"):
+        return directory_exists(root, path)
+    return safe_control_file_exists(root, path)
 
 
 def action(action_id, lane, label, reason, argv=None):
@@ -206,14 +245,22 @@ def select_next_action(root, manifest):
                       command_for("docdna_backfill.py",
                                   ["--only", row["id"], "--confirm-sensitive", "--json"], root))
 
-    verify = []
     for row in documents:
         if row["write_status"] not in ("written", "in-progress") or not row.get("path"):
             continue
-        if safe_control_file_exists(root, row["path"]):
-            verify.append(row)
-    if verify:
-        row = verify[0]
+        try:
+            present = output_exists(root, row["path"])
+        except (OSError, ValueError) as error:
+            # One unsafe or mistyped output path is a fact about that row, not a reason to
+            # refuse the whole report. Hand it to a human with the reason attached.
+            return action("inspect:%s" % row["id"], "manual-gated", "Inspect written output",
+                          "Status could not inspect this output safely: %s" % error, None)
+        if not present:
+            continue
+        if row["path"].endswith("/"):
+            return action("verify:%s" % row["id"], "manual-gated", "Verify written directory",
+                          "Verify each document under %s by hand; --verify certifies one file "
+                          "at a time." % row["path"], None)
         return action("verify:%s" % row["id"], "local-helper", "Verify written document",
                       "Written or in-progress output must be verified before another packet.",
                       command_for("docdna_backfill.py", ["--verify", row["path"]], root))
@@ -282,7 +329,7 @@ def print_status(report):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(
-        description="Report one next DocDNA action without changing the repository."
+        description="Report one next docdna action without changing the repository."
     )
     parser.add_argument("--json", action="store_true", help="emit stable JSON")
     parser.add_argument("repo", nargs="?", default=".")
