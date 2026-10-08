@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """Wire DOCDNA.md into registered coding-agent instruction files."""
 
-# Implements: P-MUST-05
-
 import argparse
 import json
 import os
@@ -52,7 +50,6 @@ trigger: always_on
 """
 
 SKILL_ROOT = os.path.normpath(os.path.join(HERE, ".."))
-WIRING_SURFACES = {}
 ALL_TARGETS = ()
 
 
@@ -60,8 +57,7 @@ def load_wiring_surfaces(skill_root=SKILL_ROOT):
     """Load the validated registry without running at module import time."""
     registry = load_registry(skill_root)
     surfaces = dict((row["id"], row) for row in registry["wiring_surfaces"])
-    global WIRING_SURFACES, ALL_TARGETS
-    WIRING_SURFACES = surfaces
+    global ALL_TARGETS
     ALL_TARGETS = tuple(wiring_target_ids(registry))
     return surfaces
 
@@ -105,7 +101,10 @@ def replace_block(text, block, start_marker, end_marker):
     if status == "found":
         head = text[:start].rstrip()
         joiner = "\n\n" if head else ""
-        updated = head + joiner + block.rstrip() + "\n" + text[end:].lstrip()
+        # Strip only the line breaks after the end marker. The user's next line keeps its
+        # leading whitespace, which in Markdown can be what makes it an indented code block.
+        tail = text[end:].lstrip("\r\n")
+        updated = head + joiner + block.rstrip() + ("\n\n" + tail if tail else "")
         return updated.rstrip() + "\n"
     if text.strip():
         return text.rstrip() + "\n\n" + block
@@ -122,8 +121,6 @@ def preflight_write_target(root, path, body, prefix="", start_marker=START, end_
         updated = prefix + body
     else:
         updated = replace_block(text, body, start_marker, end_marker)
-        if not existed and prefix:
-            updated = prefix + updated
     return {"path": path, "relative": rel, "updated": updated,
             "action": "updated" if existed else "created"}
 
@@ -137,11 +134,6 @@ def apply_write_target(root, plan):
     finally:
         os.close(descriptor)
     return plan["action"]
-
-
-def write_target(root, path, body, prefix="", start_marker=START, end_marker=END):
-    plan = preflight_write_target(root, path, body, prefix, start_marker, end_marker)
-    return apply_write_target(root, plan)
 
 
 def rule_path(root, paths):

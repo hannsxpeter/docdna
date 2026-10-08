@@ -193,9 +193,9 @@ Rules are sorted by layer, then by id, and applied in that order.
 | Layer | Precedence | Shipped rules |
 | --- | --- | --- |
 | Archetype baseline | 0 | 14 |
-| Signal deltas | 10 | 33 |
-| Overlays | 20 | 10 |
-| Interview answers | 30 | 29 |
+| Signal deltas | 10 | 37 |
+| Overlays | 20 | 12 |
+| Interview answers | 30 | 50 |
 | User overrides read back from the manifest | 40 | 2 |
 
 Order the verdict lattice `not-applicable < optional < recommended < required`. **Within and across layers,

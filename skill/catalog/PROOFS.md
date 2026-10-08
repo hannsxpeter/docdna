@@ -1,8 +1,6 @@
 # Product claim proofs
 
-<!-- Implements: P-MUST-02 -->
-
-`proofs.json` is the machine-readable registry for claims DocDNA makes about itself. It does not turn a
+`proofs.json` is the machine-readable registry for claims docdna makes about itself. It does not turn a
 claim into a binary promise. It records what kind of evidence exists, where that evidence can be
 inspected, and the boundary beyond which the evidence says nothing.
 

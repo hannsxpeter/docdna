@@ -1,7 +1,5 @@
 # Catalog schema
 
-<!-- Implements: P-MUST-02 -->
-
 Normative. This is the one schema document. Prose references in `references/` describe intent; where
 they disagree with this file, this file wins. `docdna_select.py` enforces every invariant in section 9
 as a hard error, not a warning.
@@ -15,13 +13,15 @@ as a hard error, not a warning.
 | `rules.json` | The verdict rules, each a predicate plus an effect | `docdna_select.py` |
 | `archetypes.json` | Primaries with scoring weights, overlays with triggers, the unknown floor | `docdna_select.py` |
 | `interview.json` | The eight questions, their defaults, their counterfactual text | `docdna_select.py` |
-| `proofs.json` | Product claims, evidence levels, promotion requirements, and evidence paths | `docdna_proof.py` |
+| `proofs.json` | Product claims, evidence levels, promotion requirements, and evidence paths | `docdna_proof.py`, `docdna_doctor.py` |
+| `runtimes.json` | The runtime registry: Python floor, platform support, install targets, wiring surfaces, runtime members, registries, templates, references, smoke checks | `docdna_runtime.py`, on behalf of `install.sh`, `docdna_wire.py`, and `docdna_doctor.py` |
 
-All six are JSON, never YAML. stdlib has no `yaml` module and a hand-rolled parser breaks on the first
+All seven are JSON, never YAML. stdlib has no `yaml` module and a hand-rolled parser breaks on the first
 user who writes a comment or an anchor. Every file is a single top-level object with `schema` and its
 named payload fields, so a version bump is detectable before parsing those payloads. `signals.json`,
 `documents.json`, `rules.json`, and `interview.json` each have one payload array. `archetypes.json` has
-`primaries` and `overlays`; `proofs.json` has the evidence-level list, promotion mapping, and claims.
+`primaries` and `overlays`; `proofs.json` has the evidence-level list, promotion mapping, and claims;
+`runtimes.json` has one closed section per registry list, validated by `docdna_runtime.py`.
 
 ```json
 {"schema": 1, "signals": [ ... ]}
@@ -30,7 +30,7 @@ named payload fields, so a version bump is detectable before parsing those paylo
 ## 2. Conventions
 
 **Ids are lowercase, dot-separated, and stable.** A signal id is `<family>.<name>`. A document id is
-`<stage>.<slug>`. Ids are the join key across all five files and across the manifest. Renaming one is a
+`<stage>.<slug>`. Ids are the join key across the catalog files and across the manifest. Renaming one is a
 breaking change to every user's manifest, so do not rename; deprecate and add.
 
 **Every list is sorted by id** so a diff of a catalog change is readable. `tests/test_catalog.py`
@@ -235,8 +235,8 @@ role must never make a System Security Plan required, and a region string in a T
 make a GDPR processing record required. Both were live defects caught by the validator when the first
 seventeen `R` rows were added.
 
-**Templates.** v0.1 ships none. From v0.2, a `Y` entry may have `templates/<stage>-<slug>.md` and an `M`
-or `R` entry may not. Invariant I1 enforces it.
+**Templates.** A `Y` entry may have `templates/<stage>-<slug>.md` and an `M` or `R` entry may not.
+Invariant I1 enforces it.
 
 ## 7. `rules.json`
 
@@ -281,7 +281,7 @@ guess wearing a decision's clothes.
 
 ## 8. `archetypes.json` and `interview.json`
 
-**Primaries** carry `weights`, an object of predicate-to-points, and `baseline`, the document count the
+**Primaries** carry `weights`, a list of `when` predicates each with its `points`, and `baseline`, the document count the
 report prints. Score is matched weight over total positive weight. Primary is the argmax.
 
 ```json
@@ -297,7 +297,10 @@ report prints. Score is matched weight over total positive weight. Primary is th
 **Overlays** are additive and carry `when` plus `adds`, a list of document ids. Overlays never remove.
 
 **Questions** carry `id`, `prompt`, `answers`, `default_from` (a list of predicate-to-value rules, first
-match wins), `fallback`, and `counterfactual`, the sentence printed in the dial.
+match wins), `fallback`, and `counterfactual`, the sentence printed in the dial. They also carry
+`multi_select`, true when the answer is a list. `no_signal_may_set` marks a question no signal may
+default, and `always_state` with `always_state_text` marks one whose boundary sentence the report prints
+on every run.
 
 ```json
 {"id": "q3_authorizer", "fallback": "none",
@@ -333,8 +336,9 @@ I will review it later".
 
 ## 10. Downstream contracts
 
-`docdna_scan.py` output and `.docdna/manifest.json` are specified in the design spec, sections 9.1 and
-9.2. Two rules restated here because the catalog depends on them:
+`docdna_scan.py --json` output and `.docdna/manifest.json` have no separate prose specification. The
+tests in `tests/test_scan.py` and `tests/test_select.py` fix their shapes, and every consumer validates
+the manifest through `docdna_fs.py` before trusting it. Two rules the catalog depends on:
 
 - Scanner evidence is capped at `--max-evidence`, default 5, with `evidence_truncated` set. `hits` is
   always the full count.
@@ -384,7 +388,7 @@ states what was not measured or judged. `replay-tested` claims require a `replay
 `proof/replay/golden-workflows.json`.
 
 The proof command validates the registry and golden workflow schema before it executes a replay. Survey,
-Backfill, and Check replays may call only their declared DocDNA command and exact flag schema. Every
+Backfill, and Check replays may call only their declared docdna command and exact flag schema. Every
 repository operand is normalized, resolved inside the project, and required to exist. Backfill's
 `--verify` value is resolved inside its repository operand. Check must pass `--no-write` and
 `--fail-on never`. Backfill must use `--verify` and may not pass an undeclared flag. Runtime replay is an

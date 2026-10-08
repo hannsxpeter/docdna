@@ -21,7 +21,6 @@ def load_prose():
     return module
 
 
-# Implements: P-MUST-01
 class ProseReviewTests(unittest.TestCase):
     def setUp(self):
         self.prose = load_prose()
@@ -299,6 +298,17 @@ Researchers suggest a change.
                      "db/migration_001.md"):
             with self.subTest(path=path):
                 self.assertEqual(self.prose.inspect_text(diff_sentence, path=path), [])
+
+    def test_a_unit_glued_to_a_number_does_not_hide_the_number(self):
+        # The pattern used to backtrack to a shorter number when a letter followed, so 30s read as
+        # 3, 250MB as 25, and 3x as nothing, and changing 30s to 35s compared as unchanged.
+        inventory = self.prose.protected_inventory("Wait 30s, cap 250MB, retry 3x, see 1.4.0.\n")
+        result = self.prose.compare_texts("The timeout is 30s.\n", "The timeout is 35s.\n")
+
+        self.assertEqual(inventory["numbers"], ["1.4.0", "250", "3", "30"])
+        self.assertFalse(result["protected_inventory_unchanged"])
+        self.assertEqual(result["removed"]["numbers"], ["30"])
+        self.assertEqual(result["added"]["numbers"], ["35"])
 
     def test_prose_comparison_preserves_protected_inventory(self):
         before = (FIXTURES / "prose-before.md").read_text(encoding="utf-8")

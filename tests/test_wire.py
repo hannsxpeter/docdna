@@ -124,6 +124,26 @@ class WireTests(unittest.TestCase):
         self.assertIn("<!-- codedna:start -->", updated)
         self.assertIn(self.wire.START, updated)
 
+    def test_replacing_a_block_keeps_the_indentation_of_the_line_after_it(self):
+        # lstrip() on the text after the end marker removed the leading spaces of the user's next
+        # line, which turned an indented code block into a paragraph.
+        tail = "    make docs\n    make check\n\nAfter.\n"
+        text = "# Repo\n\n<!-- docdna:start -->\nOLD\n<!-- docdna:end -->\n\n" + tail
+
+        first = self.wire.replace_block(text, self.wire.PLAIN_BLOCK, self.wire.START,
+                                        self.wire.END)
+        second = self.wire.replace_block(first, self.wire.PLAIN_BLOCK, self.wire.START,
+                                         self.wire.END)
+
+        self.assertTrue(first.endswith(self.wire.END + "\n\n" + tail), first)
+        self.assertNotIn("OLD", first)
+        self.assertEqual(first, second)
+
+        at_end = self.wire.replace_block("# Repo\n\n<!-- docdna:start -->\nOLD\n"
+                                         "<!-- docdna:end -->\n\n\n",
+                                         self.wire.PLAIN_BLOCK, self.wire.START, self.wire.END)
+        self.assertEqual(at_end, "# Repo\n\n" + self.wire.PLAIN_BLOCK)
+
     def test_updates_existing_tool_files_only(self):
         with tempfile.TemporaryDirectory() as tmp:
             (Path(tmp) / "CLAUDE.md").write_text("# Claude\n", encoding="utf-8")

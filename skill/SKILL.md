@@ -4,8 +4,7 @@ description: Decide which documents a codebase owes, name which it does not owe 
 allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 ---
 
-<!-- Implements: P-MUST-05 -->
-# DocDNA
+# docdna
 Version: 1.4.0
 Runtime: Python 3.8+ on a POSIX host with descriptor-relative, no-follow filesystem support; Windows is not supported.
 
@@ -88,7 +87,7 @@ of 46, on a separate **five-repository** holdout, its only adjudication. Six sec
    dropped only when its parent and first path component are both absent, so a deleted `docs/` is invisible.
 6. **NEXT**: two or three concrete actions. `ORPHANED` follows 1, `UNCERTAIN` and `OPEN` precede 4.
 
-**Never render the full exclusion ledger to the user.** It lives in `.docdna/manifest.json`; a 120-row
+**Never render the full exclusion ledger to the user.** It lives in `.docdna/manifest.json`; a 96-row
 annotated shame list in the human view is the theater this skill exists to prevent.
 
 **4. State the boundary, always**, whether or not anything prompted it. Reporting "absent" for a document
@@ -121,8 +120,7 @@ the scanner, selector and checker, or as `exclude_dirs` in `.docdna/config.json`
 **Default to the derivable ten**, read off the code rather than reasoned about, so they carry near-zero
 hallucination risk: `build.dev-setup` · `build.codebase-map` · `build.api-reference` ·
 `build.config-reference` · `build.feature-flags` · `build.llms-txt` · `design.data-model` ·
-`design.api-contract` · `frame.glossary` · `verify.dod`. Anything judgment-bearing is opt-in and named
-explicitly by the user.
+`design.api-contract` · `frame.glossary` · `verify.dod`. Anything judgment-bearing is opt-in and named explicitly by the user.
 
 **Estimate before starting.** "6 documents, roughly 8 minutes." Never begin without one.
 
@@ -144,7 +142,7 @@ the target document. Without a current manifest, Backfill runs Survey first and 
 
 ### Writing a document
 
-1. **Gather evidence first, structure second.** Read the files the catalog entry names in `covers`. If the
+1. **Gather evidence first, structure second.** Read the files the packet lists under `evidence.covers`. If the
    evidence is thin, the document is thin. Do not pad it into shape.
 2. **Open with the frontmatter** from `templates/_frontmatter.md`, then the banner from
    `templates/_banner.md`. Both are mandatory and neither is editable by you.
@@ -181,7 +179,7 @@ Eight passes over one walk: drift, frontmatter lint, prose review, Unicode hygie
 **Lead with tripwires when any fire.** A tripwire is an exclusion whose `revisit_when` predicate has become
 true: a document correctly skipped last quarter that the code now requires. It is the reason to re-run.
 Firing is observed on a real repository: `docdna_check.py` on docdna itself fires `govern.ownership`, now
-true on `users.is_oss` and `q1_users`. Every firing so far, there and in tests, is a **first evaluation**,
+true on `proc.authors_12mo` and `users.is_oss`. Every firing so far, there and in tests, is a **first evaluation**,
 the predicate already true when first checked. Unobserved is the temporal case the feature rests on, one
 flipping across elapsed time under an older manifest. Report a predicate true now, not one watched turn.
 
@@ -191,13 +189,14 @@ gates terminal, bidi, and tag controls at `major`, preserves emoji glue, and nev
 
 **Exit codes.** Every helper exits 0 after a successful run and 2 when invalid or unsafe input prevents
 the run. `docdna_check.py` exits 1 on a gated finding. `docdna_backfill.py` exits 3 for `--all` without
-`--yes` and 1 when `--verify` finds a document not clean.
+`--yes` and 1 when `--verify` finds a document not clean. `docdna_proof.py` exits 1 on a failed claim or
+replay, and `docdna_prose.py` exits 1 when the protected inventory changed.
 **Planning or writing zero documents is exit 0**: a repository that owes none of the derivable ten is an
 answer, and the refusals name their reasons.
 
 ## Script flags
 
-The whole CLI surface. Every helper takes a positional `repo` (default `.`) and `--json`; `llms` takes no more.
+The whole CLI surface. Every helper takes `--json`; all but doctor, proof, and prose take a positional `repo` (default `.`); `llms` and `status` take no more.
 
 | Script | Other flags |
 | --- | --- |
@@ -205,8 +204,9 @@ The whole CLI surface. Every helper takes a positional `repo` (default `.`) and 
 | `docdna_select.py` | `--answer key=value` record an interview answer, repeatable; `--unattended` take every unanswered question at its default and never ask; `--scan <path>` validate scanner JSON, reproduce it with a fresh scan, and reject changed contents; `--exclude-dir <dir>` repeatable |
 | `docdna_backfill.py` | `--only <id>` plan this catalog id instead of the derivable ten, repeatable; `--all` lift the five-document cap, prints an estimate and waits; `--yes` answer that confirmation; `--limit <n>` never above 5; `--branch` own branch, one commit per document; `--verify <path>` re-read a written document and check every claim, see Backfill step 6; refused stubs are retained by default; `--delete-stub` remove only a guarded stub written in this run; `--keep` explicitly retain it for compatibility; `--confirm-sensitive` below |
 | `docdna_check.py` | `--fail-on blocker\|major\|minor\|never` default `major`; `--only drift\|lint\|prose\|hygiene\|gaps\|spine\|tripwires\|orphans` repeatable; prose never gates; `--scan <path>` validates and reproduces a fresh scan before use; `--no-write` never touch `DOCDNA.md`; `--exclude-dir <dir>` repeatable |
-| `docdna_doctor.py` | `--source-checkout` also validates checkout-only evidence paths and replay IDs; default installed validation checks registry structure only; always read-only |
-| `docdna_proof.py` | Read-only claim matrix; installed mode skips checkout-only evidence and replay fixtures; neither mode proves host parity |
+| `docdna_doctor.py` | `--source-checkout` also validates checkout-only evidence paths and replay IDs; default installed validation checks registry structure only; `--skill-root <dir>` skill to check; `--registry <path>` skill-relative runtime registry; always read-only |
+| `docdna_proof.py` | Read-only claim matrix; `--registry <path>` proof registry; `--workflows <path>` golden workflows to replay; `--root <dir>` checkout that evidence paths resolve against; installed mode skips checkout-only evidence and replay fixtures; neither mode proves host parity |
+| `docdna_prose.py` | `--compare BEFORE AFTER` required; compares the protected inventory of two Markdown files after a prose edit |
 | `docdna_status.py` | Read-only manifest inspection returning exactly one next action; never executes it |
 | `docdna_wire.py` | `--agent agents\|claude\|gemini\|copilot\|cursor\|cascade` repeatable; `--all` create or update every supported target |
 

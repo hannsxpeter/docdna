@@ -2,7 +2,7 @@
 
 ## watermarks-remover
 
-DocDNA's deterministic Unicode classification and emoji-glue handling are adapted from
+docdna's deterministic Unicode classification and emoji-glue handling are adapted from
 [watermarks-remover](https://github.com/guillaumemeyer/watermarks-remover), version 0.4.0.
 
 MIT License
@@ -26,7 +26,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ## pstack unslop
 
-DocDNA's prose discipline and advisory pattern vocabulary are adapted from the
+docdna's prose discipline and advisory pattern vocabulary are adapted from the
 [pstack unslop skill](https://github.com/cursor/plugins/blob/main/pstack/skills/unslop/SKILL.md).
 
 MIT License

@@ -1,8 +1,9 @@
-"""P-MUST-02: product claims resolve to inspectable evidence and replayable proof."""
+"""Product claims resolve to inspectable evidence and replayable proof."""
 
 import importlib.util
 import json
 import os
+import shutil
 import signal
 import subprocess
 import sys
@@ -57,6 +58,18 @@ def proof_cli(*args):
 
 def clone(value):
     return json.loads(json.dumps(value))
+
+
+def copy_checkout(destination):
+    """Copy the files that proof validation and the source-checkout doctor read."""
+    ignore = shutil.ignore_patterns("__pycache__", "*.pyc")
+    destination.mkdir()
+    shutil.copy2(str(INSTALLER), str(destination / "install.sh"))
+    for relative in ("skill", "proof", "tests/fixtures/documented_repo",
+                     "tests/fixtures/internal_service"):
+        shutil.copytree(str(ROOT / relative), str(destination / relative), ignore=ignore)
+    for relative in ("tests/test_regression.py", "tests/test_drift.py", "tests/test_proofs.py"):
+        shutil.copy2(str(ROOT / relative), str(destination / relative))
 
 
 class ProofRegistryTests(unittest.TestCase):
@@ -327,17 +340,60 @@ class ProofRegistryTests(unittest.TestCase):
         escaped = clone(workflows)
         escaped["workflows"][0]["command"][-1] = "proof/../../../tmp"
         self.assert_invalid(self.cli_with(workflows=escaped),
-                            "operand proof/../../../tmp must stay inside the project")
+                            "operand proof/../../../tmp is unsafe")
 
         escaped_flag = clone(workflows)
         escaped_flag["workflows"][1]["command"][3] = "proof/../../../tmp"
         self.assert_invalid(self.cli_with(workflows=escaped_flag),
-                            "flag --verify path proof/../../../tmp must stay inside")
+                            "flag --verify path proof/../../../tmp is unsafe")
 
         invalid_value = clone(workflows)
         invalid_value["workflows"][2]["command"][4] = "major"
         self.assert_invalid(self.cli_with(workflows=invalid_value),
                             "flag --fail-on value must be never")
+
+    def test_proof_and_doctor_share_one_evidence_path_contract(self):
+        # docdna_proof.py once carried its own validator that resolved symlinks and normalized
+        # paths, so it accepted evidence that the doctor's runtime validator refused.
+        def symlinked(checkout):
+            target = checkout / "proof" / "runtime" / "README.md"
+            target.unlink()
+            os.symlink(os.path.join("..", "survey", "README.md"), str(target))
+            return "refuses symlink"
+
+        def unnormalized(checkout):
+            registry_path = checkout / "skill" / "catalog" / "proofs.json"
+            registry = load_json(registry_path)
+            claim = next(row for row in registry["claims"]
+                         if row["id"] == "check.command-adjudication")
+            claim["evidence"][0]["path"] = "tests/./test_drift.py"
+            registry_path.write_text(json.dumps(registry, indent=2) + "\n", encoding="utf-8")
+            return "must be a safe relative path"
+
+        for mutate in (symlinked, unnormalized):
+            with self.subTest(case=mutate.__name__), tempfile.TemporaryDirectory() as tmp:
+                checkout = Path(tmp) / "checkout"
+                copy_checkout(checkout)
+                fragment = mutate(checkout)
+                scripts = checkout / "skill" / "scripts"
+
+                proof = subprocess.run([sys.executable, str(scripts / "docdna_proof.py"),
+                                        "--json"], cwd=str(tmp), text=True,
+                                       capture_output=True)
+                doctor = subprocess.run([sys.executable, str(scripts / "docdna_doctor.py"),
+                                         "--json", "--source-checkout"], cwd=str(tmp),
+                                        text=True, capture_output=True)
+
+                self.assert_invalid(proof, fragment)
+                self.assertEqual(doctor.returncode, 2, doctor.stderr)
+                check = json.loads(doctor.stdout)["checks"][-1]
+                self.assertEqual(check["status"], "error")
+                proof_errors = [line[len("docdna_proof: "):]
+                                for line in proof.stderr.splitlines()]
+                self.assertEqual(proof_errors, check["details"]["errors"])
+                self.assertTrue(proof_errors)
+                for error in proof_errors:
+                    self.assertEqual(error.count(" evidence "), 1, error)
 
     def test_replay_mismatch_exits_1_with_stable_failure_report(self):
         workflows = load_json(WORKFLOWS)

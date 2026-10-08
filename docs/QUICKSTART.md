@@ -76,8 +76,9 @@ The report is one screen with named blocks. In the order they appear:
 | **Possible stale references** | Places a document and the code look like they disagree. Leads for a human, not verdicts |
 | **Next** | Two or three concrete things you could do now |
 
-You will never be shown the full list of ruled-out documents in the report. A hundred-row annotated list of
-everything you do not have is exactly the theatre this tool exists to prevent. It is all in
+You will never be shown the full list of ruled-out documents in the report. An annotated list of everything
+you do not have, often more than half of the ninety-six-row catalog, is exactly the theatre this tool exists
+to prevent. It is all in
 `.docdna/manifest.json` if you want it.
 
 ## Correcting an assumption
@@ -87,7 +88,7 @@ audits this project and nothing is deployed anywhere. If that is wrong, one sent
 assistant, or run:
 
 ```sh
-python3 skill/scripts/docdna_select.py --answer q2_operator=separate-ops-team .
+python3 <skill-dir>/scripts/docdna_select.py --answer q2_operator=separate-ops-team /path/to/repo
 ```
 
 There are eight questions in total and you will never be asked all of them. Each one, when answered, can
@@ -132,7 +133,7 @@ Producing a packet writes manifest planning state, including `write_status`, but
 document. If no current manifest exists, Backfill runs Survey first and also writes the ledger and report.
 
 Proof states stay distinct: repository evidence can be **verified**, a `human:` claim is **attested**, a
-`run:` claim is **self-attested** because DocDNA did not execute it, and unsupported evidence is
+`run:` claim is **self-attested** because docdna did not execute it, and unsupported evidence is
 **refused**.
 
 Protected comparison inventory: `frontmatter`, `citations`, `gap_markers`, `numbers`, `inline_code`, `link_targets`, `fenced_blocks`, `path_tokens`, `table_shape`.
@@ -151,7 +152,7 @@ Drift warns unless you choose a small assurance set, usually three to five docum
 warns about literal editorial patterns, but it never gates or rewrites a document:
 
 ```sh
-python3 skill/scripts/docdna_check.py --only prose .
+python3 <skill-dir>/scripts/docdna_check.py --only prose /path/to/repo
 ```
 
 Unicode hygiene is also included. Terminal controls, bidirectional controls, and Unicode tag characters
@@ -159,10 +160,10 @@ fail at the default `major` threshold, while other invisible format characters w
 alone with:
 
 ```sh
-python3 skill/scripts/docdna_check.py --only hygiene .
+python3 <skill-dir>/scripts/docdna_check.py --only hygiene /path/to/repo
 ```
 
-It reports exact codepoints and locations but never rewrites your documents. Only DocDNA's generated
+It reports exact codepoints and locations but never rewrites your documents. Only docdna's generated
 human-facing prose is cleaned before writing. Statistical text watermarks and file metadata are outside
 this check.
 

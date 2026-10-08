@@ -2,31 +2,27 @@
 """Check repository documentation for drift, evidence, prose, hygiene, gaps, and lifecycle."""
 
 import argparse
-import hashlib
 import json
 import os
 import re
-import subprocess
 import sys
-import tempfile
 from collections import Counter
 from datetime import datetime, timezone
 
 SCHEMA = 1
 TOOL = "docdna_check"
-# Implements: P-MUST-05
 VERSION = "1.4.0"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CATALOG_DIR = os.path.normpath(os.path.join(HERE, "..", "catalog"))
-SCAN_SCRIPT = os.path.join(HERE, "docdna_scan.py")
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
+from docdna_fs import run_scan
 from docdna_fs import (FileTooLarge, MAX_CONTROL_BYTES, bind_root as safe_bind_root,
                        control_file_exists as safe_control_file_exists,
                        is_dir as safe_is_dir, is_file as safe_is_file,
-                       listdir as safe_listdir, open_root as safe_open_root,
+                       listdir as safe_listdir,
                        path_exists as safe_path_exists,
                        parse_json as safe_parse_json,
                        read_bounded_path as safe_read_bounded_path, read_text as safe_read_text,
@@ -34,9 +30,14 @@ from docdna_fs import (FileTooLarge, MAX_CONTROL_BYTES, bind_root as safe_bind_r
                        require_manifest as safe_require_manifest,
                        require_root_identity as safe_require_root_identity,
                        require_scan as safe_require_scan,
-                       root_is_current as safe_root_is_current,
+                       git_output as safe_git_output, now_utc,
                        walk_paths as safe_walk_paths,
                        write_text as safe_write_text)
+from docdna_claims import (BIND_LINES, GAP_QUOTE, GAP_REACH, MAX_SPANS, PROVENANCE_REGIONS,
+                           SHA_VALUE, TIGHT_STAGES, anchor_spans, as_list, claim_blocks,
+                           covers_state as shared_covers_state, extract_declarations, gap_reach,
+                           inside_repo, outside_repo, provenance_support as derived_provenance,
+                           strip_citations, unsupported_numbers, window_around)
 from docdna_prose import iter_findings as inspect_prose
 from docdna_unicode import clean_generated_text, iter_findings as inspect_unicode
 
@@ -83,7 +84,6 @@ CADENCE_WORDS = ("none", "on-change", "on-release")
 CADENCE_ISO = re.compile(r"^P(?=\w)(\d+Y)?(\d+M)?(\d+W)?(\d+D)?(T(?=\d)(\d+H)?(\d+M)?(\d+S)?)?$")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
-TIGHT_STAGES = ("assure", "design")
 TIGHT_BUDGET = 1
 LOOSE_BUDGET = 3
 DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
@@ -118,9 +118,6 @@ PATH_PREFIXES = ("module:", "test:")
 
 GAP_COMMENT = re.compile(r"<!--\s*GAP\s+(.*?)-->", re.S)
 GAP_FIELD = re.compile(r"([A-Za-z_]+)=(\"[^\"]*\"|'[^']*'|\S+)")
-GAP_QUOTE = re.compile(r"^>\s*\*\*GAP\s+([A-Za-z0-9_.\-]+)\*\*\s*(?:\(([a-z]+)\))?")
-GAP_REACH = 6
-CITE_CODE = re.compile(r"\[`[^`\]]+`(?:\s+\"[^\"]+\")?\]")
 CITE_PARTS = re.compile(r"\[`([^`\]]+)`(?:\s+\"([^\"]+)\")?\]")
 CITE_RUN = re.compile(r"\[run:\s")
 CITE_RUN_PARTS = re.compile(r"\[run:\s*`([^`]+)`\s*->\s*([^\]]+)\]")
@@ -134,30 +131,9 @@ REF_VERIFIED = re.compile(r"\[ref:[^\]]*?verified\s+(\d{4}-\d{2}-\d{2})")
 SLUG_CHARS = re.compile(r"[^a-z0-9]+")
 LINK_TARGET = re.compile(r"\[[^\]\n]*\]\(([^)\s]+)\)")
 HEADING = re.compile(r"^#{1,6}\s+(.*)$")
-TABLE_RULE = re.compile(r"^\|[\s:|-]+\|$")
 CONTROL_ROW = re.compile(r"^\|\s*([A-Za-z ]+?)\s*\|\s*(.*?)\s*\|$")
 CONTROL_HEADING = "document control"
-CONTROL_LABELS = ("status", "owner", "last reviewed", "review cadence", "next review",
-                  "retention", "derived from", "open questions")
-CONTROL_STOP = re.compile(r"^##\s+Document control\s*$")
-SECTION_HEADING = re.compile(r"^#{1,2}\s")
-BANNER_OPEN = "Backfilled by docdna"
-RULE_LINE = re.compile(r"^(?:-{3,}|\*{3,}|_{3,})$")
-CONFIDENCE_LINE = re.compile(r"^_Confidence:")
-LIST_MARKER = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s+")
-PROVENANCE_REGIONS = ("banner", "control")
 
-NUMBER_INLINE_CODE = re.compile(r"`([^`]*)`")
-NUMBER_PATH_SEGMENT = re.compile(r"^[A-Za-z_.~*@][A-Za-z0-9_.@+~*-]*$")
-NUMBER_PATH_EXTENSION = re.compile(r"^\S*\.[A-Za-z][A-Za-z0-9]{0,7}$")
-NUMBER_PATH_SPLIT = re.compile(r"[\\/]+")
-NUMBER_HAS_LETTER = re.compile(r"[A-Za-z]")
-NUMBER_CITATION = re.compile(r"\[(?:run|ref|human):[^\]]*\]")
-NUMBER_CODE_SYMBOL = re.compile(r"\[`([^`\]\s]+)#([^`\]]+)`\]")
-NUMBER_CODE_ANCHOR = re.compile(r"\[`([^`\]\s]+)`\s+\"((?:[^\"\\]|\\.)+)\"\]")
-NUMBER_LINK = re.compile(r"\]\([^)]*\)")
-NUMBER_TOKEN = re.compile(r"(?<![A-Za-z0-9_.])\d[\d,_]*(?:\.\d+)*")
-NUMBER_SEPARATOR = re.compile(r"(?<=\d)[,_](?=\d{3}(?!\d))")
 NUMBER_TERMS = re.compile(r"(?i)\b(rtos?|rpos?|slas?|slos?|mttr|mtbf|error budget|availability|"
                           r"uptime|downtime|latency|throughput|capacity|retention|retained|"
                           r"recovery time objective|recovery point objective|support window|"
@@ -214,8 +190,6 @@ NUMBER_SENTENCE = re.compile(r"[.!?][\"'`)\]]*\s")
 # This is what a document that explains the number rule looks like, and flagging it made check
 # accuse its own antipatterns page of stating a retention policy.
 NUMBER_ILLUSTRATION = re.compile(r"\"[^\"\n]{1,240}?[.!?]\"")
-NUMBER_BIND_LINES = 4
-NUMBER_MAX_SPANS = 20
 NUMBER_MAX_TERMS = 40
 NUMBER_MAX_VALUES = 80
 CELL_KINDS = ("row", "label")
@@ -259,7 +233,7 @@ NUMBER_MISSES = ("what the number rule does not catch, stated so nobody reads it
 NUMBER_BINDING = ("a citation names a place, so it backs the numbers written within %d lines of "
                   "the symbol or anchor it names and no others. A citation that names a file and "
                   "no place inside it resolves and binds nothing, because a constants module is "
-                  "not a source for every figure in the tree." % NUMBER_BIND_LINES)
+                  "not a source for every figure in the tree." % BIND_LINES)
 RUN_NOTE = ("docdna is read only and never executes a command, so the output written beside a run "
             "citation is the author's own text. It is recorded as self-attested, it supports no "
             "number, and a document carrying one is never reported as clean.")
@@ -269,82 +243,9 @@ NON_ADOPTED_NOTE = ("this document carries no docdna frontmatter, so nothing her
                     "under a covers contract; the number is reported at minor and gates only "
                     "under --fail-on minor")
 
-COMMENT_STYLE = {".py": "hash", ".rb": "hash", ".sh": "hash", ".yaml": "hash", ".yml": "hash",
-                 ".toml": "hash", ".tf": "hash", ".hcl": "hash", ".prisma": "slash",
-                 ".graphql": "hash", ".proto": "slash", ".pl": "hash", ".ex": "hash",
-                 ".exs": "hash", ".conf": "hash", ".ini": "hash", ".cfg": "hash",
-                 ".js": "slash", ".jsx": "slash", ".mjs": "slash", ".cjs": "slash", ".ts": "slash",
-                 ".tsx": "slash", ".go": "slash", ".rs": "slash", ".java": "slash", ".kt": "slash",
-                 ".cs": "slash", ".c": "slash", ".cpp": "slash", ".h": "slash", ".php": "slash",
-                 ".scala": "slash", ".swift": "slash", ".css": "slash", ".sql": "dash",
-                 ".lua": "dash"}
-
-PY_RULES = [r"^\s*(?:async\s+)?def\s+([A-Za-z_]\w*)",
-            r"^\s*class\s+([A-Za-z_]\w*)",
-            r"^([A-Za-z_]\w*)\s*(?::[^=]+)?=(?!=)",
-            r"^\s*([A-Za-z_]\w*)\s*=\s*(?:[A-Za-z_]\w*\.)?Column\(",
-            r"^\s*([A-Za-z_]\w*)\s*=\s*models\.\w+\(",
-            r"^\s*@[\w.]*(?:route|get|post|put|patch|delete)\(\s*[\"']([^\"']+)[\"']"]
-JS_RULES = [r"^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?function\s*\*?\s*([A-Za-z_$][\w$]*)",
-            r"^\s*(?:export\s+)?(?:default\s+)?(?:abstract\s+)?class\s+([A-Za-z_$][\w$]*)",
-            r"^\s*(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*)",
-            r"^\s*(?:export\s+)?(?:declare\s+)?(?:interface|type|enum)\s+([A-Za-z_$][\w$]*)",
-            r"\b(?:app|router|api|server|fastify)\.(?:get|post|put|patch|delete|use|all)"
-            r"\(\s*[\"'`]([^\"'`]+)[\"'`]"]
-GO_RULES = [r"^func\s+(?:\([^)]*\)\s*)?([A-Za-z_]\w*)",
-            r"^\s*type\s+([A-Za-z_]\w*)",
-            r"^\s*(?:var|const)\s+([A-Za-z_]\w*)"]
-RUST_RULES = [r"^\s*(?:pub(?:\([^)]*\))?\s+)?(?:async\s+)?(?:unsafe\s+)?fn\s+([A-Za-z_]\w*)",
-              r"^\s*(?:pub(?:\([^)]*\))?\s+)?(?:struct|enum|trait|type|mod|const|static)"
-              r"\s+([A-Za-z_]\w*)"]
-JVM_RULES = [r"\b(?:class|interface|enum|record|struct|object|protocol)\s+([A-Za-z_]\w*)",
-             r"^\s*(?:public|private|protected|internal)\s+[\w<>\[\],.?]+\s+([A-Za-z_]\w*)\s*\(",
-             r"^\s*(?:fun|func)\s+([A-Za-z_]\w*)",
-             r"@(?:Get|Post|Put|Patch|Delete|Request)Mapping\(\s*[\"']([^\"']+)[\"']"]
-RUBY_RULES = [r"^\s*(?:def|class|module)\s+([A-Za-z_][\w:.]*)",
-              r"^\s*(?:get|post|put|patch|delete|resources)\s+[\"':]([^\"',]+)[\"']?"]
-PHP_RULES = [r"^\s*(?:abstract\s+|final\s+)?(?:class|interface|trait)\s+(\w+)",
-             r"^\s*(?:(?:public|private|protected|static|final|abstract)\s+)*function\s+(\w+)"]
-SQL_RULES = [r"(?i)create\s+(?:or\s+replace\s+)?(?:table|view|index|type|function|procedure|"
-             r"trigger|schema)\s+(?:if\s+not\s+exists\s+)?([\w.\"]+)",
-             r"(?i)^\s*\"?([A-Za-z_]\w*)\"?\s+(?:varchar|text|integer|int|bigint|smallint|serial|"
-             r"uuid|bool|boolean|timestamp|timestamptz|date|numeric|decimal|jsonb|json|float|"
-             r"double|char|blob|bytea)"]
-PRISMA_RULES = [r"^\s*(?:model|enum|type|datasource|generator)\s+(\w+)",
-                r"^\s{2,}(\w+)\s+[A-Za-z]"]
-GRAPHQL_RULES = [r"^\s*(?:type|input|enum|interface|union|scalar|schema)\s+(\w+)",
-                 r"^\s{2,}(\w+)\s*(?:\([^)]*\))?\s*:"]
-PROTO_RULES = [r"^\s*(?:message|service|enum)\s+(\w+)", r"^\s*rpc\s+(\w+)",
-               r"^\s*(?:required|optional|repeated)?\s*[\w.]+\s+(\w+)\s*=\s*\d+"]
-TF_RULES = [r"^\s*(resource|data)\s+\"([^\"]+)\"\s+\"([^\"]+)\"",
-            r"^\s*(?:variable|output|module|provider)\s+\"([^\"]+)\""]
-KEY_RULES = [r"^\s*-?\s*\"?([A-Za-z0-9_./{}\-]+)\"?\s*:"]
-INI_RULES = [r"^\s*\[([^\]]+)\]", r"^\s*([A-Za-z_][\w.\-]*)\s*="]
-GENERIC_RULES = [r"^\s*(?:export\s+)?(?:def|func|fn|function|class|struct|interface|type|enum|"
-                 r"module|trait)\s+([A-Za-z_][\w.:]*)",
-                 r"^\s*([A-Za-z_][\w.\-]*)\s*[:=](?!=)"]
-
-DECL_RULES = {"py": PY_RULES, "js": JS_RULES, "go": GO_RULES, "rust": RUST_RULES, "jvm": JVM_RULES,
-              "ruby": RUBY_RULES, "php": PHP_RULES, "sql": SQL_RULES, "prisma": PRISMA_RULES,
-              "graphql": GRAPHQL_RULES, "proto": PROTO_RULES, "tf": TF_RULES, "keys": KEY_RULES,
-              "ini": INI_RULES, "generic": GENERIC_RULES}
-DECL_METHOD = {".py": "py", ".js": "js", ".jsx": "js", ".mjs": "js", ".cjs": "js", ".ts": "js",
-               ".tsx": "js", ".svelte": "js", ".vue": "js", ".go": "go", ".rs": "rust",
-               ".java": "jvm", ".kt": "jvm", ".cs": "jvm", ".scala": "jvm", ".swift": "jvm",
-               ".rb": "ruby", ".php": "php", ".sql": "sql", ".prisma": "prisma",
-               ".graphql": "graphql", ".gql": "graphql", ".proto": "proto", ".tf": "tf",
-               ".tfvars": "tf", ".hcl": "tf", ".yaml": "keys", ".yml": "keys", ".json": "keys",
-               ".toml": "ini", ".ini": "ini", ".cfg": "ini", ".conf": "ini", ".env": "ini",
-               ".properties": "ini"}
-RULE_CACHE = {}
-
 OWNER_NOTE = "owner: unassigned is an open question for a person, never a check failure"
 UNVERIFIABLE_NOTE = ("covers is empty, which is the honest state for frame and govern documents "
                      "and is never a failure")
-
-
-def now_utc():
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def today():
@@ -386,27 +287,18 @@ def read_text(root, path):
 
 
 def run_git(root, args):
-    if not safe_root_is_current(root):
-        return None
-    descriptor = safe_open_root(root)
+    return safe_git_output(root, args)
 
-    def enter_bound_root():
-        os.fchdir(descriptor)
 
-    try:
-        process = subprocess.run(["git"] + args, stdout=subprocess.PIPE,
-                                 stderr=subprocess.PIPE, timeout=60,
-                                 preexec_fn=enter_bound_root, pass_fds=(descriptor,))
-    except (OSError, subprocess.SubprocessError):
-        return None
-    finally:
-        os.close(descriptor)
-    if process.returncode != 0 or not safe_root_is_current(root):
-        return None
-    return process.stdout.decode("utf-8", "replace")
+def commit_name(value):
+    # last_validated_commit is frontmatter, so it is text the document controls. Only a hex object
+    # name reaches git: anything else, an option such as --output=PATH included, is unresolvable.
+    return isinstance(value, str) and SHA_VALUE.match(value) is not None
 
 
 def git_show(root, commit, rel):
+    if not commit_name(commit) or not isinstance(rel, str):
+        return None
     return run_git(root, ["show", "%s:%s" % (commit, rel)])
 
 
@@ -541,286 +433,25 @@ def validate_metadata_identities(data):
     return clean, "; ".join(errors) if errors else None
 
 
-def as_list(value):
-    if value is None:
-        return []
-    if isinstance(value, list):
-        return [item for item in value if item not in (None, "")]
-    return [value]
-
-
-def comment_style(rel):
-    return COMMENT_STYLE.get(os.path.splitext(rel)[1].lower(), "hash")
-
-
-def strip_comments(text, style):
-    if style == "slash":
-        text = re.sub(r"/\*.*?\*/", " ", text, flags=re.S)
-    marker = {"hash": "#", "slash": "//", "dash": "--"}.get(style)
-    kept = []
-    for line in text.splitlines():
-        stripped = line.strip()
-        if marker and stripped.startswith(marker):
-            continue
-        kept.append(line)
-    return kept
-
-
-def declaration_method(rel):
-    ext = os.path.splitext(rel)[1].lower()
-    if ext in DECL_METHOD:
-        return DECL_METHOD[ext]
-    base = os.path.basename(rel).lower()
-    if base.startswith(".env"):
-        return "ini"
-    if base in ("dockerfile", "makefile", "codeowners"):
-        return "generic"
-    return "generic"
-
-
-def rules_for(method):
-    if method not in RULE_CACHE:
-        RULE_CACHE[method] = [re.compile(pattern) for pattern in DECL_RULES[method]]
-    return RULE_CACHE[method]
-
-
-def extract_declarations(rel, text):
-    method = declaration_method(rel)
-    patterns = rules_for(method)
-    names = set()
-    for line in strip_comments(text, comment_style(rel)):
-        if not line.strip():
-            continue
-        for pattern in patterns:
-            for match in pattern.finditer(line):
-                parts = [part for part in match.groups() if part]
-                if not parts:
-                    continue
-                name = ".".join(part.strip().strip("\"'") for part in parts)
-                if name and len(name) <= 200:
-                    names.add(name)
-    return sorted(names)
-
-
-def digest_of(entries):
-    payload = "\n".join(entries).encode("utf-8")
-    return "sha256:" + hashlib.sha256(payload).hexdigest()
-
-
 def covers_state(root, covers, commit=None):
-    entries = []
-    files = []
-    missing = []
-    for rel in covers:
-        if not isinstance(rel, str):
-            continue
-        if commit is None:
-            text = read_text(root, rel) if safe_is_file(root, repository_path(root, rel) or rel) else None
-        else:
-            text = git_show(root, commit, rel)
-        if text is None:
-            missing.append(rel)
-            continue
-        names = extract_declarations(rel, text)
-        files.append({"path": rel, "declarations": len(names), "method": declaration_method(rel)})
-        for name in names:
-            entries.append("%s#%s" % (rel, name))
-    unique = sorted(set(entries))
-    return {"digest": digest_of(unique), "entries": unique, "files": files, "missing": missing}
+    # docdna_claims.covers_state, the one computation docdna_backfill.py stamps into the
+    # frontmatter it plans. With a commit, every covered file is read as it stood at that commit.
+    if commit is None:
+        return shared_covers_state(root, covers)
+    return shared_covers_state(root, covers, lambda rel: committed_source(root, commit, rel))
 
 
-def markdown_lines(text, body_start):
-    lines = text.splitlines()
-    return [(number + 1, lines[number]) for number in range(body_start, len(lines))]
-
-
-def is_fence(stripped):
-    return stripped.startswith("```") or stripped.startswith("~~~")
-
-
-def banner_span(lines):
-    for index in range(len(lines)):
-        if lines[index][1].strip().lstrip("> ").startswith(BANNER_OPEN):
-            return set(range(index, index + 3))
-    return set()
-
-
-def control_span(lines):
-    # The document control block is docdna's own provenance table, so it is read against the
-    # frontmatter rather than against citations. It ends at the next heading, and everything after
-    # that heading is ordinary prose again.
-    start = None
-    for index in range(len(lines)):
-        if CONTROL_STOP.match(lines[index][1].strip()):
-            start = index
-            break
-    if start is None:
-        return set()
-    span = set([start])
-    for index in range(start + 1, len(lines)):
-        if SECTION_HEADING.match(lines[index][1].strip()):
-            break
-        span.add(index)
-    return span
-
-
-def region_of(index, banner, control):
-    if index in banner:
-        return "banner"
-    if index in control:
-        return "control"
-    return "body"
-
-
-def table_headers(lines):
-    rows = set()
-    for index in range(len(lines)):
-        if TABLE_RULE.match(lines[index][1].strip()) and index > 0:
-            rows.add(index - 1)
-    return rows
-
-
-def quote_text(stripped):
-    # A blockquote is the half of a GAP marker a reader actually sees rendered. The GAP id is a
-    # label docdna assigns and checks against the machine half, so its digits are not a claim;
-    # every other word on the line is.
-    text = stripped.lstrip(">").strip()
-    if GAP_QUOTE.match(stripped):
-        text = text.split("**", 2)[-1].lstrip(":").strip()
+def committed_source(root, commit, rel):
+    # Bounded exactly as docdna_claims.source_text bounds the working tree, so a file past the size
+    # bound or a binary file reads as absent on both sides of the comparison, not only on one.
+    text = git_show(root, commit, rel)
+    if text is None or "\x00" in text or len(text.encode("utf-8")) > MAX_FILE_BYTES:
+        return None
     return text
 
 
-def add_block(blocks, kind, lines, index, text, region):
-    blocks.append({"kind": kind, "line": lines[index][0], "end": index, "text": text,
-                   "region": region})
-
-
-def flush_block(blocks, pending):
-    if not pending["text"]:
-        return
-    blocks.append({"kind": "paragraph", "line": pending["line"], "end": pending["end"],
-                   "text": " ".join(pending["text"]), "region": pending["region"]})
-    pending["text"] = []
-
-
-def close_fence(blocks, lines, fence, opened, closed, region):
-    # A fence reads to a human as authoritative configuration, so it is treated as verbatim quoted
-    # evidence: it joins the claim block that introduces it, and every number inside it has to sit
-    # in that block's cited source. A fence nothing introduces is a claim block of its own.
-    text = " ".join(fence).strip()
-    if not text:
-        return
-    if blocks and blocks[-1]["region"] == region and opened - blocks[-1]["end"] <= 2:
-        blocks[-1]["text"] += " " + text
-        blocks[-1]["end"] = closed
-        return
-    blocks.append({"kind": "fence", "line": lines[opened][0], "end": closed, "text": text,
-                   "region": region})
-
-
-def claim_blocks(lines):
-    # This is docdna_backfill.py claim_blocks, line for line. Two tools that disagree about which
-    # lines of a document are claims are worse than either being wrong alone, because a reader
-    # cannot tell which one to believe. Every line is read. Regions differ in what supports them,
-    # never in whether they are read: the banner and the document control block are docdna's own
-    # provenance, a heading and a blockquote are prose, a fence is quoted evidence. The one region
-    # not read is an HTML comment, because it is the machine half of a GAP marker and renders to
-    # nobody. Any change here belongs in both files.
-    blocks = []
-    banner = banner_span(lines)
-    control = control_span(lines)
-    headers = table_headers(lines)
-    pending = {"text": [], "line": 0, "end": 0, "region": "body"}
-    fence = []
-    opened = 0
-    fenced = False
-    comment = False
-    for index in range(len(lines)):
-        raw = lines[index][1]
-        stripped = raw.strip()
-        region = region_of(index, banner, control)
-        if fenced:
-            if is_fence(stripped):
-                fenced = False
-                close_fence(blocks, lines, fence, opened, index, region)
-                fence = []
-            else:
-                fence.append(stripped)
-            continue
-        if comment:
-            if "-->" in stripped:
-                comment = False
-            continue
-        if stripped.startswith("<!--"):
-            flush_block(blocks, pending)
-            comment = "-->" not in stripped
-            continue
-        if is_fence(stripped):
-            flush_block(blocks, pending)
-            fenced = True
-            fence = []
-            opened = index
-            continue
-        if not stripped or RULE_LINE.match(stripped) or TABLE_RULE.match(stripped):
-            flush_block(blocks, pending)
-            continue
-        if CONFIDENCE_LINE.match(stripped) or index in headers:
-            # A table header row and the confidence line are labels: a reader sees both, so both
-            # are read for numbers, and neither is asked to carry a citation of its own. Dropping
-            # them outright made the header row of a table and a one-line confidence note the two
-            # cheapest places in a document to park a figure nobody had to answer for.
-            flush_block(blocks, pending)
-            add_block(blocks, "label", lines, index, stripped, region)
-            continue
-        if stripped.startswith("#"):
-            flush_block(blocks, pending)
-            add_block(blocks, "heading", lines, index, stripped.lstrip("#").strip(), region)
-            continue
-        if stripped.startswith(">"):
-            flush_block(blocks, pending)
-            add_block(blocks, "quote", lines, index, quote_text(stripped), region)
-            continue
-        if stripped.startswith("|"):
-            flush_block(blocks, pending)
-            add_block(blocks, "row", lines, index, stripped, region)
-            continue
-        if LIST_MARKER.match(raw):
-            flush_block(blocks, pending)
-            add_block(blocks, "bullet", lines, index,
-                      LIST_MARKER.sub("", raw, count=1).strip(), region)
-            continue
-        indented = raw.startswith(("  ", "\t")) and not pending["text"]
-        if blocks and blocks[-1]["kind"] == "bullet" and indented:
-            blocks[-1]["text"] += " " + stripped
-            blocks[-1]["end"] = index
-            continue
-        if not pending["text"]:
-            pending["line"] = lines[index][0]
-            pending["region"] = region
-        pending["end"] = index
-        pending["text"].append(stripped)
-    if fenced and fence:
-        close_fence(blocks, lines, fence, opened, len(lines) - 1,
-                    region_of(opened, banner, control))
-    flush_block(blocks, pending)
-    return blocks
-
-
-def provenance_text(block):
-    # A row of the control table docdna writes. It is not exempt from the number rule; it answers
-    # to what docdna derived for this document instead of to a citation, which is what
-    # provenance_support supplies. Exempting these rows outright was a one-line trick for parking
-    # any figure under "## Document control" where nobody had to answer for it, and it made check
-    # disagree with docdna_backfill.py --verify on the same lines.
-    if block["region"] != "control" or block["kind"] != "row":
-        return False
-    match = CONTROL_ROW.match(block["text"])
-    return match is not None and match.group(1).strip().lower() in CONTROL_LABELS
-
-
-def numbered_blocks(blocks):
-    # Every block. Region decides what supports a block, never whether it is read.
-    return list(blocks)
+def document_blocks(doc):
+    return claim_blocks(doc["lines"], doc["body_start"])
 
 
 def body_blocks(blocks):
@@ -836,9 +467,17 @@ def claim_coverage(blocks):
             if block["kind"] in ("paragraph", "bullet", "row", "fence")]
 
 
-def cited(text):
-    return bool(CITE_CODE.search(text) or CITE_RUN.search(text) or CITE_REF.search(text)
-                or CITE_HUMAN.search(text))
+def cited(ctx, text):
+    # A code citation names a place, with a symbol or a verbatim anchor, or it names a file that
+    # resolves inside the repository. A bracketed code span that does neither, such as [`TODO`],
+    # is formatting, and counting it as a citation let any block pass the coverage rule with one.
+    if CITE_RUN.search(text) or CITE_REF.search(text) or CITE_HUMAN.search(text):
+        return True
+    for match in CITE_PARTS.finditer(text):
+        rel, anchor = code_target(match)
+        if anchor or (rel and code_file(ctx, rel)):
+            return True
+    return False
 
 
 def gap_records(text, path):
@@ -893,7 +532,7 @@ def gap_records(text, path):
 def control_values(lines):
     values = {}
     inside = False
-    for _, line in lines:
+    for line in lines:
         stripped = line.strip()
         heading = HEADING.match(stripped)
         if heading:
@@ -970,42 +609,12 @@ def load_config(root, manifest):
 
 
 def config_excludes(repo):
-    root = repo
-    if not safe_control_file_exists(root, CONFIG_REL):
+    if not safe_control_file_exists(repo, CONFIG_REL):
         return []
-    text = safe_read_text(root, CONFIG_REL, max_bytes=MAX_CONTROL_BYTES)
+    text = safe_read_text(repo, CONFIG_REL, max_bytes=MAX_CONTROL_BYTES)
     raw = safe_parse_json(text, CONFIG_REL)
     safe_require_config(raw, CONFIG_REL)
     return [item for item in as_list(raw.get("exclude_dirs")) if isinstance(item, str)]
-
-
-def run_scan(repo, exclude_dirs=None):
-    if not safe_root_is_current(repo):
-        raise ValueError("repository root changed before docdna_scan.py ran")
-    descriptor = safe_open_root(repo)
-
-    def enter_bound_root():
-        os.fchdir(descriptor)
-
-    command = [sys.executable, SCAN_SCRIPT, "--json", "."]
-    for directory in exclude_dirs or []:
-        command.extend(["--exclude-dir", directory])
-    try:
-        with tempfile.TemporaryFile() as output:
-            process = subprocess.run(command, stdout=output, stderr=subprocess.PIPE,
-                                     preexec_fn=enter_bound_root, pass_fds=(descriptor,))
-            output.seek(0)
-            raw = output.read(MAX_CONTROL_BYTES + 1)
-    finally:
-        os.close(descriptor)
-    if not safe_root_is_current(repo):
-        raise ValueError("repository root changed while docdna_scan.py ran")
-    if process.returncode != 0:
-        raise ValueError("docdna_scan.py failed: %s"
-                         % process.stderr.decode("utf-8", "replace").strip())
-    if len(raw) > MAX_CONTROL_BYTES:
-        raise ValueError("docdna_scan.py output exceeds the %d byte limit" % MAX_CONTROL_BYTES)
-    return safe_parse_json(raw.decode("utf-8", "replace"), "docdna_scan.py output")
 
 
 def adopted_frontmatter(data):
@@ -1031,13 +640,14 @@ def collect_documents(root, scan):
         if error is not None:
             if DOCDNA_HINT.search(frontmatter_raw(text)):
                 documents.append({"path": rel, "id": None, "data": {}, "error": error,
-                                  "text": text, "lines": [], "sidecar": None, "kind": "markdown"})
+                                  "text": text, "lines": [], "body_start": 0, "sidecar": None,
+                                  "kind": "markdown"})
             continue
         if not adopted_frontmatter(data):
             continue
         data, identity_error = validate_metadata_identities(data)
         documents.append({"path": rel, "id": data.get("id"), "data": data, "error": None,
-                          "text": text, "lines": markdown_lines(text, body_start),
+                          "text": text, "lines": text.splitlines(), "body_start": body_start,
                           "sidecar": None, "kind": "markdown"})
         if identity_error:
             documents[-1]["error"] = identity_error
@@ -1065,7 +675,7 @@ def collect_prose(root, scan, documents):
             continue
         _, data, _, body_start = parse_frontmatter(text)
         prose.append({"path": rel, "id": None, "data": data or {}, "error": None, "text": text,
-                      "lines": markdown_lines(text, body_start), "sidecar": None,
+                      "lines": text.splitlines(), "body_start": body_start, "sidecar": None,
                       "kind": "prose"})
     prose.sort(key=lambda item: item["path"])
     return prose
@@ -1088,7 +698,8 @@ def collect_sidecars(root):
             error = error or identity_error
         records.append({"path": rel, "id": (data or {}).get("id") or os.path.splitext(name)[0],
                         "data": data or {}, "error": error, "text": text, "lines": [],
-                        "sidecar": os.path.splitext(name)[0], "kind": "sidecar"})
+                        "body_start": 0, "sidecar": os.path.splitext(name)[0],
+                        "kind": "sidecar"})
     return records
 
 
@@ -1250,6 +861,9 @@ def declaration_delta(root, doc, covers, actual):
     if not commit or not isinstance(commit, str):
         return None, None, ("frontmatter records no last_validated_commit, so there is no earlier "
                             "state to replay the previous declarations from")
+    if not commit_name(commit):
+        return None, None, ("last_validated_commit is not a hexadecimal commit name, so there is "
+                            "no earlier state to replay the previous declarations from")
     previous = covers_state(root, covers, commit)
     if previous["digest"] != doc["recorded_digest"]:
         return None, None, ("last_validated_commit %s no longer reproduces the recorded "
@@ -1465,20 +1079,27 @@ def lint_sidecars(ctx):
 def lint_body(ctx, doc):
     if doc["kind"] != "markdown":
         return
-    blocks = claim_blocks(doc["lines"])
+    blocks = document_blocks(doc)
+    supports = block_support(ctx, doc, blocks)
     assertions = claim_coverage(blocks)
     total = len(assertions)
-    covered = sum(1 for block in assertions if cited(block["text"]))
+    marked = [cited(ctx, block["text"]) for block in assertions]
+    covered = sum(1 for flag in marked if flag)
     gaps = ctx["gaps_by_path"].get(doc["path"]) or []
     doc["claims"] = {"blocks": total, "cited": covered, "gaps": len(gaps),
-                     "numbers": lint_numbers(ctx, doc, blocks)}
-    doc["claims"].update(lint_attestations(ctx, doc, blocks))
+                     "numbers": lint_numbers(ctx, doc, blocks, supports)}
+    doc["claims"].update(lint_attestations(ctx, doc, blocks, supports))
     human = doc["data"].get("derivation") == "human-authored"
-    uncited = [block for block in assertions if not cited(block["text"])]
+    # A claim block that starts within GAP_REACH lines of a GAP marker is covered by it, the window
+    # docdna_backfill.py --verify counts as gap-covered. The window shields the block from this rule
+    # alone: lint_numbers has already read every number in it.
+    reach = gap_reach(record["line"] for record in gaps)
+    uncited = [block for block, flag in zip(assertions, marked)
+               if not flag and block["line"] not in reach]
     if uncited:
         severity = "info" if human else "major"
-        detail = ("%d of %d claim blocks carry neither a citation nor a GAP marker; first at "
-                  "line %d" % (len(uncited), total, uncited[0]["line"]))
+        detail = ("%d of %d claim blocks carry neither a citation nor a GAP marker within %d "
+                  "lines; first at line %d" % (len(uncited), total, GAP_REACH, uncited[0]["line"]))
         if human:
             detail += " (derivation: human-authored, so this is reported, not gated)"
         finding(ctx, "lint", "citation-coverage", severity, detail,
@@ -1546,28 +1167,10 @@ def code_target(match):
     return rel, anchor
 
 
-def contained(base, target):
-    return target == base or target.startswith(base + os.sep)
-
-
-def inside_repo(root, full):
-    # docdna_backfill.py inside_repo, clause for clause, because two tools that disagree about
-    # which files are evidence are worse than either being wrong alone. Both readings have to
-    # agree. The lexical one refuses a path that climbs out of the tree with .. or names an
-    # absolute location; the resolved one refuses a symlink that points out of the tree, which the
-    # lexical reading cannot see. A file reachable only by leaving the repository is not a file in
-    # the repository, whichever way it leaves.
-    if not contained(os.path.abspath(root), os.path.abspath(full)):
-        return False
-    return contained(os.path.realpath(root), os.path.realpath(full))
-
-
-def outside_repo(path):
-    return ("path-outside-repo",
-            "%s does not resolve inside the repository under analysis. A citation binds numbers "
-            "from a file inside that repository, so a path that climbs out of the tree, or names "
-            "an absolute location on the machine, names a file no author of this project controls "
-            "and is refused rather than bound" % path)
+def code_file(ctx, rel):
+    full = os.path.join(ctx["root"], rel)
+    return inside_repo(ctx["root"], full) and safe_is_file(
+        ctx["root"], repository_path(ctx["root"], full) or full)
 
 
 def code_problem(ctx, rel, anchor):
@@ -1684,23 +1287,6 @@ def lint_citations(ctx, doc):
                     ident=doc["id"], line=doc["text"].count("\n", 0, match.start()) + 1)
 
 
-def anchor_spans(text, anchor):
-    # docdna_backfill.py anchor_spans, bound for bound: the literal string first, then the same
-    # words separated by any whitespace, so an anchor a writer wrapped still names its place.
-    spans = []
-    start = text.find(anchor)
-    while start >= 0 and len(spans) < NUMBER_MAX_SPANS:
-        spans.append((start, start + len(anchor)))
-        start = text.find(anchor, start + 1)
-    if spans:
-        return spans
-    parts = [re.escape(part) for part in anchor.split()]
-    if not parts:
-        return []
-    loose = re.compile(r"\s+".join(parts))
-    return [match.span() for match in loose.finditer(text)][:NUMBER_MAX_SPANS]
-
-
 def binding_spans(text, anchor):
     # anchor_resolves accepts the tail of a dotted or scoped name, so the window has to be drawn
     # around whichever of the two actually occurs. Otherwise a citation that resolves by its tail
@@ -1710,24 +1296,6 @@ def binding_spans(text, anchor):
         return spans
     tail = anchor.split(".")[-1].split("::")[-1]
     return anchor_spans(text, tail) if tail and tail != anchor else []
-
-
-def window_around(text, spans):
-    # Proximity binding, the same window docdna_backfill.py window_around opens. A citation names a
-    # place, so it backs the numbers written at that place and no others. Without this a citation
-    # bought every digit anywhere in the file, and a constants module holding MAX_RETRIES and
-    # PAGE_SIZE certified an RTO and an RPO that nobody had ever decided.
-    if not spans:
-        return ""
-    lines = text.splitlines()
-    keep = set()
-    for start, end in spans:
-        first = text.count("\n", 0, start)
-        last = text.count("\n", 0, end)
-        for number in range(max(0, first - NUMBER_BIND_LINES),
-                            min(len(lines), last + NUMBER_BIND_LINES + 1)):
-            keep.add(number)
-    return "\n".join(lines[number] for number in sorted(keep))
 
 
 def code_backing(ctx, rel, anchor):
@@ -1757,12 +1325,12 @@ def ref_backing(ctx, doc, payload):
         for match in HEADING.finditer(text):
             if SLUG_CHARS.sub("-", match.group(1).strip().lower()).strip("-") == anchor.lstrip("#"):
                 spans.append(match.span())
-    return window_around(text, spans[:NUMBER_MAX_SPANS])
+    return window_around(text, spans[:MAX_SPANS])
 
 
 def claim_support(ctx, doc, text):
     # What the citations on this block actually buy. A citation that resolves buys the numbers
-    # written within NUMBER_BIND_LINES of the place it names, and nothing else. A run citation buys
+    # written within BIND_LINES lines of the place it names, and nothing else. A run citation buys
     # nothing at all: docdna never ran the command, so the output beside it is the writer quoting
     # themselves, and counting it as support was the author certifying their own figure. A human
     # citation is a person putting their handle on the number, which is the one way a number enters
@@ -1783,8 +1351,7 @@ def claim_support(ctx, doc, text):
             continue
         if anchor and code_problem(ctx, rel, anchor) is not None:
             continue
-        if not anchor and not safe_is_file(
-                ctx["root"], repository_path(ctx["root"], rel) or rel):
+        if not anchor and not code_file(ctx, rel):
             continue
         if rel not in ctx["cite_cache"]:
             body = read_text(ctx["root"], rel) or ""
@@ -1804,89 +1371,10 @@ def claim_support(ctx, doc, text):
     return support, attested, ran
 
 
-def gap_reach(records):
-    # The same window docdna_backfill.py gap_lines opens, bound for bound. It shields the lines
-    # around a GAP marker from the citation rule, and from that rule alone, in both tools. It has
-    # never shielded them from the number rule in docdna_backfill.py and no longer does here: a GAP
-    # marker says a figure is not known, so stating the figure three lines below it is the
-    # fabrication the rule exists for, not an exemption from it.
-    covered = set()
-    for record in records:
-        for number in range(max(1, record["line"] - GAP_REACH), record["line"] + GAP_REACH):
-            covered.add(number)
-    return covered
-
-
-def path_like(value):
-    # Path-shaped, not merely slash-bearing. This is docdna_backfill.py path_like, clause for
-    # clause. A slash alone made `99.95/month` and `4h/site` look like repository paths and deleted
-    # them before the number rule ever saw them, which was a two-character bypass of the rule.
-    text = value.strip()
-    if not text or " " in text or "\t" in text:
-        return False
-    if "/" not in text and "\\" not in text:
-        return False
-    if not NUMBER_HAS_LETTER.search(text):
-        return False
-    parts = [part for part in NUMBER_PATH_SPLIT.split(text) if part]
-    if not parts:
-        return False
-    for part in parts:
-        if NUMBER_PATH_EXTENSION.match(part):
-            return True
-    for part in parts:
-        if not NUMBER_PATH_SEGMENT.match(part):
-            return False
-    return True
-
-
-def strip_path_code(text):
-    out = []
-    last = 0
-    for match in NUMBER_INLINE_CODE.finditer(text):
-        out.append(text[last:match.start()])
-        out.append(" " if path_like(match.group(1)) else match.group(0))
-        last = match.end()
-    out.append(text[last:])
-    return "".join(out)
-
-
-def claim_prose(text):
-    # Citations, link targets and inline code that names a path come out: a path is verbatim
-    # repository evidence and the digits inside it are not claims. Every other backticked value
-    # stays, because "the RTO is `4 hours`" is a commitment either way. This is the stripping
-    # docdna_backfill.py strip_citations does, so both tools read the same prose.
-    out = NUMBER_CITATION.sub(" ", text)
-    out = NUMBER_CODE_SYMBOL.sub(" ", out)
-    out = NUMBER_CODE_ANCHOR.sub(" ", out)
-    out = NUMBER_LINK.sub(" ", out)
-    return strip_path_code(out)
-
-
-def normalized(text):
-    # 1_000_000 in a source file and 1,000,000 in a claim are the same number. Separators come out
-    # of both sides before anything is compared, so the claim is one token to answer for rather
-    # than three fragments any file in the tree satisfies by accident.
-    return NUMBER_SEPARATOR.sub("", text)
-
-
-def number_tokens(text):
-    tokens = []
-    for token in NUMBER_TOKEN.findall(normalized(text)):
-        token = token.strip(",_")
-        if token and token not in tokens:
-            tokens.append(token)
-    return tokens
-
-
-def number_in(token, text):
-    # Digit boundaries, so 621 is not answered by the 1621 that happens to sit in a cited file.
-    return re.search(r"(?<![0-9.])%s(?![0-9])" % re.escape(token), normalized(text)) is not None
-
-
-def unsupported_numbers(text, support):
-    return [token for token in number_tokens(text)
-            if not [item for item in support if number_in(token, item)]]
+def block_support(ctx, doc, blocks):
+    # claim_support for every block once, index for index, shared by the number rule and the
+    # attestation report so neither resolves the same citations a second time.
+    return [claim_support(ctx, doc, block["text"]) for block in blocks]
 
 
 def sentence_start(text, position):
@@ -1990,7 +1478,7 @@ def number_detail(what, loose, support, adopted, text):
     if support:
         where = ("%s, and %s appears in none of the sources this block cites within %d lines of "
                  "the symbol or anchor named"
-                 % (what, ", ".join(loose[:4]), NUMBER_BIND_LINES))
+                 % (what, ", ".join(loose[:4]), BIND_LINES))
     else:
         where = "%s sits in a claim block with no citation that binds a number" % what
     note = NUMBER_NOTE if adopted else "%s; %s" % (NUMBER_NOTE, NON_ADOPTED_NOTE)
@@ -2006,32 +1494,22 @@ def provenance_detail(what, loose, region, text):
 
 
 def provenance_support(ctx, doc):
-    # What docdna itself derived for this document: the run stamp, the tool version, the schema,
-    # the count of GAP markers actually in the file, every frontmatter value it wrote, and the
-    # catalog entry behind them. This is docdna_backfill.py provenance_support, term for term. The
-    # banner and the document control block may state these and nothing else.
-    data = doc["data"] or {}
+    # docdna_claims.provenance_support: what docdna itself derived for this document, the same
+    # values docdna_backfill.py --verify holds the banner and the document control block to.
     gaps = len(ctx["gaps_by_path"].get(doc["path"]) or [])
-    parts = [ctx["today"], VERSION, str(SCHEMA), str(gaps)]
-    for key in sorted(data):
-        value = data[key]
-        if isinstance(value, list):
-            parts.extend(str(item) for item in value)
-        else:
-            parts.append(str(value))
-    entry = ctx["catalog"].get(doc["id"]) or {}
-    parts.extend(str(entry.get(key) or "") for key in ("cadence", "retention", "title"))
-    return "\n".join(str(part) for part in parts if part)
+    return derived_provenance(doc["data"], ctx["catalog"].get(doc["id"]), gaps,
+                              str(ctx["today"]), VERSION, SCHEMA)
 
 
-def lint_attestations(ctx, doc, blocks, adopted=True):
+def lint_attestations(ctx, doc, blocks, supports, adopted=True):
     # A run citation and a human citation are both a person vouching for a number. Neither is
     # verification, and check used to pass over both without a word, so a document built entirely
     # out of them read exactly like a document cited to the repository.
     severity = "major" if adopted else "minor"
     counts = {"run": 0, "attested": 0}
-    for block in body_blocks(blocks):
-        _, attested, ran = claim_support(ctx, doc, block["text"])
+    for block, (_, attested, ran) in zip(blocks, supports):
+        if block["region"] in PROVENANCE_REGIONS:
+            continue
         for command in ran:
             counts["run"] += 1
             finding(ctx, "lint", "run-self-attested", severity,
@@ -2047,16 +1525,16 @@ def lint_attestations(ctx, doc, blocks, adopted=True):
     return counts
 
 
-def lint_numbers(ctx, doc, blocks, adopted=True):
+def lint_numbers(ctx, doc, blocks, supports, adopted=True):
+    # Every block. Region decides what supports a block, never whether it is read.
     severity = "major" if adopted else "minor"
     provenance = provenance_support(ctx, doc)
     flagged = 0
-    for block in numbered_blocks(blocks):
-        prose = claim_prose(block["text"])
+    for block, (support, attested, _) in zip(blocks, supports):
+        prose = strip_citations(block["text"])
         what = commitment_number(prose, block["kind"] in CELL_KINDS)
         if what is None:
             continue
-        support, attested, _ = claim_support(ctx, doc, block["text"])
         own = block["region"] in PROVENANCE_REGIONS
         if own:
             support = support + [provenance]
@@ -2079,7 +1557,7 @@ def lint_numbers(ctx, doc, blocks, adopted=True):
 
 
 def lint_control(ctx, doc):
-    values = control_values(doc["lines"])
+    values = control_values(doc["lines"][doc["body_start"]:])
     if not values:
         return
     data = doc["data"]
@@ -2101,10 +1579,11 @@ def lint_prose(ctx):
     # them are checked here. An unsourced availability target is a claim about the world either
     # way, and it is the one thing a reader cannot tell apart from a derived one.
     for doc in ctx["prose"]:
-        blocks = claim_blocks(doc["lines"])
+        blocks = document_blocks(doc)
+        supports = block_support(ctx, doc, blocks)
         doc["claims"] = {"blocks": len(blocks),
-                         "numbers": lint_numbers(ctx, doc, blocks, False)}
-        doc["claims"].update(lint_attestations(ctx, doc, blocks, False))
+                         "numbers": lint_numbers(ctx, doc, blocks, supports, False)}
+        doc["claims"].update(lint_attestations(ctx, doc, blocks, supports, False))
 
 
 def pass_lint(ctx):
@@ -2147,9 +1626,10 @@ def collect_gaps(ctx):
         ctx["gaps_by_path"][doc["path"]] = records
         ctx["gap_errors"][doc["path"]] = errors
     for doc in ctx["prose"]:
-        # A GAP marker still shields the number beside it, because that is a person saying the
-        # figure is not known. It does not enter the gap register: a document nobody adopted has
-        # no owner to route the question to, and inventing one would be the register lying.
+        # The markers are counted, because the count is one of the values a banner or a document
+        # control block may state. They do not enter the gap register: a document nobody adopted
+        # has no owner to route the question to, and inventing one would be the register lying.
+        # Neither do they shield anything, since citation coverage is never asked of prose.
         records, _ = gap_records(doc["text"], doc["path"])
         ctx["gaps_by_path"][doc["path"]] = records
 
@@ -2215,11 +1695,21 @@ def write_gaps_block(ctx):
     if text is None:
         return False
     start = text.find(GAPS_START)
-    end = text.find(GAPS_END)
+    end = text.find(GAPS_END, start) if start != -1 else -1
+    if start != -1 and end == -1:
+        # The block was opened and never closed, so there is no telling where it ends. Appending a
+        # second block here made the next run treat everything between the two opening markers as
+        # the old block and delete it, which is a person's text gone without a word.
+        finding(ctx, "gaps", "gaps-block-unterminated", "major",
+                "%s opens a gaps block with %s and never closes it with %s, so the open gaps were "
+                "not written; close or remove the marker by hand" % (REPORT_REL, GAPS_START,
+                                                                     GAPS_END),
+                path=REPORT_REL, line=text.count("\n", 0, start) + 1)
+        return False
     if not ctx["report"]["gaps"]["total"] and start == -1:
         return False
     block = gaps_block(ctx)
-    if start != -1 and end != -1 and start < end:
+    if start != -1:
         end += len(GAPS_END)
         head = text[:start].rstrip()
         joiner = "\n\n" if head else ""
@@ -2366,7 +1856,6 @@ def pass_spine(ctx):
     graph = build_spine(ctx)
     for doc in ctx["documents"]:
         data = doc["data"]
-        ident = data.get("instance_id") or doc["id"]
         for key in ("traces_up", "traces_down"):
             for token in as_list(data.get(key)):
                 token = str(token)
@@ -2698,20 +2187,19 @@ def check_bound(root, passes, fail_on, scan_path, write, exclude_dirs=None):
 
 
 def numbers_report(ctx):
-    rows = [row for row in ctx["findings"] if row["kind"] == "generated-number"]
+    counts = Counter(row["kind"] for row in ctx["findings"])
     loose = set(doc["path"] for doc in ctx["prose"])
     return {"region": NUMBER_REGION, "shared_with": "docdna_backfill.py --verify",
             "difference": NUMBER_DIFFERENCE, "binding": NUMBER_BINDING, "misses": NUMBER_MISSES,
             "self_attested": RUN_NOTE, "linted": len(ctx["documents"]) + len(ctx["prose"]),
             "adopted": len(ctx["documents"]), "not_adopted": len(ctx["prose"]),
-            "flagged": len(rows),
-            "flagged_provenance": len([row for row in ctx["findings"]
-                                       if row["kind"] == "provenance-number"]),
-            "flagged_run": len([row for row in ctx["findings"]
-                                if row["kind"] == "run-self-attested"]),
-            "flagged_attested": len([row for row in ctx["findings"]
-                                     if row["kind"] == "human-attested"]),
-            "flagged_not_adopted": len([row for row in rows if row["path"] in loose])}
+            "flagged": counts["generated-number"],
+            "flagged_provenance": counts["provenance-number"],
+            "flagged_run": counts["run-self-attested"],
+            "flagged_attested": counts["human-attested"],
+            "flagged_not_adopted": len([row for row in ctx["findings"]
+                                        if row["kind"] == "generated-number"
+                                        and row["path"] in loose])}
 
 
 def document_row(doc):
@@ -2829,6 +2317,9 @@ def print_text(report):
         print("  %-9s: %d unassigned; %s" % ("owner", gaps["unassigned"], OWNER_NOTE))
         if gaps["written"]:
             print("  %-9s: %s" % ("written", "## Open gaps regenerated in " + REPORT_REL))
+        for row in report["findings"]:
+            if row["kind"] == "gaps-block-unterminated":
+                print("  %-9s: %s" % ("refused", clip(row["detail"], 92)))
     spine = report.get("spine")
     if spine is not None:
         print("\nspine, built from explicit annotations only")
@@ -2872,9 +2363,9 @@ def main(argv=None):
     parser.add_argument("--no-write", action="store_true",
                         help="never touch DOCDNA.md, even when the gaps pass runs")
     parser.add_argument("--exclude-dir", action="append", metavar="DIR",
-                        help="keep a directory out of the document inventory and drift pass, "
-                             "for vendored or fixture repositories that carry their own "
-                             "documentation, repeatable")
+                        help="keep a directory out of the document inventory, the drift pass, "
+                             "and signal detection, for vendored or fixture repositories that "
+                             "carry their own documentation and manifests, repeatable")
     args = parser.parse_args(argv)
 
     passes = set(args.only or PASSES)

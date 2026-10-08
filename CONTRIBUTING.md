@@ -1,7 +1,5 @@
 # Contributing to docdna
 
-<!-- Implements: P-MUST-05 -->
-
 Thanks for your interest in improving docdna. It is a small project with a clear shape, so contributing is straightforward.
 
 ## What docdna is
@@ -47,7 +45,7 @@ Two things to know:
 - **Adding a document entry is cheap; adding a template is not.** Naming a document and ruling on it costs one JSON row. Shipping a template invites the model to fill it, so a template is only correct for entries whose content is genuinely derivable from code. That is why the catalog is large and the writing surface is small.
 - **Ids are the join key across every file and every user's manifest.** Renaming one is a breaking change. Deprecate and add instead.
 
-If you change an entry count, change `tests/test_catalog.py` in the same commit. That is how the catalog stays a decision instead of a drawer.
+If you change an entry count, change `tests/test_catalog.py` in the same commit. That is how the catalog stays a decision instead of a drawer. The prose that quotes catalog counts, in `README.md`, `skill/references/lifecycle.md`, and `skill/references/selection.md`, is pinned by `tests/test_doc_facts.py`, which fails until the numbers agree.
 
 ## Detection patterns
 
@@ -72,12 +70,13 @@ registry = load_registry("skill")
 for member in registry["runtime_members"]:
     py_compile.compile(os.path.join("skill", member["path"]), doraise=True)
 PY
-python3 -m json.tool skill/catalog/runtimes.json >/dev/null
-python3 -m json.tool skill/catalog/proofs.json >/dev/null
 python3 -m unittest discover -s tests
 python3 skill/scripts/docdna_doctor.py --json --source-checkout
-python3 skill/scripts/docdna_proof.py --json >/dev/null
+python3 skill/scripts/docdna_proof.py --json | diff -u proof/replay/expected-proof-output.json -
 python3 skill/scripts/docdna_status.py --json . >/dev/null
+for _ in 1 2 3; do python3 skill/scripts/docdna_select.py . >/dev/null; done
+python3 skill/scripts/docdna_llms.py . >/dev/null
+git diff --exit-code DOCDNA.md llms.txt
 tmp="$(mktemp -d)"
 CLAUDE_SKILLS_DIR="$tmp/claude" CODEX_SKILLS_DIR="$tmp/codex" CURSOR_SKILLS_DIR="$tmp/cursor" WINDSURF_SKILLS_DIR="$tmp/windsurf" ./install.sh all
 ```
@@ -92,6 +91,11 @@ Python 3.8 and the current Python matrix must both remain green.
 
 If `shellcheck` is installed, run `shellcheck install.sh` as well.
 
+`DOCDNA.md` and `llms.txt` are generated from this repository and committed, and CI fails when they differ
+from a fresh run, so commit the regenerated files with any change that moves them. CI also runs a dogfood
+gate: `python3 skill/scripts/docdna_check.py --json .` must report no `generated-number` or
+`provenance-number` finding against docdna's own documentation.
+
 Then validate the behavior manually:
 
 1. Install your working copy with one target such as `./install.sh codex`.
@@ -104,8 +108,18 @@ To run the scanner on its own:
 python3 skill/scripts/docdna_scan.py --json /path/to/repo
 ```
 
+## Cutting a release
+
+1. Add the release section to `CHANGELOG.md` and its compare link at the foot of the file.
+2. Bump `Version:` in `skill/SKILL.md`, then run `grep -rn "<old version>" --exclude-dir=.git .` and update
+   every hit outside the changelog history: the `VERSION` constant in each helper, the templates, the clone
+   and recovery commands in the docs, and the assertions in `tests/test_docs.py`, which fail on any
+   surface left behind.
+3. Regenerate `DOCDNA.md`, `llms.txt`, and every marked sample, run the checks above, and merge.
+4. Tag the merge commit `v<version>` and publish a GitHub release named `docdna <version>`.
+
 ## House style
 
-Match what is already there. The Python is stdlib-only, no f-strings, no type hints, no function docstrings, `%` formatting, one module docstring per file, `main(argv=None)`, and an optional `--json` flag emitting `json.dumps(..., indent=2, sort_keys=True)`. The prose is terse and second person.
+Match what is already there. The Python is stdlib-only, no f-strings, no type hints, `%` formatting, a module docstring or header comment per file, function docstrings only where a contract is not obvious from the name, `main(argv=None)`, and an optional `--json` flag emitting `json.dumps(..., indent=2, sort_keys=True)`. The prose is terse and second person.
 
 No em dashes, no en dashes, and no emojis anywhere in the repository.

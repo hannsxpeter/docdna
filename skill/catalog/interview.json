@@ -12,7 +12,6 @@
         "public"
       ],
       "multi_select": false,
-      "ask_on_first_run": false,
       "default_from": [
         {
           "when": {
@@ -75,8 +74,7 @@
         }
       ],
       "fallback": "nobody",
-      "counterfactual": "people outside your team use this",
-      "docs_moved": 14
+      "counterfactual": "people outside your team use this"
     },
     {
       "id": "q2_operator",
@@ -88,7 +86,6 @@
         "customer-operated"
       ],
       "multi_select": false,
-      "ask_on_first_run": false,
       "default_from": [
         {
           "when": {
@@ -102,8 +99,7 @@
         }
       ],
       "fallback": "not-deployed",
-      "counterfactual": "a separate ops team runs this",
-      "docs_moved": 13
+      "counterfactual": "a separate ops team runs this"
     },
     {
       "id": "q3_authorizer",
@@ -118,7 +114,6 @@
         "pci-merchant-or-service-provider"
       ],
       "multi_select": false,
-      "ask_on_first_run": false,
       "default_from": [
         {
           "when": {
@@ -176,8 +171,7 @@
         }
       ],
       "fallback": "none",
-      "counterfactual": "a regulated relationship or external reviewer applies",
-      "docs_moved": 19
+      "counterfactual": "a regulated relationship or external reviewer applies"
     },
     {
       "id": "q4_decides_about_people",
@@ -188,11 +182,9 @@
         "affects-money-services-employment-or-legal-status"
       ],
       "multi_select": false,
-      "ask_on_first_run": false,
       "default_from": [],
       "fallback": "no",
       "counterfactual": "this decides something about individual people",
-      "docs_moved": 8,
       "no_signal_may_set": true
     },
     {
@@ -206,7 +198,6 @@
         "global"
       ],
       "multi_select": true,
-      "ask_on_first_run": false,
       "default_from": [
         {
           "when": {
@@ -261,8 +252,7 @@
       "fallback": [
         "my-org-only"
       ],
-      "counterfactual": "you sell to EU customers",
-      "docs_moved": 11
+      "counterfactual": "you sell to EU customers"
     },
     {
       "id": "q6_downtime",
@@ -274,7 +264,6 @@
         "revenue-or-safety-minutes"
       ],
       "multi_select": false,
-      "ask_on_first_run": false,
       "default_from": [
         {
           "when": {
@@ -309,8 +298,7 @@
         }
       ],
       "fallback": "nothing",
-      "counterfactual": "a day of downtime costs money or safety",
-      "docs_moved": 5
+      "counterfactual": "a day of downtime costs money or safety"
     },
     {
       "id": "q7_maintenance",
@@ -321,7 +309,6 @@
         "snapshot"
       ],
       "multi_select": false,
-      "ask_on_first_run": false,
       "default_from": [
         {
           "when": {
@@ -355,8 +342,7 @@
         }
       ],
       "fallback": "snapshot",
-      "counterfactual": "someone maintains these documents after today",
-      "docs_moved": 0
+      "counterfactual": "someone maintains these documents after today"
     },
     {
       "id": "q8_doc_location",
@@ -367,7 +353,6 @@
         "mostly-elsewhere"
       ],
       "multi_select": false,
-      "ask_on_first_run": false,
       "default_from": [
         {
           "when": {
@@ -396,7 +381,6 @@
       ],
       "fallback": "repo",
       "counterfactual": "most of your documentation lives outside this repo",
-      "docs_moved": 0,
       "always_state": true,
       "always_state_text": "I only see documentation committed to this repo. If your docs live in Confluence or Notion, say so and I will mark those rows present-elsewhere rather than missing."
     }

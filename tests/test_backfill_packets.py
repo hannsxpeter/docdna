@@ -1,4 +1,4 @@
-"""P-MUST-04: fresh-context backfill packet contracts."""
+"""Fresh-context backfill packet contracts."""
 
 import importlib.util
 import copy
@@ -54,7 +54,7 @@ class BackfillPacketTests(unittest.TestCase):
         self.assertGreaterEqual(len(report["plans"]), 1)
         for plan in report["plans"]:
             packet = plan["fresh_context_packet"]
-            self.assertEqual(packet["requirement"], "P-MUST-04")
+            self.assertNotIn("requirement", packet)
             self.assertEqual(packet["kind"], "docdna-backfill-fresh-context-packet")
             self.assertEqual(packet["target"]["repository"]["root"], str(repo))
             self.assertEqual(packet["target"]["document"]["id"], plan["id"])

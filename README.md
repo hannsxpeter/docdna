@@ -33,7 +33,7 @@ coding assistant runs on your machine.
 | **Handing a project over** | The set of documents that actually survives the handover, written from the code rather than from memory |
 | **Preparing for an audit or review** | A ledger of every document ruled in or out, each with a reason and a citation an assessor can check |
 | **Writing the docs yourself** | A first draft of the mechanical documents, so your time goes to the parts only a human can write |
-| **An engineer who just wants the docs done** | Ten documents generated from the code, cited, in one command |
+| **An engineer who just wants the docs done** | Ten documents generated from the code and cited, five per run |
 
 You do not need to be the person who wrote the code. You do not need to know which documents exist in the
 world. That is the part docdna is for.
@@ -43,9 +43,9 @@ world. That is the part docdna is for.
 The documents that would save you during a handover, an audit, or somebody's last day were never written,
 because nobody could say which ones this particular project owes.
 
-Generating eighty documents is easy and worthless. The useful and much harder job is deciding that this
-repository needs eleven of them, naming which eleven and why, saying out loud which forty-nine were ruled
-out and on what grounds, and arranging for those rulings to speak up when they stop being true.
+Generating ninety-six documents is easy and worthless. The useful and much harder job is deciding that
+this repository needs forty-one of them, naming which forty-one and why, saying out loud which fifty-five
+were ruled out and on what grounds, and arranging for those rulings to speak up when they stop being true.
 
 Existing tools do not do this. Linters, documentation generators, and link checkers all work on what
 already exists: they will tell you a document is malformed, or that a link inside it is broken. None of
@@ -174,7 +174,8 @@ reason the resulting ledger is worth showing to an assessor.
 | **Backfill** | Writes the documents the code can prove, with citations and marked gaps | New documents under `docs/` |
 | **Check** | Re-checks documents against the code. The version you put in CI. | Updates the open-gaps summary |
 
-Survey needs nothing at all to run. The other two run a survey first if one is missing. And if you already
+Survey needs nothing at all to run. Through your assistant, the other two run a survey first if one is
+missing; run on its own, `docdna_check.py` skips tripwires and orphans until a survey exists. And if you already
 know what you want, say so: "write the config reference for this repo" goes straight to writing that one
 document, because being told exactly what to do should never be answered with a questionnaire.
 
@@ -199,7 +200,7 @@ docdna doctor: PASS
 checks: 4 pass, 0 fail, 0 error
 PASS runtime-registry: runtime registry schema is valid
 PASS python-compatibility: Python meets the declared 3.8 minimum
-PASS runtime-members: 46 registered runtime resources are present and readable
+PASS runtime-members: 47 registered runtime resources are present and readable
 PASS proof-registry: proof registry is valid in installed-registry mode
 ```
 
@@ -271,7 +272,7 @@ and class counts are retained; detailed rows are capped at 1,000 to bound report
 python3 skill/scripts/docdna_check.py --only hygiene /path/to/repo
 ```
 
-The checker never rewrites user-authored documentation. DocDNA cleans only its generated human-facing
+The checker never rewrites user-authored documentation. docdna cleans only its generated human-facing
 prose before the existing race-safe write, and it leaves manifest paths and identifiers untouched. This is
 deterministic text hygiene, not statistical watermark detection, metadata removal, or evidence that a
 person wrote the text.
@@ -279,8 +280,9 @@ person wrote the text.
 ## Advisory prose review
 
 Check also reports a small set of editorial patterns that commonly make technical documentation vague or
-formulaic. It looks for unnamed sources, filler, chat closings, promotional terms, indirect substitutes
-for `is`, stock contrasts, generic endings, and likely title-case headings.
+formulaic. It looks for unnamed sources, filler, chatbot phrases and pasted chat leftovers,
+knowledge-cutoff disclaimers, promotional terms, indirect substitutes for `is`, stock contrasts, generic
+endings, diff-anchored writing, signposting, clustered vocabulary, and likely title-case headings.
 
 ```sh
 python3 skill/scripts/docdna_check.py --only prose /path/to/repo
@@ -345,8 +347,8 @@ to report anybody else's drift. Two earlier versions of this page made claims th
 knocked down, so the current position is stated plainly:
 
 The evidence words are exact. **Verified** means a deterministic check observed the registered local
-evidence. **Attested** means a human supplied a shape-checked statement that DocDNA did not independently
-prove. **Self-attested** means a recorded `run:` command and its output were supplied together, but DocDNA
+evidence. **Attested** means a human supplied a shape-checked statement that docdna did not independently
+prove. **Self-attested** means a recorded `run:` command and its output were supplied together, but docdna
 did not execute the target repository command. **Refused** means the evidence class, input, or requested
 promotion is outside the verifier's authority. Inspect the product-claim matrix with
 `python3 skill/scripts/docdna_proof.py`; its shipped, tested, replayed, measured, adjudicated, host-capture,

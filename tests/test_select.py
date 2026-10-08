@@ -600,19 +600,20 @@ class SecurityBoundaryTests(unittest.TestCase):
             outside.mkdir()
             external = outside / "manifest.json"
             external.write_text("untouched\n", encoding="utf-8")
-            original = SELECT.output_path
-            calls = {"count": 0}
+            # The shared writer validates each path after binding the root descriptor, so the
+            # swap lands between the manifest's validation and its write.
+            filesystem = SELECT.write_repository_text.__globals__
+            original = filesystem["output_path"]
 
             def swap_parent(root, rel):
                 path = original(root, rel)
-                calls["count"] += 1
-                if calls["count"] == 3:
+                if rel == SELECT.MANIFEST_REL:
                     metadata.rename(repo / ".docdna-original")
                     os.symlink(str(outside), str(metadata))
                 return path
 
             error = None
-            with mock.patch.object(SELECT, "output_path", side_effect=swap_parent):
+            with mock.patch.dict(filesystem, {"output_path": swap_parent}):
                 try:
                     SELECT.write_outputs(str(repo), {"schema": 1}, "report\n")
                 except (OSError, ValueError) as caught:
@@ -631,7 +632,8 @@ class SecurityBoundaryTests(unittest.TestCase):
             outside.mkdir()
             external = outside / "DOCDNA.md"
             external.write_text("untouched\n", encoding="utf-8")
-            original = SELECT.output_path
+            filesystem = SELECT.write_repository_text.__globals__
+            original = filesystem["output_path"]
 
             def swap_root(root, rel):
                 path = original(root, rel)
@@ -639,7 +641,7 @@ class SecurityBoundaryTests(unittest.TestCase):
                 os.symlink(str(outside), str(repo))
                 return path
 
-            with mock.patch.object(SELECT, "output_path", side_effect=swap_root):
+            with mock.patch.dict(filesystem, {"output_path": swap_root}):
                 with self.assertRaises(ValueError):
                     SELECT.write_repository_text(str(repo), "DOCDNA.md", "generated\n")
 
@@ -655,7 +657,8 @@ class SecurityBoundaryTests(unittest.TestCase):
             replacement.mkdir()
             external = replacement / "DOCDNA.md"
             external.write_text("untouched\n", encoding="utf-8")
-            original = SELECT.output_path
+            filesystem = SELECT.write_repository_text.__globals__
+            original = filesystem["output_path"]
 
             def swap_root(root, rel):
                 path = original(root, rel)
@@ -663,7 +666,7 @@ class SecurityBoundaryTests(unittest.TestCase):
                 replacement.rename(repo)
                 return path
 
-            with mock.patch.object(SELECT, "output_path", side_effect=swap_root):
+            with mock.patch.dict(filesystem, {"output_path": swap_root}):
                 with self.assertRaises(ValueError):
                     SELECT.write_repository_text(str(repo), "DOCDNA.md", "generated\n")
 
@@ -752,6 +755,18 @@ class SecurityBoundaryTests(unittest.TestCase):
             self.assertEqual(process.returncode, 2)
             self.assertIn("config.json", process.stderr)
             self.assertNotIn("Traceback", process.stderr)
+
+    def test_an_excluded_directory_named_like_an_option_reaches_the_scanner(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "repo"
+            (repo / "-vendor").mkdir(parents=True)
+            (repo / "-vendor" / "README.md").write_text("# vendored\n", encoding="utf-8")
+            (repo / "README.md").write_text("# repo\n", encoding="utf-8")
+
+            scan = SELECT.run_scan(str(repo), ["-vendor"])
+
+            self.assertEqual(scan["scan"]["dirs_excluded"], ["-vendor"])
+            self.assertEqual([doc["path"] for doc in scan["inventory"]["docs"]], ["README.md"])
 
 
 class ManifestTests(unittest.TestCase):

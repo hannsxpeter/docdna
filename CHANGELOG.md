@@ -4,6 +4,64 @@ All notable changes to docdna are documented in this file. The format is based o
 
 ## [Unreleased]
 
+### Security
+
+- Check no longer passes a `last_validated_commit` value that is not a commit hash to git. A document
+  whose frontmatter held `--output=PATH` could make `git show` write a file outside the repository,
+  even under `--no-write`.
+- The installer no longer deletes the existing install before copying. It stages the new copy beside
+  the destination, validates it with the doctor, swaps it in, and restores the previous install on any
+  failure or interrupt. It refuses to replace a destination that is or contains the source checkout,
+  including on case-insensitive filesystems.
+
+### Fixed
+
+- Documents written by Backfill are no longer reported drift-stale on their first Check. Both now
+  compute the covers digest with one implementation.
+- Check treats a claim block within six lines of a GAP marker as covered, matching `--verify`, and no
+  longer accepts a bracketed code span with no anchor and no real path, such as `TODO`, as a citation.
+- Check reads a covered file at `last_validated_commit` with the same size and binary bounds as the
+  working tree, so a document covering a large file is still compared declaration by declaration.
+- Check refuses to rewrite the open-gaps block when `DOCDNA.md` has a start marker but no end marker,
+  so text after the orphaned marker is no longer deleted.
+- Scan no longer crashes on an OpenAPI or Swagger JSON file whose top level is not an object.
+- Files with non-ASCII paths keep their last commit date and authors.
+- `pyproject.toml` dependency arrays are no longer cut short by extras such as `uvicorn[standard]`,
+  split inside version ranges such as `requests>=2,<3`, or polluted by comments. Optional dependency
+  groups contribute their packages rather than their group names.
+- Projects with only `setup.cfg` no longer receive the note meant for `setup.py`, and git window
+  signals count the window the catalog names.
+- An excluded directory whose name starts with a dash no longer breaks Select or Check.
+- The prose comparison reads a number with a unit attached, such as `30s` or `250MB`, as the whole
+  number, so `30s` to `35s` counts as a changed fact.
+- Unicode hygiene reports and removes a zero-width joiner placed between digits, `#`, or `*`.
+- `docdna_proof.py` rejects symlinked and unnormalized evidence paths, matching the doctor, because both
+  now use one validator. Proof path errors no longer repeat their label.
+- `docdna_status.py` reports a manual-gated action instead of exiting 2 on a written directory row or
+  one unsafe output path.
+- `docdna_wire.py` keeps the indentation of the line after the docdna block, so an indented code block
+  survives re-wiring.
+- Backfill git calls are bounded by a timeout, and `--verify` reads a single `covers` value as one path.
+
+### Changed
+
+- Check and Backfill share one claim engine in the new runtime module `docdna_claims.py`. Scan, Select,
+  Check, Backfill, and the llms index share one bound-root subprocess runner and one copy of the git,
+  scan, select, path, and small utility helpers in `docdna_fs.py`.
+- The fresh-context packet no longer carries a `requirement` field.
+- `interview.json` drops `docs_moved` and `ask_on_first_run`, which no code read.
+- The installer validates the runtime registry once per run instead of once per target.
+- CI uses `actions/checkout` and `actions/setup-python` v7 (Node 24), pinned by commit, runs on
+  `ubuntu-24.04` so the Python 3.8 lane keeps a published build, uses the runner's ShellCheck, and drops
+  duplicate steps.
+- `--exclude-dir` help says an exclusion also removes the directory from signal detection.
+- The product name is lowercase "docdna" in help text, messages, and documentation, and the reference
+  documents quote the counts of the shipped 96-entry catalog, pinned by `tests/test_doc_facts.py`.
+
+### Removed
+
+- The pre-release design notes, superseded by the shipped documentation. The v1.0.0 tag keeps them.
+
 ## [1.4.0] - 2026-08-19
 
 ### Added
@@ -14,6 +72,10 @@ All notable changes to docdna are documented in this file. The format is based o
   fresh-context packets for agent handoff.
 - Added a product-claim proof registry and command that keep verified, attested, self-attested, refused,
   replayed, measured, adjudicated, host-captured, and external-tool-dependent evidence distinct.
+- Expanded the advisory prose pass with five finding kinds: signposting, pasted chat leftovers,
+  knowledge-cutoff disclaimers, diff-anchored prose, and clustered vocabulary.
+- Added `docdna_prose.py --compare BEFORE AFTER`, which compares the protected inventory of a document
+  before and after a prose edit and exits 1 when the edit changed it.
 - Protected comparison inventory: `frontmatter`, `citations`, `gap_markers`, `numbers`, `inline_code`, `link_targets`, `fenced_blocks`, `path_tokens`, `table_shape`.
   Raw HTML comment contents, command-like prose, and identifiers are not separately inventoried.
 
@@ -222,7 +284,7 @@ Stated here so the next round starts from a list rather than from a surprise.
 
 First public release. Point docdna at a repository and it answers three questions from the code: which documents this project owes, which of the ones it already has are now false, and which of those the code can write without asking anyone. It is a portable coding-agent skill with no service, no account, no build step, and no dependency beyond Python 3.8.
 
-Nothing before this was released, so there is nothing here to correct. The reasoning that produced the shape below, including the arguments that were lost, is recorded in [`docs/design/`](docs/design/).
+Nothing before this was released, so there is nothing here to correct. The reasoning that produced the shape below, including the arguments that were lost, is recorded in the [design notes shipped with v1.0.0](https://github.com/hannsxpeter/docdna/tree/v1.0.0/docs/design).
 
 ### Added
 
@@ -243,3 +305,12 @@ Nothing before this was released, so there is nothing here to correct. The reaso
 - **`exclude_dirs` in `.docdna/config.json`, and `--exclude-dir` on the scanner, the selector, and the checker.** A repository that vendors another repository under `tests/fixtures/` or `examples/` would otherwise have that repository's documentation read as its own, and its root-relative citations resolved against the wrong root.
 - **A suite of 232 tests over 8 fixture repositories**, four of which exist only to hold false positives down: a client-side router is not a server route, a French locale is not weak crypto, a `Region` enum is not a jurisdiction, and a latitude is not personal data. Every runtime detection pattern ships with a negative fixture, not just a positive one.
 - **CI that dogfoods the tool on itself.** It compiles every helper, validates the catalog JSON, runs the suite, runs the whole pipeline end to end on this repository, requires `docdna_check.py` to report zero fabricated-number findings against docdna's own documentation, asserts that Survey converges, shellchecks the installer, and installs the skill and runs it from the installed location. docdna's own documentation is the one corpus whose every claim can be adjudicated by hand, and it is full of the shapes a number rule gets wrong.
+
+[Unreleased]: https://github.com/hannsxpeter/docdna/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/hannsxpeter/docdna/compare/v1.3.0...v1.4.0
+[1.3.0]: https://github.com/hannsxpeter/docdna/compare/v1.2.1...v1.3.0
+[1.2.1]: https://github.com/hannsxpeter/docdna/compare/v1.2.0...v1.2.1
+[1.2.0]: https://github.com/hannsxpeter/docdna/compare/v1.1.0...v1.2.0
+[1.1.0]: https://github.com/hannsxpeter/docdna/compare/v1.0.1...v1.1.0
+[1.0.1]: https://github.com/hannsxpeter/docdna/compare/v1.0.0...v1.0.1
+[1.0.0]: https://github.com/hannsxpeter/docdna/releases/tag/v1.0.0
