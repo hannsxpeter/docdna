@@ -28,25 +28,37 @@ GLOB_CACHE = {}
 # passes -c values on to any git it starts.
 GIT_SAFETY = ("--no-pager", "-c", "core.fsmonitor=false", "-c", "core.hooksPath=/dev/null",
               "-c", "log.showSignature=false", "-c", "commit.gpgSign=false",
-              "-c", "submodule.recurse=false", "-c", "gc.auto=0", "-c", "maintenance.auto=false")
+              "-c", "submodule.recurse=false", "-c", "gc.auto=0", "-c", "maintenance.auto=false",
+              "-c", "column.ui=never", "-c", "color.ui=false",
+              "-c", "i18n.logOutputEncoding=UTF-8")
 # The only keys a repository's own config may set for docdna to run git there: settings git reads
-# as data for the commands docdna runs, and the ones GIT_SAFETY overrides. Drivers, hooks, helpers,
-# transports and promisor remotes each name a command, so any other key turns git off instead.
+# as data for the commands docdna runs, and the ones GIT_SAFETY overrides. Drivers, hooks, helpers
+# and transports each name a command, so any other key turns git off instead.
 GIT_DATA_KEYS = re.compile(
     r"^(?:core\.(?:repositoryformatversion|filemode|bare|logallrefupdates|ignorecase|"
     r"precomposeunicode|symlinks|autocrlf|eol|safecrlf|quotepath|untrackedcache|splitindex|"
     r"commitgraph|multipackindex|sparsecheckout|sparsecheckoutcone|checkstat|trustctime|abbrev|"
-    r"whitespace|longpaths|excludesfile|attributesfile|hookspath|fsmonitor)"
+    r"whitespace|longpaths|excludesfile|attributesfile|hookspath|fsmonitor|compression|"
+    r"loosecompression|bigfilethreshold|packedgitlimit|packedgitwindowsize|deltabasecachelimit|"
+    r"preloadindex|warnambiguousrefs|sharedrepository)"
     r"|(?:user|init|pull|push|fetch|rebase|rerere|color|column|status|log|commit|tag|advice|"
-    r"i18n|gc|maintenance|index|feature|pack|alias|branch|http)\..+"
+    r"i18n|gc|maintenance|index|feature|pack|alias|branch|http|blame|checkout|mailmap|gui|"
+    r"gitflow)\..+"
     r"|(?:diff|merge)\.(?!external$)[^.]+"
     r"|remote\..+\.(?:url|pushurl|fetch|push|tagopt|prune|prunetags|mirror|skipdefaultupdate|"
-    r"skipfetchall|gh-resolved)"
+    r"skipfetchall|followremotehead|gh-resolved)"
     r"|submodule\.(?:active|recurse|.+\.(?:url|active|branch|ignore|shallow))"
+    r"|url\..+\.(?:insteadof|pushinsteadof)"
     r"|extensions\.(?:objectformat|worktreeconfig|refstorage)"
-    r"|gpg\.format|lfs\.repositoryformatversion|include\.path|includeif\..+\.path)$")
+    r"|lfs\.(?:repositoryformatversion|.+\.(?:access|locksverify))"
+    r"|gpg\.format|include\.path|includeif\..+\.path)$")
+# A partial clone fetches a missing object from its promisor remote on demand. GIT_NO_LAZY_FETCH
+# stops that from git 2.44, so on an older git a promisor remote turns git off like any other key.
+GIT_PROMISOR_KEYS = re.compile(r"^(?:extensions\.partialclone|"
+                               r"remote\..+\.(?:promisor|partialclonefilter))$")
 GIT_NOTES = set()
 GIT_UNREAD = object()
+GIT_LAZY_FETCH_OFF = []
 
 
 def now_utc():
@@ -211,22 +223,59 @@ def root_is_current(root):
         os.close(descriptor)
 
 
+def git_environment():
+    return dict(os.environ, GIT_NO_LAZY_FETCH="1")
+
+
+def lazy_fetch_off():
+    # git before 2.44 rejects --no-lazy-fetch, and it also ignores GIT_NO_LAZY_FETCH.
+    if not GIT_LAZY_FETCH_OFF:
+        try:
+            process = subprocess.run(["git", "--no-lazy-fetch", "version"],
+                                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                     timeout=10)
+            GIT_LAZY_FETCH_OFF.append(process.returncode == 0)
+        except (OSError, subprocess.SubprocessError):
+            GIT_LAZY_FETCH_OFF.append(False)
+    return GIT_LAZY_FETCH_OFF[0]
+
+
+def read_git_config(root, scope):
+    """Return (exit status, lowercased keys) of one git config listing, or None if it never ran."""
+    command = ["git"] + list(GIT_SAFETY) + ["config", "--list", "--includes", "-z", scope]
+    process = _run_bound(root, command, 10, subprocess.PIPE, subprocess.DEVNULL, None,
+                         git_environment())
+    if process is None:
+        return None
+    if process.returncode != 0:
+        return process.returncode, []
+    fields = process.stdout.decode("utf-8", "replace").split("\0")
+    if scope != "--show-scope":
+        return 0, [entry.split("\n", 1)[0].lower() for entry in fields if entry]
+    return 0, [entry.split("\n", 1)[0].lower() for kind, entry in zip(fields[0::2], fields[1::2])
+               if kind in ("local", "worktree")]
+
+
 def unsafe_git_config(root):
     """Return the sorted keys in the repository's own git config that GIT_DATA_KEYS does not allow.
 
     Local and worktree scope are the repository's own, includes followed. Outside a repository
-    there is no such config and the list is empty. None means the config could not be read, which
-    counts as unsafe.
+    there is no such config and the list is empty. None means git could not be run to read it.
     """
-    command = ["git"] + list(GIT_SAFETY) + ["config", "--list", "--show-scope", "--includes",
-                                            "-z"]
-    process = _run_bound(root, command, 10, subprocess.PIPE, subprocess.DEVNULL, None)
-    if process is None or process.returncode != 0:
+    read = read_git_config(root, "--show-scope")
+    if read is not None and read[0] != 0:
+        # git before 2.26 has no --show-scope, so read the two files the repository owns apart. A
+        # read that fails there finds no repository config, or one every other git call fails on.
+        read = read_git_config(root, "--local")
+        if read is not None and "extensions.worktreeconfig" in read[1]:
+            worktree = read_git_config(root, "--worktree")
+            read = None if worktree is None else (0, read[1] + worktree[1])
+    if read is None:
         return None
-    fields = process.stdout.decode("utf-8", "replace").split("\0")
-    keys = set(entry.split("\n", 1)[0].lower() for scope, entry in zip(fields[0::2], fields[1::2])
-               if scope in ("local", "worktree"))
-    return sorted(key for key in keys if not GIT_DATA_KEYS.match(key))
+    unsafe = set(key for key in read[1] if not GIT_DATA_KEYS.match(key))
+    if unsafe and all(GIT_PROMISOR_KEYS.match(key) for key in unsafe) and lazy_fetch_off():
+        return []
+    return sorted(unsafe)
 
 
 def git_refusal(root):
@@ -259,21 +308,27 @@ def run_in_root(root, command, timeout=None, stdout=subprocess.PIPE,
 
     The child enters the root through a descriptor of the bound directory, never by path, and the
     binding is checked before and after the run, so a root swapped meanwhile cannot answer for it.
-    A git command runs with GIT_SAFETY, and not at all while the repository's own config names a
-    driver command. Without label, a changed root, a refused git, a command that cannot start and
-    a timeout all return None. With label, each raises ValueError naming the command instead.
+    A git command runs with GIT_SAFETY and without lazy fetch, and not at all while the
+    repository's own config sets a key GIT_DATA_KEYS does not allow. Without label, a changed root,
+    a refused git, a command that cannot start and a timeout all return None. With label, each
+    raises ValueError naming the command instead.
     """
-    if list(command[:1]) == ["git"]:
-        refusal = git_refusal(root)
-        if refusal is not None:
-            if label is None:
-                return None
-            raise ValueError("%s could not run: %s" % (label, refusal))
-        command = ["git"] + list(GIT_SAFETY) + list(command[1:])
-    return _run_bound(root, command, timeout, stdout, stderr, label)
+    if list(command[:1]) != ["git"]:
+        return _run_bound(root, command, timeout, stdout, stderr, label)
+    refusal = git_refusal(root)
+    if refusal is not None:
+        if label is None:
+            return None
+        raise ValueError("%s could not run: %s" % (label, refusal))
+    process = _run_bound(root, ["git"] + list(GIT_SAFETY) + list(command[1:]), timeout, stdout,
+                         stderr, label, git_environment())
+    # A checkout can change which includes apply, so the next git call reads the config again.
+    if list(command[1:2]) == ["checkout"] and isinstance(root, RepositoryRoot):
+        root.git_verdict = GIT_UNREAD
+    return process
 
 
-def _run_bound(root, command, timeout, stdout, stderr, label):
+def _run_bound(root, command, timeout, stdout, stderr, label, env=None):
     if not root_is_current(root):
         if label is None:
             return None
@@ -285,7 +340,7 @@ def _run_bound(root, command, timeout, stdout, stderr, label):
 
     try:
         process = subprocess.run(command, stdout=stdout, stderr=stderr, timeout=timeout,
-                                 preexec_fn=enter_bound_root, pass_fds=(descriptor,))
+                                 env=env, preexec_fn=enter_bound_root, pass_fds=(descriptor,))
     except (OSError, subprocess.SubprocessError) as error:
         if label is None:
             return None

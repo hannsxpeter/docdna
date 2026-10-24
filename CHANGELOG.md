@@ -10,13 +10,15 @@ All notable changes to docdna are documented in this file. The format is based o
 
 - A repository's own git config no longer chooses commands for docdna's git calls to run. Every git
   call switches off `core.fsmonitor`, the hooks directory, signature checks, commit signing,
-  automatic gc and maintenance, and submodule recursion, and Scan's status no longer descends into
-  submodules. docdna runs git only where the repository's local and worktree config hold plain
-  settings such as remotes, branches, and core options. A filter, diff, or merge driver, a hook
-  defined in config, a helper, a transport command, or a promisor remote turns git off there instead:
-  docdna names the keys on stderr and carries on without git. Such a config does not arrive by
-  `git clone`, but it does arrive with an inherited working copy, a tarball, or a shared volume. Your
-  global and system git config are read as before.
+  automatic gc and maintenance, submodule recursion, and lazy fetch, and Scan's status no longer
+  descends into submodules. docdna runs git only where every key in the repository's local and
+  worktree config, includes followed, is on a list of plain settings git reads as data, such as
+  remotes, branches, and core options. Any other key turns git off there, a filter, diff, or merge
+  driver, a hook defined in config, a credential helper, or an SSH command among them: docdna names
+  the keys on stderr and carries on without git. A partial clone keeps git from git 2.44, which can
+  turn lazy fetch off. Such a config does not arrive by `git clone`, but it does arrive with an
+  inherited working copy, a tarball, or a shared volume. Your global and system git config are read
+  as before.
 - Check asks git for a committed file's size before reading it, so a small, highly compressed object
   past the size bound is never expanded into memory.
 - The YAML and JSON key pattern no longer takes quadratic time on a long run of spaces, which held

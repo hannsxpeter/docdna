@@ -30,7 +30,8 @@ code.
 - [x] medium: installer failure can destroy the last working install (`rm -rf` before copy, no staging or
   rollback), `install.sh` `install_skill`; fixed by a staged, doctor-validated swap with rollback
 - [x] high: a repository's own git config ran commands through docdna's git calls (`core.fsmonitor`,
-  hooks, filter and diff drivers), `skill/scripts/docdna_fs.py` `run_in_root`; fixed in 1.4.1
+  hooks, filter and diff drivers, promisor lazy fetch, submodule config), `skill/scripts/docdna_fs.py`
+  `run_in_root`; fixed in 1.4.1 by GIT_SAFETY plus an allow-list of plain config keys
 - [x] medium: Check expanded a committed blob fully before its size bound, and the YAML/JSON key
   pattern was quadratic on long runs of spaces; fixed in 1.4.1
 - [ ] low: the installer copies the source into itself when the destination sits inside the source

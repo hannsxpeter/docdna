@@ -10,6 +10,7 @@ import time
 import unittest
 from contextlib import redirect_stderr
 from pathlib import Path
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -1601,7 +1602,11 @@ class RepositoryGitConfigRegressionTests(unittest.TestCase):
                          ["remote.origin.gh-resolved", "base"],
                          ["branch.linked.vscode-merge-base", "origin/main"],
                          ["includeIf.gitdir:%s/.git/.path" % repo.resolve(), str(credentials)],
-                         ["diff.renames", "true"], ["extensions.worktreeConfig", "true"]):
+                         ["diff.renames", "true"], ["extensions.worktreeConfig", "true"],
+                         ["blame.ignoreRevsFile", ".git-blame-ignore-revs"],
+                         ["lfs.https://example.invalid/info/lfs.access", "basic"],
+                         ["core.compression", "9"], ["checkout.defaultRemote", "origin"],
+                         ["remote.origin.followRemoteHEAD", "warn"]):
                 subprocess.run(["git", "config"] + args, cwd=str(repo), check=True)
 
             note = io.StringIO()
@@ -1615,6 +1620,103 @@ class RepositoryGitConfigRegressionTests(unittest.TestCase):
                 self.assertEqual(self.fs.unsafe_git_config(str(plain)), [])
                 self.assertIsNone(self.fs.git_output(str(plain), ["rev-parse", "HEAD"]))
             self.assertEqual(note.getvalue(), "")
+
+    def test_a_key_behind_an_include_is_checked_like_one_written_in_place(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = init_git_repo(write_repo(Path(tmp) / "repo", {"settings.py": SETTINGS}))
+            commit_all(repo)
+            included = Path(tmp) / "included.cfg"
+            included.write_text("[core]\n\tsshCommand = touch never\n", encoding="utf-8")
+            subprocess.run(["git", "config", "include.path", str(included)], cwd=str(repo),
+                           check=True)
+
+            with redirect_stderr(io.StringIO()):
+                self.assertEqual(self.fs.unsafe_git_config(str(repo)), ["core.sshcommand"])
+
+    def test_the_config_is_read_again_after_docdna_checks_out_a_branch(self):
+        # includeIf onbranch applies only once the branch is checked out, so a verdict read before
+        # the checkout would let the add and commit that follow run its hook.
+        with tempfile.TemporaryDirectory() as tmp:
+            marker = Path(tmp) / "hook-ran"
+            repo = init_git_repo(write_repo(Path(tmp) / "repo", {"settings.py": SETTINGS}))
+            commit_all(repo)
+            hooks = Path(tmp) / "hooks.cfg"
+            hooks.write_text("[hook \"evil\"]\n\tevent = pre-commit\n\tcommand = touch '%s'\n"
+                             % marker, encoding="utf-8")
+            subprocess.run(["git", "config", "includeIf.onbranch:docdna/**.path", str(hooks)],
+                           cwd=str(repo), check=True)
+            root = self.fs.bind_root(str(repo))
+            try:
+                with redirect_stderr(io.StringIO()):
+                    self.assertIsNotNone(self.fs.git_output(root, ["checkout", "-q", "-b",
+                                                                   "docdna/backfill"]))
+                    (repo / "notes.md").write_text("notes\n", encoding="utf-8")
+                    self.assertIsNone(self.fs.git_output(root, ["add", "--", "notes.md"]))
+                    self.assertIsNone(self.fs.git_output(root, ["commit", "-m", "notes", "--",
+                                                                "notes.md"]))
+            finally:
+                root.close()
+            self.assertFalse(marker.exists())
+
+    def test_a_partial_clone_keeps_git_without_fetching_a_missing_object(self):
+        if not self.fs.lazy_fetch_off():
+            self.skipTest("git before 2.44 cannot turn lazy fetch off")
+        with tempfile.TemporaryDirectory() as tmp:
+            source = init_git_repo(write_repo(Path(tmp) / "source", {"settings.py": SETTINGS}))
+            commit_all(source)
+            subprocess.run(["git", "config", "uploadpack.allowFilter", "true"], cwd=str(source),
+                           check=True)
+            clone = Path(tmp) / "clone"
+            subprocess.run(["git", "-c", "protocol.file.allow=always", "clone", "-q",
+                            "--filter=blob:none", "--no-checkout", source.resolve().as_uri(),
+                            str(clone)], check=True, capture_output=True)
+
+            def missing():
+                listing = subprocess.run(["git", "rev-list", "--objects", "--missing=print",
+                                          "HEAD"], cwd=str(clone), check=True,
+                                         capture_output=True, text=True).stdout
+                return [line[1:] for line in listing.splitlines() if line.startswith("?")]
+
+            blobs = missing()
+            self.assertEqual(len(blobs), 1)
+            self.assertEqual(self.fs.unsafe_git_config(str(clone)), [])
+            self.assertIsNone(self.fs.git_output(str(clone), ["cat-file", "-s", blobs[0]]))
+            self.assertEqual(missing(), blobs)
+
+            # A git that cannot turn lazy fetch off gets no git in a partial clone at all.
+            with mock.patch.object(self.fs, "lazy_fetch_off", return_value=False):
+                self.assertIn("remote.origin.promisor", self.fs.unsafe_git_config(str(clone)))
+
+    def test_a_git_without_show_scope_reads_the_local_and_worktree_files_apart(self):
+        original = self.fs._run_bound
+
+        def old_git(root, command, *args):
+            if "--show-scope" in command:
+                return subprocess.CompletedProcess(command, 129, b"", None)
+            return original(root, command, *args)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = init_git_repo(write_repo(Path(tmp) / "repo", {"settings.py": SETTINGS}))
+            commit_all(repo)
+            subprocess.run(["git", "config", "extensions.worktreeConfig", "true"], cwd=str(repo),
+                           check=True)
+            with mock.patch.object(self.fs, "_run_bound", side_effect=old_git):
+                self.assertEqual(self.fs.unsafe_git_config(str(repo)), [])
+                self.assertEqual(self.fs.unsafe_git_config(tmp), [])
+                subprocess.run(["git", "config", "--worktree", "core.sshCommand", "touch never"],
+                               cwd=str(repo), check=True)
+                self.assertEqual(self.fs.unsafe_git_config(str(repo)), ["core.sshcommand"])
+
+    def test_repository_display_settings_do_not_reshape_what_docdna_parses(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = init_git_repo(write_repo(Path(tmp) / "repo", {"settings.py": SETTINGS}))
+            commit_all(repo)
+            for name in ("v1", "v2"):
+                subprocess.run(["git", "tag", name], cwd=str(repo), check=True)
+            for args in (["column.ui", "always"], ["color.ui", "always"]):
+                subprocess.run(["git", "config"] + args, cwd=str(repo), check=True)
+
+            self.assertEqual(self.fs.git_output(str(repo), ["tag", "--list"]), "v1\nv2\n")
 
     def test_check_never_reads_a_committed_blob_past_the_bound(self):
         check = load("docdna_check_blob_bound", CHECK_PATH)
