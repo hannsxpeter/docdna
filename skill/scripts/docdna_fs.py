@@ -30,7 +30,7 @@ GIT_SAFETY = ("--no-pager", "-c", "core.fsmonitor=false", "-c", "core.hooksPath=
               "-c", "log.showSignature=false", "-c", "commit.gpgSign=false",
               "-c", "submodule.recurse=false", "-c", "gc.auto=0", "-c", "maintenance.auto=false",
               "-c", "column.ui=never", "-c", "color.ui=false",
-              "-c", "i18n.logOutputEncoding=UTF-8")
+              "-c", "i18n.logOutputEncoding=UTF-8", "-c", "core.sharedRepository=umask")
 # The only keys a repository's own config may set for docdna to run git there: settings git reads
 # as data for the commands docdna runs, and the ones GIT_SAFETY overrides. Drivers, hooks, helpers
 # and transports each name a command, so any other key turns git off instead.
@@ -42,8 +42,8 @@ GIT_DATA_KEYS = re.compile(
     r"loosecompression|bigfilethreshold|packedgitlimit|packedgitwindowsize|deltabasecachelimit|"
     r"preloadindex|warnambiguousrefs|sharedrepository)"
     r"|(?:user|init|pull|push|fetch|rebase|rerere|color|column|status|log|commit|tag|advice|"
-    r"i18n|gc|maintenance|index|feature|pack|alias|branch|http|blame|checkout|mailmap|gui|"
-    r"gitflow)\..+"
+    r"i18n|gc|maintenance|index|feature|pack|alias|branch|http|blame|checkout|gui|gitflow)"
+    r"\..+"
     r"|(?:diff|merge)\.(?!external$)[^.]+"
     r"|remote\..+\.(?:url|pushurl|fetch|push|tagopt|prune|prunetags|mirror|skipdefaultupdate|"
     r"skipfetchall|followremotehead|gh-resolved)"
@@ -51,7 +51,7 @@ GIT_DATA_KEYS = re.compile(
     r"|url\..+\.(?:insteadof|pushinsteadof)"
     r"|extensions\.(?:objectformat|worktreeconfig|refstorage)"
     r"|lfs\.(?:repositoryformatversion|.+\.(?:access|locksverify))"
-    r"|gpg\.format|include\.path|includeif\..+\.path)$")
+    r"|mailmap\.blob|gpg\.format|include\.path|includeif\..+\.path)$")
 # A partial clone fetches a missing object from its promisor remote on demand. GIT_NO_LAZY_FETCH
 # stops that from git 2.44, so on an older git a promisor remote turns git off like any other key.
 GIT_PROMISOR_KEYS = re.compile(r"^(?:extensions\.partialclone|"

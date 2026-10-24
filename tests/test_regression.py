@@ -1606,7 +1606,10 @@ class RepositoryGitConfigRegressionTests(unittest.TestCase):
                          ["blame.ignoreRevsFile", ".git-blame-ignore-revs"],
                          ["lfs.https://example.invalid/info/lfs.access", "basic"],
                          ["core.compression", "9"], ["checkout.defaultRemote", "origin"],
-                         ["remote.origin.followRemoteHEAD", "warn"]):
+                         ["remote.origin.followRemoteHEAD", "warn"],
+                         ["mailmap.blob", "HEAD:.mailmap"], ["gui.wmstate", "normal"],
+                         ["gitflow.branch.master", "main"],
+                         ["url.https://github.com/.insteadOf", "gh:"]):
                 subprocess.run(["git", "config"] + args, cwd=str(repo), check=True)
 
             note = io.StringIO()
@@ -1632,6 +1635,35 @@ class RepositoryGitConfigRegressionTests(unittest.TestCase):
 
             with redirect_stderr(io.StringIO()):
                 self.assertEqual(self.fs.unsafe_git_config(str(repo)), ["core.sshcommand"])
+
+    def test_a_mailmap_file_and_a_promisor_beside_another_key_stay_refused(self):
+        # mailmap.file reads any local file, unlike mailmap.blob. A promisor remote is let through
+        # only when it is the sole reason to refuse.
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = init_git_repo(write_repo(Path(tmp) / "repo", {"settings.py": SETTINGS}))
+            commit_all(repo)
+            for args in (["mailmap.file", "/etc/hosts"], ["remote.origin.url", "."],
+                         ["remote.origin.promisor", "true"], ["core.sshCommand", "touch never"]):
+                subprocess.run(["git", "config"] + args, cwd=str(repo), check=True)
+
+            with mock.patch.object(self.fs, "lazy_fetch_off", return_value=True):
+                self.assertEqual(self.fs.unsafe_git_config(str(repo)),
+                                 ["core.sshcommand", "mailmap.file", "remote.origin.promisor"])
+
+    def test_a_repository_cannot_widen_the_permissions_of_what_docdna_writes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = init_git_repo(write_repo(Path(tmp) / "repo", {"settings.py": SETTINGS}))
+            commit_all(repo)
+            subprocess.run(["git", "config", "core.sharedRepository", "0777"], cwd=str(repo),
+                           check=True)
+            (repo / "notes.md").write_text("notes\n", encoding="utf-8")
+            umask = os.umask(0o022)
+            try:
+                self.assertIsNotNone(self.fs.git_output(str(repo), ["add", "--", "notes.md"]))
+            finally:
+                os.umask(umask)
+
+            self.assertEqual(os.stat(str(repo / ".git" / "index")).st_mode & 0o022, 0)
 
     def test_the_config_is_read_again_after_docdna_checks_out_a_branch(self):
         # includeIf onbranch applies only once the branch is checked out, so a verdict read before
@@ -1713,10 +1745,13 @@ class RepositoryGitConfigRegressionTests(unittest.TestCase):
             commit_all(repo)
             for name in ("v1", "v2"):
                 subprocess.run(["git", "tag", name], cwd=str(repo), check=True)
-            for args in (["column.ui", "always"], ["color.ui", "always"]):
+            for args in (["column.ui", "always"], ["color.ui", "always"],
+                         ["i18n.logOutputEncoding", "UTF-16"]):
                 subprocess.run(["git", "config"] + args, cwd=str(repo), check=True)
 
             self.assertEqual(self.fs.git_output(str(repo), ["tag", "--list"]), "v1\nv2\n")
+            self.assertEqual(self.fs.git_output(str(repo), ["log", "-1", "--format=%an"]),
+                             "docdna\n")
 
     def test_check_never_reads_a_committed_blob_past_the_bound(self):
         check = load("docdna_check_blob_bound", CHECK_PATH)
