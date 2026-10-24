@@ -8,6 +8,15 @@ All notable changes to docdna are documented in this file. The format is based o
 
 ### Security
 
+- A repository's own git config can no longer make docdna run a command. Every git call switches off
+  `core.fsmonitor`, hooks, signature checks, commit signing, and submodule recursion, and docdna does
+  not run git at all in a repository whose local or worktree config defines a filter or diff driver
+  command; it says so on stderr and carries on without git. Such a config does not arrive by
+  `git clone`, but it does arrive with an inherited working copy, a tarball, or a shared volume.
+- Check asks git for a committed file's size before reading it, so a small, highly compressed object
+  past the size bound is never expanded into memory.
+- The YAML and JSON key pattern no longer takes quadratic time on a long run of spaces, which held
+  Check for 27 seconds on one 60 KB line of a covered file.
 - Check no longer passes a `last_validated_commit` value that is not a commit hash to git. A document
   whose frontmatter held `--output=PATH` could make `git show` write a file outside the repository,
   even under `--no-write`.

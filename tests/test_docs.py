@@ -238,6 +238,18 @@ class ReleaseContractTests(unittest.TestCase):
             self.assertIn("docdna v1.4.1", source, name)
             self.assertNotIn("docdna v1.4.0", source, name)
 
+    def test_recovery_commands_name_the_current_release(self):
+        recoveries = {
+            ROOT / "README.md": "reinstall the immutable `v1.4.1` bytes",
+            ROOT / "docs" / "QUICKSTART.md": "reinstall tag `v1.4.1`",
+            ROOT / "docs" / "AGENT_SUPPORT.md": "`v1.4.1` bytes and rerun Doctor",
+            SKILL: "reinstall trusted v1.4.1.",
+        }
+        for path, phrase in recoveries.items():
+            text = path.read_text(encoding="utf-8")
+            self.assertIn(phrase, text, path.name)
+            self.assertNotIn("v1.4.0", text, path.name)
+
     def test_release_docs_state_command_boundaries_at_their_audience_layer(self):
         boundaries = {
             ROOT / "README.md": ("docdna_doctor.py", "docdna_status.py",

@@ -22,6 +22,18 @@ MANIFEST_STAGES = ("frame", "decide", "design", "build", "verify", "assure", "op
 DENY_READ = (".env",)
 DENY_READ_ALLOW = (".example", ".sample", ".template")
 GLOB_CACHE = {}
+# A repository's own git config is input it controls, so every git call switches off the settings
+# that make git run a command they name. core.hooksPath=/dev/null also silences .git/hooks, and git
+# passes -c values on to any git it starts.
+GIT_SAFETY = ("--no-pager", "-c", "core.fsmonitor=false", "-c", "core.hooksPath=/dev/null",
+              "-c", "log.showSignature=false", "-c", "commit.gpgSign=false",
+              "-c", "submodule.recurse=false")
+# Driver commands no -c value can switch off, because the repository chooses the driver's name.
+UNSAFE_GIT_KEY = re.compile(r"^(?:filter\..+\.(?:clean|smudge|process)|"
+                            r"diff\..+\.(?:textconv|command)|diff\.external)$", re.S)
+GIT_FALSE = ("false", "no", "off", "0")
+GIT_NOTES = set()
+GIT_UNREAD = object()
 
 
 def now_utc():
@@ -186,15 +198,77 @@ def root_is_current(root):
         os.close(descriptor)
 
 
+def git_config_entries(root, scope):
+    command = ["git"] + list(GIT_SAFETY) + ["config", scope, "--includes", "--list", "-z"]
+    process = _run_bound(root, command, 10, subprocess.PIPE, subprocess.DEVNULL, None)
+    if process is None or process.returncode != 0:
+        return None
+    entries = [entry.split("\n", 1) for entry in
+               process.stdout.decode("utf-8", "replace").split("\0") if entry]
+    return [(entry[0].lower(), entry[1] if len(entry) > 1 else "") for entry in entries]
+
+
+def unsafe_git_config(root):
+    """Return the sorted keys in the repository's own git config that git would run as commands.
+
+    None means that config could not be read, which counts as unsafe: an unread config is not a
+    safe one, and outside a repository git has nothing to answer anyway.
+    """
+    entries = git_config_entries(root, "--local")
+    if entries is None:
+        return None
+    if any(key == "extensions.worktreeconfig" and value.lower() not in GIT_FALSE
+           for key, value in entries):
+        worktree = git_config_entries(root, "--worktree")
+        if worktree is None:
+            return None
+        entries += worktree
+    return sorted(set(key for key, _ in entries if UNSAFE_GIT_KEY.match(key)))
+
+
+def git_refusal(root):
+    # A binding lives for one run, so its verdict is read once per run and cannot outlive a config
+    # edit or a git init made between runs. An unbound path is read on every call.
+    verdict = getattr(root, "git_verdict", GIT_UNREAD)
+    if verdict is not GIT_UNREAD:
+        return verdict
+    keys = unsafe_git_config(root)
+    if keys is None:
+        verdict = "git config could not be read"
+    elif keys:
+        verdict = "its git config sets %s, which git runs as a command" % ", ".join(keys)
+        note = "docdna: not running git in %s: %s\n" % (root, verdict)
+        if note not in GIT_NOTES:
+            GIT_NOTES.add(note)
+            sys.stderr.write(note)
+    else:
+        verdict = None
+    if isinstance(root, RepositoryRoot):
+        root.git_verdict = verdict
+    return verdict
+
+
 def run_in_root(root, command, timeout=None, stdout=subprocess.PIPE,
                 stderr=subprocess.DEVNULL, label=None):
     """Run command inside the bound root and return the finished process.
 
     The child enters the root through a descriptor of the bound directory, never by path, and the
     binding is checked before and after the run, so a root swapped meanwhile cannot answer for it.
-    Without label, a changed root, a command that cannot start and a timeout all return None. With
-    label, each raises ValueError naming the command instead.
+    A git command runs with GIT_SAFETY, and not at all while the repository's own config names a
+    driver command. Without label, a changed root, a refused git, a command that cannot start and
+    a timeout all return None. With label, each raises ValueError naming the command instead.
     """
+    if list(command[:1]) == ["git"]:
+        refusal = git_refusal(root)
+        if refusal is not None:
+            if label is None:
+                return None
+            raise ValueError("%s could not run: %s" % (label, refusal))
+        command = ["git"] + list(GIT_SAFETY) + list(command[1:])
+    return _run_bound(root, command, timeout, stdout, stderr, label)
+
+
+def _run_bound(root, command, timeout, stdout, stderr, label):
     if not root_is_current(root):
         if label is None:
             return None

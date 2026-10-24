@@ -299,7 +299,13 @@ def commit_name(value):
 def git_show(root, commit, rel):
     if not commit_name(commit) or not isinstance(rel, str):
         return None
-    return run_git(root, ["show", "%s:%s" % (commit, rel)])
+    # Size first: git sends a whole blob before any bound here applies, and a small, highly
+    # compressed object can expand past memory.
+    name = "%s:%s" % (commit, rel)
+    size = run_git(root, ["cat-file", "-s", name])
+    if size is None or not size.strip().isdigit() or int(size) > MAX_FILE_BYTES:
+        return None
+    return run_git(root, ["cat-file", "blob", name])
 
 
 def parse_date(value):

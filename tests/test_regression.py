@@ -1,11 +1,14 @@
 import importlib.util
+import io
 import json
 import os
 import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
+from contextlib import redirect_stderr
 from pathlib import Path
 
 
@@ -14,6 +17,8 @@ BACKFILL_PATH = ROOT / "skill" / "scripts" / "docdna_backfill.py"
 CHECK_PATH = ROOT / "skill" / "scripts" / "docdna_check.py"
 SCAN_PATH = ROOT / "skill" / "scripts" / "docdna_scan.py"
 SELECT_PATH = ROOT / "skill" / "scripts" / "docdna_select.py"
+FS_PATH = ROOT / "skill" / "scripts" / "docdna_fs.py"
+CLAIMS_PATH = ROOT / "skill" / "scripts" / "docdna_claims.py"
 FIXTURES = ROOT / "tests" / "fixtures"
 
 GIT = shutil.which("git")
@@ -1421,6 +1426,149 @@ class BackfillFilesystemBoundaryTests(unittest.TestCase):
 
             self.assertEqual(process.returncode, 2)
             self.assertEqual(outside.read_bytes(), original)
+
+
+def init_git_repo(repo):
+    for args in (["init", "--quiet"], ["config", "user.email", "docdna@example.invalid"],
+                 ["config", "user.name", "docdna"]):
+        subprocess.run(["git"] + args, cwd=str(repo), check=True)
+    return repo
+
+
+def commit_all(repo):
+    subprocess.run(["git", "add", "-A"], cwd=str(repo), check=True)
+    subprocess.run(["git", "commit", "--quiet", "-m", "fixture"], cwd=str(repo), check=True)
+    return subprocess.run(["git", "rev-parse", "HEAD"], cwd=str(repo), check=True,
+                          capture_output=True, text=True).stdout.strip()
+
+
+@unittest.skipUnless(GIT, "git is not installed")
+class RepositoryGitConfigRegressionTests(unittest.TestCase):
+    # A repository's own .git/config is input it controls. It does not arrive by git clone, but it
+    # does arrive with an inherited working copy, a tarball, or a shared volume.
+
+    def setUp(self):
+        self.fs = load("docdna_fs_git_config", FS_PATH)
+
+    def test_a_repository_fsmonitor_never_runs_and_git_still_answers(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            marker = Path(tmp) / "fsmonitor-ran"
+            repo = init_git_repo(write_repo(Path(tmp) / "repo", {"settings.py": SETTINGS}))
+            head = commit_all(repo)
+            subprocess.run(["git", "config", "core.fsmonitor", "touch '%s'; false" % marker],
+                           cwd=str(repo), check=True)
+
+            process = subprocess.run([sys.executable, str(SCAN_PATH), "--json", str(repo)],
+                                     capture_output=True, text=True)
+
+            self.assertEqual(process.returncode, 0, process.stderr)
+            self.assertFalse(marker.exists())
+            self.assertEqual(json.loads(process.stdout)["commit"], head)
+
+    def test_repository_hooks_never_run_through_the_shared_git_runner(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            marker = Path(tmp) / "hook-ran"
+            repo = init_git_repo(write_repo(Path(tmp) / "repo", {"settings.py": SETTINGS}))
+            commit_all(repo)
+            hook = repo / ".git" / "hooks" / "post-checkout"
+            hook.write_text("#!/bin/sh\ntouch '%s'\n" % marker, encoding="utf-8")
+            hook.chmod(0o755)
+            root = self.fs.bind_root(str(repo))
+            try:
+                self.assertIsNotNone(self.fs.git_output(root, ["checkout", "-q", "-b", "docs"]))
+            finally:
+                root.close()
+            self.assertFalse(marker.exists())
+
+            # The same checkout through plain git runs the hook, so the test can see one.
+            subprocess.run(["git", "checkout", "-q", "-b", "plain"], cwd=str(repo), check=True)
+            self.assertTrue(marker.exists())
+
+    def test_a_repository_filter_driver_turns_git_off_instead_of_running(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            marker = Path(tmp) / "filter-ran"
+            repo = init_git_repo(write_repo(Path(tmp) / "repo", {
+                ".gitattributes": "* filter=Evil\n", "settings.py": SETTINGS}))
+            commit_all(repo)
+            subprocess.run(["git", "config", "filter.Evil.clean", "touch '%s'; cat" % marker],
+                           cwd=str(repo), check=True)
+            os.utime(str(repo / "settings.py"), (0, 0))
+
+            process = subprocess.run([sys.executable, str(SCAN_PATH), "--json", str(repo)],
+                                     capture_output=True, text=True)
+
+            self.assertEqual(process.returncode, 0, process.stderr)
+            self.assertFalse(marker.exists())
+            self.assertIsNone(json.loads(process.stdout)["commit"])
+            self.assertIn("not running git in", process.stderr)
+            self.assertIn("filter.evil.clean", process.stderr)
+            self.assertEqual(process.stderr.count("not running git in"), 1)
+
+            # The same status through plain git runs the filter, so the test can see one.
+            subprocess.run(["git", "status", "--porcelain"], cwd=str(repo), check=True,
+                           capture_output=True)
+            self.assertTrue(marker.exists())
+
+    def test_driver_commands_in_worktree_config_are_refused_too(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = init_git_repo(write_repo(Path(tmp) / "repo", {"settings.py": SETTINGS}))
+            commit_all(repo)
+            for args in (["extensions.worktreeConfig", "true"],
+                         ["--worktree", "diff.evil.textconv", "cat"]):
+                subprocess.run(["git", "config"] + args, cwd=str(repo), check=True)
+
+            self.assertEqual(self.fs.unsafe_git_config(str(repo)), ["diff.evil.textconv"])
+            note = io.StringIO()
+            with redirect_stderr(note):
+                self.assertIsNone(self.fs.git_output(str(repo), ["rev-parse", "HEAD"]))
+            self.assertIn("diff.evil.textconv, which git runs as a command", note.getvalue())
+
+    def test_a_repository_without_driver_commands_is_not_refused(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = init_git_repo(write_repo(Path(tmp) / "repo", {"settings.py": SETTINGS}))
+            head = commit_all(repo)
+            subprocess.run(["git", "config", "diff.renames", "true"], cwd=str(repo), check=True)
+
+            self.assertEqual(self.fs.unsafe_git_config(str(repo)), [])
+            self.assertEqual(self.fs.git_output(str(repo), ["rev-parse", "HEAD"]).strip(), head)
+            self.assertIsNone(self.fs.unsafe_git_config(tmp))
+
+    def test_check_never_reads_a_committed_blob_past_the_bound(self):
+        check = load("docdna_check_blob_bound", CHECK_PATH)
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = init_git_repo(write_repo(Path(tmp) / "repo", {
+                "big.txt": "A" * (check.MAX_FILE_BYTES + 1), "small.txt": "A\n"}))
+            commit = commit_all(repo)
+            calls = []
+            original = check.run_git
+
+            def recording(root, args):
+                calls.append(list(args))
+                return original(root, args)
+
+            check.run_git = recording
+            try:
+                self.assertIsNone(check.git_show(str(repo), commit, "big.txt"))
+                self.assertEqual(check.git_show(str(repo), commit, "small.txt"), "A\n")
+            finally:
+                check.run_git = original
+
+            self.assertEqual([call[:2] for call in calls],
+                             [["cat-file", "-s"], ["cat-file", "-s"], ["cat-file", "blob"]])
+
+
+class ClaimPatternRegressionTests(unittest.TestCase):
+    def test_a_long_blank_line_in_a_covered_config_file_is_read_in_linear_time(self):
+        # Two adjacent \s* around an optional dash split a run of spaces every possible way, so
+        # one 60 KB line held Check for 27 seconds.
+        claims = load("docdna_claims_linear_keys", CLAIMS_PATH)
+        text = "name: docdna\n" + " " * 50000 + "!\n"
+
+        started = time.monotonic()
+        names = claims.extract_declarations("config/app.yaml", text)
+
+        self.assertLess(time.monotonic() - started, 5)
+        self.assertIn("name", names)
 
 
 if __name__ == "__main__":
