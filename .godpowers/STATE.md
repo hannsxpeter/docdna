@@ -1,9 +1,9 @@
 ---
 godpowers: 7
 project: docdna
-stage: review
+stage: ship
 verify: "python3 -m unittest discover -s tests"
-updated: 2026-10-08
+updated: 2026-10-24
 ---
 # docdna
 
@@ -14,11 +14,11 @@ cited or marked as a gap, and CI proving that the published samples, counts, and
 code.
 
 ## Now
-- Maintenance pass after 1.4.0 is merged: review fixes, shared claim engine and fs runners, installer
-  staging, documentation drift, and doc-fact tests. Recorded under [Unreleased] in CHANGELOG.md.
+- 1.4.1 is cut on `release/1.4.1`: the maintenance pass plus the security pass (repository git config
+  allow-list, bounded committed blob reads, linear key pattern), reviewed and hardened. Shipping it.
 
 ## Next
-- Cut 1.4.1 when the owner wants the fixes installable by tag (CONTRIBUTING.md, Cutting a release).
+- Close the four Low risks below (installer edge cases, CI token persistence, pin comment).
 - Close the two Medium provenance risks with a signed release manifest that Doctor verifies.
 
 ## Risks
