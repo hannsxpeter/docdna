@@ -1521,17 +1521,100 @@ class RepositoryGitConfigRegressionTests(unittest.TestCase):
             note = io.StringIO()
             with redirect_stderr(note):
                 self.assertIsNone(self.fs.git_output(str(repo), ["rev-parse", "HEAD"]))
-            self.assertIn("diff.evil.textconv, which git runs as a command", note.getvalue())
+            self.assertIn("sets diff.evil.textconv, beyond the plain settings", note.getvalue())
 
-    def test_a_repository_without_driver_commands_is_not_refused(self):
+    def test_config_hooks_unnamed_drivers_and_promisor_remotes_turn_git_off(self):
+        # Each names a command no GIT_SAFETY value reaches: a hook defined in config, a driver
+        # whose name is empty, and the fetch a promisor remote starts for a missing object.
+        missing = "0123456789abcdef0123456789abcdef01234567:settings.py"
+        cases = (
+            ("hook.evil.command", {}, ["checkout", "-q", "-b", "docs"],
+             "[hook \"evil\"]\n\tevent = post-checkout\n\tcommand = touch '%s'\n"),
+            ("filter..clean", {".gitattributes": "* filter=\n"}, ["status", "--porcelain"],
+             "[filter \"\"]\n\tclean = touch '%s'; cat\n"),
+            ("remote.origin.uploadpack", {}, ["cat-file", "-s", missing],
+             "[extensions]\n\tpartialClone = origin\n[remote \"origin\"]\n\tpromisor = true\n"
+             "\turl = .\n\tuploadpack = touch '%s'; false\n"))
+        for key, files, args, config in cases:
+            with tempfile.TemporaryDirectory() as tmp:
+                marker = Path(tmp) / "command-ran"
+                files = dict(files, **{"settings.py": SETTINGS})
+                repo = init_git_repo(write_repo(Path(tmp) / "repo", files))
+                commit_all(repo)
+                if config.startswith("[extensions]"):
+                    subprocess.run(["git", "config", "core.repositoryformatversion", "1"],
+                                   cwd=str(repo), check=True)
+                with (repo / ".git" / "config").open("a", encoding="utf-8") as handle:
+                    handle.write(config % marker)
+                os.utime(str(repo / "settings.py"), (0, 0))
+
+                note = io.StringIO()
+                with redirect_stderr(note):
+                    self.assertIn(key, self.fs.unsafe_git_config(str(repo)))
+                    self.assertIsNone(self.fs.git_output(str(repo), args), key)
+
+                self.assertFalse(marker.exists(), key)
+                self.assertIn(key, note.getvalue())
+
+    def test_scan_never_reaches_into_a_submodule_with_its_own_driver(self):
+        # git status starts a status inside each submodule, which reads that submodule's config,
+        # not the parent's.
+        with tempfile.TemporaryDirectory() as tmp:
+            marker = Path(tmp) / "filter-ran"
+            sub = init_git_repo(write_repo(Path(tmp) / "sub", {
+                ".gitattributes": "* filter=evil\n", "notes.txt": "notes\n"}))
+            commit_all(sub)
+            repo = init_git_repo(write_repo(Path(tmp) / "repo", {"settings.py": SETTINGS}))
+            subprocess.run(["git", "-c", "protocol.file.allow=always", "submodule", "add", "-q",
+                            str(sub), "sub"], cwd=str(repo), check=True, capture_output=True)
+            head = commit_all(repo)
+            subprocess.run(["git", "config", "filter.evil.clean", "touch '%s'; cat" % marker],
+                           cwd=str(repo / "sub"), check=True)
+            os.utime(str(repo / "sub" / "notes.txt"), (0, 0))
+
+            process = subprocess.run([sys.executable, str(SCAN_PATH), "--json", str(repo)],
+                                     capture_output=True, text=True)
+
+            self.assertEqual(process.returncode, 0, process.stderr)
+            self.assertFalse(marker.exists())
+            self.assertEqual(json.loads(process.stdout)["commit"], head)
+
+            # The same status through plain git runs the submodule's filter.
+            subprocess.run(["git", "status", "--porcelain"], cwd=str(repo), check=True,
+                           capture_output=True)
+            self.assertTrue(marker.exists())
+
+    def test_ordinary_repository_settings_keep_git_answering(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo = init_git_repo(write_repo(Path(tmp) / "repo", {"settings.py": SETTINGS}))
             head = commit_all(repo)
-            subprocess.run(["git", "config", "diff.renames", "true"], cwd=str(repo), check=True)
+            credentials = Path(tmp) / "credentials.cfg"
+            credentials.write_text("[http \"https://github.com/\"]\n"
+                                   "\textraheader = AUTHORIZATION: basic eA==\n", encoding="utf-8")
+            linked = Path(tmp) / "linked"
+            subprocess.run(["git", "worktree", "add", "-q", str(linked), "-b", "linked"],
+                           cwd=str(repo), check=True)
+            # husky, gh, VS Code, actions/checkout, and a worktree config file that does not exist.
+            for args in (["core.hooksPath", ".husky"],
+                         ["remote.origin.url", "https://github.com/example/repo.git"],
+                         ["remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*"],
+                         ["remote.origin.gh-resolved", "base"],
+                         ["branch.linked.vscode-merge-base", "origin/main"],
+                         ["includeIf.gitdir:%s/.git/.path" % repo.resolve(), str(credentials)],
+                         ["diff.renames", "true"], ["extensions.worktreeConfig", "true"]):
+                subprocess.run(["git", "config"] + args, cwd=str(repo), check=True)
 
-            self.assertEqual(self.fs.unsafe_git_config(str(repo)), [])
-            self.assertEqual(self.fs.git_output(str(repo), ["rev-parse", "HEAD"]).strip(), head)
-            self.assertIsNone(self.fs.unsafe_git_config(tmp))
+            note = io.StringIO()
+            with redirect_stderr(note):
+                for root in (repo, linked):
+                    self.assertEqual(self.fs.unsafe_git_config(str(root)), [])
+                    self.assertEqual(self.fs.git_output(str(root), ["rev-parse", "HEAD"]).strip(),
+                                     head)
+                plain = Path(tmp) / "plain"
+                plain.mkdir()
+                self.assertEqual(self.fs.unsafe_git_config(str(plain)), [])
+                self.assertIsNone(self.fs.git_output(str(plain), ["rev-parse", "HEAD"]))
+            self.assertEqual(note.getvalue(), "")
 
     def test_check_never_reads_a_committed_blob_past_the_bound(self):
         check = load("docdna_check_blob_bound", CHECK_PATH)

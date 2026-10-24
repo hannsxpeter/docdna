@@ -7,6 +7,7 @@ import json
 import os
 import re
 import secrets
+import shutil
 import stat
 import subprocess
 import sys
@@ -27,11 +28,23 @@ GLOB_CACHE = {}
 # passes -c values on to any git it starts.
 GIT_SAFETY = ("--no-pager", "-c", "core.fsmonitor=false", "-c", "core.hooksPath=/dev/null",
               "-c", "log.showSignature=false", "-c", "commit.gpgSign=false",
-              "-c", "submodule.recurse=false")
-# Driver commands no -c value can switch off, because the repository chooses the driver's name.
-UNSAFE_GIT_KEY = re.compile(r"^(?:filter\..+\.(?:clean|smudge|process)|"
-                            r"diff\..+\.(?:textconv|command)|diff\.external)$", re.S)
-GIT_FALSE = ("false", "no", "off", "0")
+              "-c", "submodule.recurse=false", "-c", "gc.auto=0", "-c", "maintenance.auto=false")
+# The only keys a repository's own config may set for docdna to run git there: settings git reads
+# as data for the commands docdna runs, and the ones GIT_SAFETY overrides. Drivers, hooks, helpers,
+# transports and promisor remotes each name a command, so any other key turns git off instead.
+GIT_DATA_KEYS = re.compile(
+    r"^(?:core\.(?:repositoryformatversion|filemode|bare|logallrefupdates|ignorecase|"
+    r"precomposeunicode|symlinks|autocrlf|eol|safecrlf|quotepath|untrackedcache|splitindex|"
+    r"commitgraph|multipackindex|sparsecheckout|sparsecheckoutcone|checkstat|trustctime|abbrev|"
+    r"whitespace|longpaths|excludesfile|attributesfile|hookspath|fsmonitor)"
+    r"|(?:user|init|pull|push|fetch|rebase|rerere|color|column|status|log|commit|tag|advice|"
+    r"i18n|gc|maintenance|index|feature|pack|alias|branch|http)\..+"
+    r"|(?:diff|merge)\.(?!external$)[^.]+"
+    r"|remote\..+\.(?:url|pushurl|fetch|push|tagopt|prune|prunetags|mirror|skipdefaultupdate|"
+    r"skipfetchall|gh-resolved)"
+    r"|submodule\.(?:active|recurse|.+\.(?:url|active|branch|ignore|shallow))"
+    r"|extensions\.(?:objectformat|worktreeconfig|refstorage)"
+    r"|gpg\.format|lfs\.repositoryformatversion|include\.path|includeif\..+\.path)$")
 GIT_NOTES = set()
 GIT_UNREAD = object()
 
@@ -198,32 +211,22 @@ def root_is_current(root):
         os.close(descriptor)
 
 
-def git_config_entries(root, scope):
-    command = ["git"] + list(GIT_SAFETY) + ["config", scope, "--includes", "--list", "-z"]
+def unsafe_git_config(root):
+    """Return the sorted keys in the repository's own git config that GIT_DATA_KEYS does not allow.
+
+    Local and worktree scope are the repository's own, includes followed. Outside a repository
+    there is no such config and the list is empty. None means the config could not be read, which
+    counts as unsafe.
+    """
+    command = ["git"] + list(GIT_SAFETY) + ["config", "--list", "--show-scope", "--includes",
+                                            "-z"]
     process = _run_bound(root, command, 10, subprocess.PIPE, subprocess.DEVNULL, None)
     if process is None or process.returncode != 0:
         return None
-    entries = [entry.split("\n", 1) for entry in
-               process.stdout.decode("utf-8", "replace").split("\0") if entry]
-    return [(entry[0].lower(), entry[1] if len(entry) > 1 else "") for entry in entries]
-
-
-def unsafe_git_config(root):
-    """Return the sorted keys in the repository's own git config that git would run as commands.
-
-    None means that config could not be read, which counts as unsafe: an unread config is not a
-    safe one, and outside a repository git has nothing to answer anyway.
-    """
-    entries = git_config_entries(root, "--local")
-    if entries is None:
-        return None
-    if any(key == "extensions.worktreeconfig" and value.lower() not in GIT_FALSE
-           for key, value in entries):
-        worktree = git_config_entries(root, "--worktree")
-        if worktree is None:
-            return None
-        entries += worktree
-    return sorted(set(key for key, _ in entries if UNSAFE_GIT_KEY.match(key)))
+    fields = process.stdout.decode("utf-8", "replace").split("\0")
+    keys = set(entry.split("\n", 1)[0].lower() for scope, entry in zip(fields[0::2], fields[1::2])
+               if scope in ("local", "worktree"))
+    return sorted(key for key in keys if not GIT_DATA_KEYS.match(key))
 
 
 def git_refusal(root):
@@ -234,15 +237,17 @@ def git_refusal(root):
         return verdict
     keys = unsafe_git_config(root)
     if keys is None:
-        verdict = "git config could not be read"
+        verdict = "its git config could not be read"
     elif keys:
-        verdict = "its git config sets %s, which git runs as a command" % ", ".join(keys)
-        note = "docdna: not running git in %s: %s\n" % (root, verdict)
-        if note not in GIT_NOTES:
-            GIT_NOTES.add(note)
-            sys.stderr.write(note)
+        verdict = "its own git config sets %s, beyond the plain settings docdna runs git on" % (
+            ", ".join(keys))
     else:
         verdict = None
+    # Without git on the path every call fails as it always did, so there is nothing to explain.
+    note = "docdna: not running git in %s: %s\n" % (root, verdict)
+    if verdict is not None and note not in GIT_NOTES and shutil.which("git"):
+        GIT_NOTES.add(note)
+        sys.stderr.write(note)
     if isinstance(root, RepositoryRoot):
         root.git_verdict = verdict
     return verdict
