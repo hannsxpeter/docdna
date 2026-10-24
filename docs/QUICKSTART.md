@@ -19,7 +19,7 @@ python3 --version
 ## Install it
 
 ```sh
-git clone --branch v1.4.0 --depth 1 https://github.com/hannsxpeter/docdna.git
+git clone --branch v1.4.1 --depth 1 https://github.com/hannsxpeter/docdna.git
 cd docdna
 ./install.sh claude
 ```
@@ -36,7 +36,7 @@ python3 <skill-dir>/scripts/docdna_doctor.py --json
 ```
 
 The doctor is read-only. Exit code 0 is healthy, 1 is a failed required check, and 2 means invalid or
-unsafe input prevented a verdict. Recovery is to reinstall tag `v1.4.0` and rerun it. Installed mode
+unsafe input prevented a verdict. Recovery is to reinstall tag `v1.4.1` and rerun it. Installed mode
 validates the proof registry structure, but checkout-only evidence and replay fixtures are not shipped and
 host parity is not claimed.
 

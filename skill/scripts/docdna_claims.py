@@ -106,7 +106,7 @@ PROTO_RULES = [r"^\s*(?:message|service|enum)\s+(\w+)", r"^\s*rpc\s+(\w+)",
                r"^\s*(?:required|optional|repeated)?\s*[\w.]+\s+(\w+)\s*=\s*\d+"]
 TF_RULES = [r"^\s*(resource|data)\s+\"([^\"]+)\"\s+\"([^\"]+)\"",
             r"^\s*(?:variable|output|module|provider)\s+\"([^\"]+)\""]
-KEY_RULES = [r"^\s*-?\s*\"?([A-Za-z0-9_./{}\-]+)\"?\s*:"]
+KEY_RULES = [r"^\s*(?:-\s*)?\"?([A-Za-z0-9_./{}\-]+)\"?\s*:"]
 INI_RULES = [r"^\s*\[([^\]]+)\]", r"^\s*([A-Za-z_][\w.\-]*)\s*="]
 GENERIC_RULES = [r"^\s*(?:export\s+)?(?:def|func|fn|function|class|struct|interface|type|enum|"
                  r"module|trait)\s+([A-Za-z_][\w.:]*)",

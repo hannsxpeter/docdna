@@ -14,7 +14,7 @@ from datetime import datetime, timedelta, timezone
 
 SCHEMA = 1
 TOOL = "docdna_scan"
-VERSION = "1.4.0"
+VERSION = "1.4.1"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
@@ -485,7 +485,7 @@ def collect_git(root):
         return facts
     facts["available"] = True
     facts["head"] = head.strip()
-    status = run_git(root, ["status", "--porcelain"])
+    status = run_git(root, ["status", "--porcelain", "--ignore-submodules=all"])
     facts["dirty"] = bool(status.strip()) if status is not None else None
     tags = run_git(root, ["tag", "--list"])
     current_tags = run_git(root, ["tag", "--points-at", "HEAD"])

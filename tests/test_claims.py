@@ -206,18 +206,26 @@ class BackfillGitBoundTests(unittest.TestCase):
 
     def test_git_calls_are_bounded_and_a_timeout_reads_as_no_answer(self):
         expired = subprocess.TimeoutExpired(["git"], self.backfill.GIT_TIMEOUT)
+
+        def run_git(command, **kwargs):
+            # The safety read of the repository's own config answers; every real call times out.
+            if "config" in command and "--list" in command:
+                return subprocess.CompletedProcess(command, 0, b"", None)
+            raise expired
+
         with tempfile.TemporaryDirectory() as tmp:
             root = self.backfill.safe_bind_root(os.path.abspath(tmp))
             try:
                 with mock.patch.object(self.backfill.subprocess, "run",
-                                       side_effect=expired) as run:
+                                       side_effect=run_git) as run:
                     self.assertIsNone(self.backfill.run_git(root, ["commit", "-m", "x"]))
                     self.assertTrue(self.backfill.path_ignored(root, ".docdna/manifest.json"))
             finally:
                 root.close()
 
-        self.assertEqual(run.call_count, 2)
-        for call in run.call_args_list:
+        calls = [call for call in run.call_args_list if "--list" not in call[0][0]]
+        self.assertEqual(len(calls), 2)
+        for call in calls:
             self.assertEqual(call[1]["timeout"], self.backfill.GIT_TIMEOUT)
 
 

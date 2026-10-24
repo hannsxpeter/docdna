@@ -4,8 +4,25 @@ All notable changes to docdna are documented in this file. The format is based o
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-10-24
+
 ### Security
 
+- A repository's own git config no longer chooses commands for docdna's git calls to run. Every git
+  call switches off `core.fsmonitor`, the hooks directory, signature checks, commit signing,
+  automatic gc and maintenance, submodule recursion, and lazy fetch, and Scan's status no longer
+  descends into submodules. docdna runs git only where every key in the repository's local and
+  worktree config, includes followed, is on a list of plain settings git reads as data, such as
+  remotes, branches, and core options. Any other key turns git off there, a filter, diff, or merge
+  driver, a hook defined in config, a credential helper, or an SSH command among them: docdna names
+  the keys on stderr and carries on without git. A partial clone keeps git from git 2.44, which can
+  turn lazy fetch off. Such a config does not arrive by `git clone`, but it does arrive with an
+  inherited working copy, a tarball, or a shared volume. Your global and system git config are read
+  as before.
+- Check asks git for a committed file's size before reading it, so a small, highly compressed object
+  past the size bound is never expanded into memory.
+- The YAML and JSON key pattern no longer takes quadratic time on a long run of spaces, which held
+  Check for 27 seconds on one 60 KB line of a covered file.
 - Check no longer passes a `last_validated_commit` value that is not a commit hash to git. A document
   whose frontmatter held `--output=PATH` could make `git show` write a file outside the repository,
   even under `--no-write`.
@@ -306,7 +323,8 @@ Nothing before this was released, so there is nothing here to correct. The reaso
 - **A suite of 232 tests over 8 fixture repositories**, four of which exist only to hold false positives down: a client-side router is not a server route, a French locale is not weak crypto, a `Region` enum is not a jurisdiction, and a latitude is not personal data. Every runtime detection pattern ships with a negative fixture, not just a positive one.
 - **CI that dogfoods the tool on itself.** It compiles every helper, validates the catalog JSON, runs the suite, runs the whole pipeline end to end on this repository, requires `docdna_check.py` to report zero fabricated-number findings against docdna's own documentation, asserts that Survey converges, shellchecks the installer, and installs the skill and runs it from the installed location. docdna's own documentation is the one corpus whose every claim can be adjudicated by hand, and it is full of the shapes a number rule gets wrong.
 
-[Unreleased]: https://github.com/hannsxpeter/docdna/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/hannsxpeter/docdna/compare/v1.4.1...HEAD
+[1.4.1]: https://github.com/hannsxpeter/docdna/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/hannsxpeter/docdna/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/hannsxpeter/docdna/compare/v1.2.1...v1.3.0
 [1.2.1]: https://github.com/hannsxpeter/docdna/compare/v1.2.0...v1.2.1
