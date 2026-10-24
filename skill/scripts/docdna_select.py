@@ -11,7 +11,7 @@ import textwrap
 
 SCHEMA = 1
 TOOL = "docdna_select"
-VERSION = "1.4.0"
+VERSION = "1.4.1"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:

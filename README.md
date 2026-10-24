@@ -54,7 +54,7 @@ them decides what should exist, and none of them will defend an absence. That ga
 ## Get started in two minutes
 
 ```sh
-git clone --branch v1.4.0 --depth 1 https://github.com/hannsxpeter/docdna.git
+git clone --branch v1.4.1 --depth 1 https://github.com/hannsxpeter/docdna.git
 cd docdna
 ./install.sh claude      # or: all | codex | cursor | windsurf
 ```
@@ -184,7 +184,7 @@ document, because being told exactly what to do should never be answered with a 
 Run the doctor from an installed skill before trusting a workflow. It reads the shared runtime registry,
 checks every registered resource, checks Python compatibility, and validates the installed proof registry.
 It is read-only. Exit code 0 means every check passed, 1 means a required resource or check failed, and 2
-means invalid or unsafe input prevented a verdict. Recovery is to reinstall the immutable `v1.4.0` bytes
+means invalid or unsafe input prevented a verdict. Recovery is to reinstall the immutable `v1.4.1` bytes
 and rerun the command from the installed skill directory.
 
 ```sh

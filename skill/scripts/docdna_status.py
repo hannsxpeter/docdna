@@ -11,7 +11,7 @@ import sys
 
 SCHEMA = 1
 TOOL = "docdna_status"
-VERSION = "1.4.0"
+VERSION = "1.4.1"
 MAX_STATUS_BYTES = 1024 * 1024
 MANIFEST_REL = os.path.join(".docdna", "manifest.json")
 WRITE_STATUS = ("pending", "in-progress", "written", "verified", "failed")
