@@ -9,6 +9,11 @@
 __pycache__/
 *.pyc
 
+# Node packaging noise (this package has no runtime dependencies)
+node_modules/
+package-lock.json
+*.tgz
+
 # docdna output in this repo, when dogfooding. config.json is checked in, because it is human
 # intent (the assurance set and the excluded directories), not generated output. A parent directory
 # that is itself ignored cannot have a file re-included, so ignore the contents rather than the dir.

@@ -40,7 +40,7 @@ python3 <skill-dir>/scripts/docdna_doctor.py --json
 
 Doctor is read-only. Exit code 0 means all registered checks passed, 1 means a required resource or check
 failed, and 2 means invalid or unsafe input prevented a verdict. Recovery is to reinstall trusted
-`v1.4.1` bytes and rerun Doctor from the installed directory. Installed proof validation checks registry
+`v1.5.0` bytes and rerun Doctor from the installed directory. Installed proof validation checks registry
 structure only. Source-checkout evidence, golden replay, and host execution are separate boundaries.
 
 ## Project wiring
@@ -59,7 +59,7 @@ already exist. Pass `--all` to create every supported target, or `--agent <name>
 | `agents` | `AGENTS.md` | Created by default. The portable baseline. |
 | `claude` | `CLAUDE.md` | See below. Wire this explicitly for Claude Code. |
 | `gemini` | `GEMINI.md` | |
-| `copilot` | `.github/copilot-instructions.md` | |
+| `copilot` | `.github/copilot-instructions.md` will be created when wired | |
 | `cursor` | `.cursor/rules/docdna.mdc` | Gets `alwaysApply: true` frontmatter |
 | `cascade` | `.devin/rules/docdna.md`, or `.windsurf/rules/docdna.md` | Prefers `.windsurf` only when `.devin` is absent. Gets `trigger: always_on` frontmatter. |
 

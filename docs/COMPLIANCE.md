@@ -82,7 +82,7 @@ rely on" section rather than in the body. Vendor summaries and law-firm explaine
 non-primary.
 
 CI reports the age of every file and fails past a year. Ownership and cadence are in
-[CATALOG-MAINTENANCE.md](CATALOG-MAINTENANCE.md). An unmaintained dated file is worse than none, because it
+[CONTRIBUTING.md](../CONTRIBUTING.md#catalog-reference-maintenance). An unmaintained dated file is worse than none, because it
 asserts current legal fact with confidence while being stale.
 
 ## The rest of the refusals

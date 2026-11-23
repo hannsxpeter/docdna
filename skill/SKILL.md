@@ -5,7 +5,7 @@ allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 ---
 
 # docdna
-Version: 1.4.1
+Version: 1.5.0
 Runtime: Python 3.8+ on a POSIX host with descriptor-relative, no-follow filesystem support; Windows is not supported.
 
 ## What this is
@@ -38,7 +38,7 @@ Read the user's intent and pick one.
 **Trust inspection is not a fourth mode.** Run `docdna_doctor.py --json` to check installed runtime health,
 `docdna_proof.py --json` to inspect claim boundaries, and `docdna_status.py --json <target-dir>` to read one
 next action without writing. Doctor exits 0 healthy, 1 failed, 2 invalid or unsafe; Status exits 0 with a
-report or 2 on invalid or unsafe input. Recovery is to fix the named input or reinstall trusted v1.4.1.
+report or 2 on invalid or unsafe input. Recovery is to fix the named input or reinstall trusted v1.5.0.
 
 **Routing, three rules in order:**
 

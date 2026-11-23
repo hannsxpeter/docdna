@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 
 SCHEMA = 1
 TOOL = "docdna_backfill"
-VERSION = "1.4.1"
+VERSION = "1.5.0"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SKILL_ROOT = os.path.normpath(os.path.join(HERE, ".."))

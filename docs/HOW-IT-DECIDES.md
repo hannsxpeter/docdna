@@ -174,4 +174,4 @@ them. An unchanged inventory does not verify causal, temporal, or quantitative m
 - [MEASUREMENT.md](MEASUREMENT.md), the corpus results and the drift precision figures
 - [COMPLIANCE.md](COMPLIANCE.md), the refusals and the regulatory posture
 - [../skill/catalog/SCHEMA.md](../skill/catalog/SCHEMA.md), the normative catalog schema
-- [CATALOG-MAINTENANCE.md](CATALOG-MAINTENANCE.md), who keeps the regulatory facts current
+- [CONTRIBUTING.md](../CONTRIBUTING.md#catalog-reference-maintenance), who keeps the regulatory facts current

@@ -3,7 +3,7 @@ godpowers: 7
 project: docdna
 stage: ship
 verify: "python3 -m unittest discover -s tests"
-updated: 2026-10-24
+updated: 2026-11-23
 ---
 # docdna
 
@@ -11,11 +11,11 @@ updated: 2026-10-24
 docdna is a portable, stdlib-only coding-agent skill for people who own or inherit a codebase. Success is a
 document ledger they can defend: every document ruled in or out with a cited reason, every generated claim
 cited or marked as a gap, and CI proving that the published samples, counts, and generated files match the
-code.
+code. Distribution is via git tag and `@hxp-tools/docdna` on npm.
 
 ## Now
-- 1.4.1 is cut on `release/1.4.1`: the maintenance pass plus the security pass (repository git config
-  allow-list, bounded committed blob reads, linear key pattern), reviewed and hardened. Shipping it.
+- 1.5.0 productizes the skill: gamified README and assets, npm package under `hxp-tools`, drift cleanup,
+  and a GitHub release.
 
 ## Next
 - Close the four Low risks below (installer edge cases, CI token persistence, pin comment).

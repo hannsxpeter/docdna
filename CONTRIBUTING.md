@@ -108,15 +108,25 @@ To run the scanner on its own:
 python3 skill/scripts/docdna_scan.py --json /path/to/repo
 ```
 
+## Catalog reference maintenance
+
+Assign the dated regulatory reference files in `skill/references/regime-facts/` to the maintainer of
+record, @hannsxpeter. Re-verify every file quarterly. Update its top-level `verified: YYYY-MM-DD` line
+only after checking every retained claim. Delete unsupported claims or move them under
+`Unverified, do not rely on`. Treat a file as aged once three months have passed. Delete a file that no
+owner will maintain: an unmaintained dated file asserts current legal fact with confidence while it is
+stale.
+
 ## Cutting a release
 
 1. Add the release section to `CHANGELOG.md` and its compare link at the foot of the file.
 2. Bump `Version:` in `skill/SKILL.md`, then run `grep -rn "<old version>" --exclude-dir=.git .` and update
    every hit outside the changelog history: the `VERSION` constant in each helper, the templates, the clone
-   and recovery commands in the docs, and the assertions in `tests/test_docs.py`, which fail on any
-   surface left behind.
+   and recovery commands in the docs, `package.json`, and the assertions in `tests/test_docs.py`, which fail
+   on any surface left behind.
 3. Regenerate `DOCDNA.md`, `llms.txt`, and every marked sample, run the checks above, and merge.
 4. Tag the merge commit `v<version>` and publish a GitHub release named `docdna <version>`.
+5. Publish the npm package: `npm publish --access public` for `@hxp-tools/docdna`.
 
 ## House style
 
