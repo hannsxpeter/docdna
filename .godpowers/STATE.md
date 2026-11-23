@@ -14,8 +14,7 @@ cited or marked as a gap, and CI proving that the published samples, counts, and
 code. Distribution is via git tag and `@hxp-tools/docdna` on npm.
 
 ## Now
-- 1.5.0 productizes the skill: gamified README and assets, npm package under `hxp-tools`, drift cleanup,
-  and a GitHub release.
+- 1.5.1 ships codedna-matched branding (amber accent) and a shorter about surface on GitHub and README.
 
 ## Next
 - Close the four Low risks below (installer edge cases, CI token persistence, pin comment).

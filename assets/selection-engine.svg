@@ -5,54 +5,54 @@
     .sans{font-family:"Avenir Next","Helvetica Neue",Helvetica,Arial,sans-serif}
     .mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace}
   </style>
-  <rect x="0.5" y="0.5" width="1199" height="419" rx="10" fill="#1B1916" stroke="#34312B"/>
-  <path d="M1 44H1199V11a10 10 0 0 0-10-10H11A10 10 0 0 0 1 11Z" fill="#23211D"/>
-  <line x1="1" y1="44" x2="1199" y2="44" stroke="#34312B"/>
-  <text x="32" y="28" class="mono" font-size="13" font-weight="700" fill="#7EE0C8" letter-spacing="1.5">SELECTION ENGINE</text>
-  <text x="1168" y="28" class="mono" font-size="13" fill="#A5A397" text-anchor="end">SIGNALS IN, LEDGER OUT</text>
-
-  <g transform="translate(48 90)">
-    <rect width="220" height="260" rx="4" fill="#23211D" stroke="#34312B"/>
-    <text x="20" y="36" class="mono" font-size="12" font-weight="700" fill="#A5A397" letter-spacing="1.5">INPUT</text>
-    <text x="20" y="72" class="sans" font-size="22" font-weight="700" fill="#EDEDE6">Code signals</text>
-    <text x="20" y="110" class="mono" font-size="14" fill="#7EE0C8">iface.http</text>
-    <text x="20" y="136" class="mono" font-size="14" fill="#7EE0C8">data.schema</text>
-    <text x="20" y="162" class="mono" font-size="14" fill="#7EE0C8">users.is_oss</text>
-    <text x="20" y="188" class="mono" font-size="14" fill="#7EE0C8">ops.deployed</text>
-    <text x="20" y="230" class="sans" font-size="13" fill="#A5A397">Plus interview defaults,</text>
-    <text x="20" y="250" class="sans" font-size="13" fill="#A5A397">labelled assumed</text>
-  </g>
-
-  <path d="M286 220H360" stroke="#7EE0C8" stroke-width="2" marker-end="url(#arrow)"/>
   <defs>
     <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-      <path d="M0,0 L6,3 L0,6 Z" fill="#7EE0C8"/>
+      <path d="M0,0 L6,3 L0,6 Z" fill="#F0B429"/>
     </marker>
   </defs>
+  <rect x="0.5" y="0.5" width="1199" height="419" rx="10" fill="#0E141B" stroke="#243140"/>
+  <path d="M1 44H1199V11a10 10 0 0 0-10-10H11A10 10 0 0 0 1 11Z" fill="#162029"/>
+  <line x1="1" y1="44" x2="1199" y2="44" stroke="#243140"/>
+  <text x="32" y="28" class="mono" font-size="13" font-weight="700" fill="#F0B429" letter-spacing="1.5">SELECTION ENGINE</text>
+  <text x="1168" y="28" class="mono" font-size="13" fill="#7F91A3" text-anchor="end">SIGNALS IN, LEDGER OUT</text>
 
-  <g transform="translate(372 90)">
-    <rect width="280" height="260" rx="4" fill="#23211D" stroke="#7EE0C8"/>
-    <text x="20" y="36" class="mono" font-size="12" font-weight="700" fill="#A5A397" letter-spacing="1.5">ENGINE</text>
-    <text x="20" y="72" class="sans" font-size="22" font-weight="700" fill="#EDEDE6">96-row catalog</text>
-    <text x="20" y="110" class="sans" font-size="15" fill="#EDEDE6">Required</text>
-    <text x="20" y="136" class="sans" font-size="15" fill="#EDEDE6">Optional</text>
-    <text x="20" y="162" class="sans" font-size="15" fill="#EDEDE6">Not applicable</text>
-    <text x="20" y="188" class="sans" font-size="15" fill="#EDEDE6">Hard refusal</text>
-    <line x1="20" y1="210" x2="260" y2="210" stroke="#34312B"/>
-    <text x="20" y="240" class="sans" font-size="13" fill="#A5A397">Every exclusion has a tripwire</text>
+  <g transform="translate(48 90)">
+    <rect width="220" height="260" rx="4" fill="#162029" stroke="#243140"/>
+    <text x="20" y="36" class="mono" font-size="12" font-weight="700" fill="#7F91A3" letter-spacing="1.5">INPUT</text>
+    <text x="20" y="72" class="sans" font-size="22" font-weight="700" fill="#E8F0F7">Code signals</text>
+    <text x="20" y="110" class="mono" font-size="14" fill="#F0B429">iface.http</text>
+    <text x="20" y="136" class="mono" font-size="14" fill="#F0B429">data.schema</text>
+    <text x="20" y="162" class="mono" font-size="14" fill="#F0B429">users.is_oss</text>
+    <text x="20" y="188" class="mono" font-size="14" fill="#F0B429">ops.deployed</text>
+    <text x="20" y="230" class="sans" font-size="13" fill="#7F91A3">Plus interview defaults,</text>
+    <text x="20" y="250" class="sans" font-size="13" fill="#7F91A3">labelled assumed</text>
   </g>
 
-  <path d="M670 220H744" stroke="#7EE0C8" stroke-width="2" marker-end="url(#arrow)"/>
+  <path d="M286 220H360" stroke="#F0B429" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <g transform="translate(372 90)">
+    <rect width="280" height="260" rx="4" fill="#162029" stroke="#F0B429"/>
+    <text x="20" y="36" class="mono" font-size="12" font-weight="700" fill="#7F91A3" letter-spacing="1.5">ENGINE</text>
+    <text x="20" y="72" class="sans" font-size="22" font-weight="700" fill="#E8F0F7">96-row catalog</text>
+    <text x="20" y="110" class="sans" font-size="15" fill="#E8F0F7">Required</text>
+    <text x="20" y="136" class="sans" font-size="15" fill="#E8F0F7">Optional</text>
+    <text x="20" y="162" class="sans" font-size="15" fill="#E8F0F7">Not applicable</text>
+    <text x="20" y="188" class="sans" font-size="15" fill="#E8F0F7">Hard refusal</text>
+    <line x1="20" y1="210" x2="260" y2="210" stroke="#243140"/>
+    <text x="20" y="240" class="sans" font-size="13" fill="#7F91A3">Every exclusion has a tripwire</text>
+  </g>
+
+  <path d="M670 220H744" stroke="#F0B429" stroke-width="2" marker-end="url(#arrow)"/>
 
   <g transform="translate(756 90)">
-    <rect width="396" height="260" rx="4" fill="#23211D" stroke="#34312B"/>
-    <text x="20" y="36" class="mono" font-size="12" font-weight="700" fill="#A5A397" letter-spacing="1.5">OUTPUT</text>
-    <text x="20" y="72" class="sans" font-size="22" font-weight="700" fill="#EDEDE6">Defensible ledger</text>
-    <text x="20" y="114" class="mono" font-size="14" fill="#7EE0C8">DOCDNA.md</text>
-    <text x="20" y="140" class="mono" font-size="14" fill="#7EE0C8">.docdna/manifest.json</text>
-    <text x="20" y="166" class="mono" font-size="14" fill="#7EE0C8">cited docs or GAP markers</text>
-    <text x="20" y="192" class="mono" font-size="14" fill="#7EE0C8">stale-reference leads</text>
-    <line x1="20" y1="214" x2="376" y2="214" stroke="#34312B"/>
-    <text x="20" y="244" class="sans" font-size="13" fill="#A5A397">Nothing asserted the repo cannot prove</text>
+    <rect width="396" height="260" rx="4" fill="#162029" stroke="#243140"/>
+    <text x="20" y="36" class="mono" font-size="12" font-weight="700" fill="#7F91A3" letter-spacing="1.5">OUTPUT</text>
+    <text x="20" y="72" class="sans" font-size="22" font-weight="700" fill="#E8F0F7">Defensible ledger</text>
+    <text x="20" y="114" class="mono" font-size="14" fill="#F0B429">DOCDNA.md</text>
+    <text x="20" y="140" class="mono" font-size="14" fill="#F0B429">.docdna/manifest.json</text>
+    <text x="20" y="166" class="mono" font-size="14" fill="#F0B429">cited docs or GAP markers</text>
+    <text x="20" y="192" class="mono" font-size="14" fill="#F0B429">stale-reference leads</text>
+    <line x1="20" y1="214" x2="376" y2="214" stroke="#243140"/>
+    <text x="20" y="244" class="sans" font-size="13" fill="#7F91A3">Nothing asserted the repo cannot prove</text>
   </g>
 </svg>

@@ -40,7 +40,7 @@ python3 <skill-dir>/scripts/docdna_doctor.py --json
 
 Doctor is read-only. Exit code 0 means all registered checks passed, 1 means a required resource or check
 failed, and 2 means invalid or unsafe input prevented a verdict. Recovery is to reinstall trusted
-`v1.5.0` bytes and rerun Doctor from the installed directory. Installed proof validation checks registry
+`v1.5.1` bytes and rerun Doctor from the installed directory. Installed proof validation checks registry
 structure only. Source-checkout evidence, golden replay, and host execution are separate boundaries.
 
 ## Project wiring

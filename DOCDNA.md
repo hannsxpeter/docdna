@@ -1,6 +1,6 @@
-docdna  oss-library  ·  overlays: agent-skill-package  ·  44189 lines JavaScript/Python/+1  ·  2 authors  ·  MIT  ·  7 tags  ·  CI only
+docdna  oss-library  ·  overlays: agent-skill-package  ·  44121 lines JavaScript/Python/+1  ·  3 authors  ·  MIT  ·  8 tags  ·  CI only
 
-Documentation  5 of 16        Leads  none across your 21 documents
+Documentation  4 of 16        Leads  4 possible stale references
 
 MISSING AND LOAD-BEARING  (10, showing 3)
   assure.vdp            Anyone can use this, and anyone includes the person who finds the ...
@@ -18,4 +18,14 @@ ASSUMED         assumed q3_authorizer=none, q2_operator=not-deployed, q5_markets
                 If a regulated relationship or external reviewer applies, up to 22 documents become
                 required.
 
-NEXT            write 3 derivable documents  ·  --answer q3_authorizer  ·  .docdna/manifest.json
+POSSIBLE STALE REFERENCES  (4, showing 3)
+  CHANGELOG.md          says `docs/CATALOG-MAINTENANCE.md`; no such file or directory in the ...
+  proof/backfill/README.md says `documents skill/scripts/docdna_backfill.py`; code changed 95 days ...
+  proof/check/README.md says `documents skill/scripts/docdna_check.py`; code changed 95 days after ...
+                A document may name a path for a reason other than asserting it exists right now: an
+                install target, a changelog entry, a fix still to apply. The path scan is a filtered
+                view: 81 candidates never reached this list. These are leads for a human to read,
+                not findings. Full list: .docdna/manifest.json
+
+NEXT            write 3 derivable documents  ·  refresh 1 drifted document  ·  --answer
+                q3_authorizer

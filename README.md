@@ -1,25 +1,52 @@
-<p align="center">
-  <img src="https://raw.githubusercontent.com/hannsxpeter/docdna/main/assets/hero.svg" alt="docdna 1.5.0. Which documents does this project actually owe. Status board: 96 catalog rows, 3 modes, 10 derivable docs, 4 install targets, 0 invented numbers." width="100%">
-</p>
+# docdna
 
-<p align="center">
-  <a href="https://github.com/hannsxpeter/docdna/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/hannsxpeter/docdna/actions/workflows/ci.yml/badge.svg"></a>
-  <a href="https://www.npmjs.com/package/@hxp-tools/docdna"><img alt="npm" src="https://img.shields.io/npm/v/@hxp-tools/docdna.svg"></a>
-  <a href="CHANGELOG.md"><img alt="Version" src="https://img.shields.io/badge/version-1.5.0-blue"></a>
-  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-yellow.svg"></a>
-  <a href="#press-start"><img alt="Python 3.8+" src="https://img.shields.io/badge/python-3.8%2B-blue"></a>
-  <a href="#press-start"><img alt="dependencies: none" src="https://img.shields.io/badge/dependencies-none-brightgreen"></a>
-</p>
+[![CI](https://github.com/hannsxpeter/docdna/actions/workflows/ci.yml/badge.svg)](https://github.com/hannsxpeter/docdna/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/hannsxpeter/docdna?sort=semver)](https://github.com/hannsxpeter/docdna/releases)
+[![npm](https://img.shields.io/npm/v/@hxp-tools/docdna.svg)](https://www.npmjs.com/package/@hxp-tools/docdna)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-<h3 align="center">Which documents does this project actually owe?</h3>
+![docdna hero](assets/hero.svg)
 
-<p align="center"><em>docdna reads your code and answers that question, with receipts.</em></p>
+### Which documents does this project actually owe?
 
-**docdna is a selection engine for AI coding agents.** It decides which documents a repository owes, names which it does not owe and why, arms a tripwire on every exclusion, and writes the ones the code can prove. Every claim carries a citation or a GAP marker. There is no third state.
+**docdna decides what a codebase owes, rules out the rest, and writes what the code can prove.**
 
-No account, no server, no upload, no build step. Stdlib-only Python on your machine.
+It names every exclusion with a reason and a tripwire, and marks every claim with a citation or a GAP. No invented numbers. No third state. Stdlib-only Python for Claude Code, Codex, Cursor, and Windsurf.
 
----
+## Quest map
+
+![quest map](assets/quest-map.svg)
+
+| Level | Mode | Clear it with | Reward |
+| --- | --- | --- | --- |
+| **01** | **Survey** | "survey the documentation for this repo" | `DOCDNA.md` + manifest |
+| **02** | **Backfill** | "write the config reference" | Cited docs, five per run |
+| **03** | **Check** | "check the docs against the code" | CI gate + tripwires |
+
+If no survey exists yet, Backfill and Check run one first.
+
+## Selection engine
+
+![selection engine](assets/selection-engine.svg)
+
+1. **Signals** read the code (routes, schema, deploy, license, and more).
+2. **Catalog** rules each of 96 documents required, optional, not applicable, or refused.
+3. **Ledger** writes `DOCDNA.md` and `.docdna/manifest.json`, then Backfill can write the derivable ten.
+
+## Achievements
+
+![achievements](assets/achievements.svg)
+
+| Unlock | How you earn it |
+| --- | --- |
+| Ledger Built | `DOCDNA.md` exists |
+| Absence Defended | Exclusions carry a cited reason |
+| First Draft Cited | A backfilled doc has citations or GAPs |
+| Tripwire Armed | An exclusion has `revisit_when` |
+| Doctor Pass | Installed skill reports healthy |
+| Status Next | One next action from the manifest |
+| Proof Replay | Golden workflows hold |
+| Zero Fiction | No invented numbers |
 
 ## Press start
 
@@ -27,49 +54,25 @@ No account, no server, no upload, no build step. Stdlib-only Python on your mach
 npx @hxp-tools/docdna@latest
 ```
 
-That installs the skill into your coding agent (Claude Code, Codex, Cursor, or Windsurf). Restart the agent, then ask:
+Or pick a target: `npx @hxp-tools/docdna@latest cursor` (also `claude`, `codex`, `windsurf`, or `all`).
+
+From a pinned release:
+
+```sh
+git clone --branch v1.5.1 --depth 1 https://github.com/hannsxpeter/docdna.git
+cd docdna
+./install.sh cursor   # or: all | claude | codex | windsurf
+```
+
+Restart the agent, then ask:
 
 > survey the documentation for this repo
 
-Zero questions. No project docs written. No code changed. You get `.docdna/manifest.json` and a one-screen `DOCDNA.md`.
+Python 3.8+ on POSIX. Windows is not supported. Guided first run: [docs/QUICKSTART.md](docs/QUICKSTART.md). Install paths: [docs/AGENT_SUPPORT.md](docs/AGENT_SUPPORT.md).
 
-Or clone a pinned release:
+## What a first Survey looks like
 
-```sh
-git clone --branch v1.5.0 --depth 1 https://github.com/hannsxpeter/docdna.git
-cd docdna
-./install.sh claude      # or: all | codex | cursor | windsurf
-```
-
-New to it? [docs/QUICKSTART.md](docs/QUICKSTART.md) walks through the same run line by line.
-
----
-
-## The quest map
-
-Three levels. You can jump straight to a named document ("write the config reference"), but most people clear them in order.
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/hannsxpeter/docdna/main/assets/quest-map.svg" alt="Quest map with three levels. 1 Survey: decide what the project owes. 2 Backfill: write cited documents. 3 Check: re-verify docs against code in CI." width="100%">
-</p>
-
-| Level | Clear it with | Reward |
-| --- | --- | --- |
-| 1. Survey | `survey the documentation` | `DOCDNA.md` and `.docdna/manifest.json` |
-| 2. Backfill | `write the config reference` (or any derivable doc) | Cited documents, five per run |
-| 3. Check | `check the docs against the code` | CI gate, tripwires, drift leads |
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/hannsxpeter/docdna/main/assets/selection-engine.svg" alt="Selection engine. Code signals feed a 96-row catalog. Output is a defensible ledger: required, optional, not applicable, or hard refusal." width="100%">
-</p>
-
----
-
-## What a first run looks like
-
-Zero questions, because a questionnaire is what people quit.
-
-The block below is not an illustration. It is real output, pasted unedited, from a small example repository that ships inside this project:
+Zero questions. Real stdout from a fixture that ships in this repo:
 
 ```sh
 cp -R tests/fixtures/internal_service /tmp/svc && python3 skill/scripts/docdna_select.py /tmp/svc
@@ -109,36 +112,7 @@ NEXT            write 4 derivable documents  ·  refresh 1 drifted document  · 
                 q3_authorizer
 ```
 
-Reading it top to bottom:
-
-- **The first line** is what docdna worked out about the project on its own.
-- **Missing and load-bearing** is the short list that matters, with the file that selected each row.
-- **Not applicable** is the part no other tool gives you: ruled out with a stated reason.
-- **Assumed** is every guess, with the cost of being wrong attached.
-- **Possible stale references** are leads, not verdicts. [docs/MEASUREMENT.md](docs/MEASUREMENT.md) publishes how often they are right.
-- **Next** is two or three concrete things you could do now.
-
----
-
-## Achievements
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/hannsxpeter/docdna/main/assets/achievements.svg" alt="Eight achievements: Ledger Built, Absence Defended, First Draft Cited, Tripwire Armed, Doctor Pass, Status Next, Proof Replay, Zero Fiction." width="100%">
-</p>
-
-| If you are | docdna gives you |
-| --- | --- |
-| **Leading a team** | A defensible answer to "what documentation do we owe?" |
-| **Handing a project over** | The documents that survive the handover, written from the code |
-| **Preparing for an audit** | A ledger of every document ruled in or out, with citations |
-| **Writing the docs yourself** | A first draft of the mechanical documents |
-| **An engineer who wants the docs done** | Ten documents generated from the code and cited, five per run |
-
----
-
-## The part that earns your trust
-
-It tells you what it did not look at.
+It also prints what it did not look at:
 
 <!-- docdna:sample cmd="python3 skill/scripts/docdna_scan.py TARGET" target="." section="not looked at, or refused" -->
 ```
@@ -153,13 +127,11 @@ not looked at, or refused
   users    : 2 signals unknown: refuses to guess; ask q1_users; resolved by q1_users
 ```
 
-Some rows say the check never ran. Others say docdna refused to guess. **A missing answer is never recorded as "no".**
+A missing answer is never recorded as "no".
 
----
+## Trust commands
 
-## Trust and handoff commands in 1.5.0
-
-Run the doctor from an installed skill before trusting a workflow. It is read-only. Exit code 0 means every check passed, 1 means a required resource or check failed, and 2 means invalid or unsafe input prevented a verdict. Recovery is to reinstall the immutable `v1.5.0` bytes and rerun the command from the installed skill directory.
+Before trusting an install, run the doctor. Recovery is to reinstall the immutable `v1.5.1` bytes and rerun from the installed skill directory.
 
 ```sh
 python3 <skill-dir>/scripts/docdna_doctor.py --json
@@ -175,7 +147,7 @@ PASS runtime-members: 47 registered runtime resources are present and readable
 PASS proof-registry: proof registry is valid in installed-registry mode
 ```
 
-Status reads at most the bounded manifest and returns exactly one next action. It never writes or executes that action.
+Status returns exactly one next action. It never writes or executes that action.
 
 ```sh
 python3 <skill-dir>/scripts/docdna_status.py --json /path/to/repo
@@ -199,7 +171,7 @@ python3 <skill-dir>/scripts/docdna_status.py --json /path/to/repo
 }
 ```
 
-When status returns the `agent-ready` lane, run its exact Backfill argv to produce a fresh-context packet. The packet binds one document, its repository evidence, templates, proof limits, protected-prose contract, output, and verification command. Producing it writes manifest planning state, including `write_status`, but does not write the target document. Without a current manifest, Backfill first runs Survey, which also writes `.docdna/manifest.json` and `DOCDNA.md`.
+When status returns `agent-ready`, its Backfill argv produces a fresh-context packet. Producing it writes manifest planning state, including `write_status`, but does not write the target document. Without a manifest, Backfill runs Survey first.
 
 ```sh
 python3 <skill-dir>/scripts/docdna_backfill.py --only <document-id> --json /path/to/repo
@@ -219,73 +191,21 @@ python3 <skill-dir>/scripts/docdna_backfill.py --only <document-id> --json /path
 }
 ```
 
-`docdna_proof.py` is also read-only. In a source checkout it validates evidence paths and replays the registered golden workflows. In an installed skill it validates registry schema and promotion structure only because checkout-only evidence and replay fixtures are not shipped. Neither mode proves host parity.
+`docdna_proof.py` is read-only. Installed mode skips checkout-only evidence and replay fixtures. Neither mode proves host parity.
 
----
+## What it writes, and what it refuses
 
-## What it will write for you
+Derivable from code: setup, codebase map, API reference and contract, config reference, feature flags, data model, glossary, `llms.txt`, definition of done. Cap five per run.
 
-Ten documents read off the code rather than reasoned about:
+- Never invents a number.
+- Never writes a legal instrument. Seventeen of the ninety-six catalog rows are hard refusals.
+- Never writes an emergency procedure.
+- Never fakes a dependency list.
+- Never edits your code.
 
-- how to set up and run the project locally
-- a map of the codebase
-- an API reference and an API contract
-- a configuration reference
-- a feature flag inventory
-- the data model
-- a glossary of project terms
-- a machine-readable index for AI assistants
-- a definition of done
+Full refusals and compliance posture: [docs/COMPLIANCE.md](docs/COMPLIANCE.md). Measurement: [docs/MEASUREMENT.md](docs/MEASUREMENT.md). How selection works: [docs/HOW-IT-DECIDES.md](docs/HOW-IT-DECIDES.md).
 
-Anything that requires human judgment is opt-in and named explicitly. Runs are capped at five documents, estimated before they start, and resumable.
-
-## What it refuses to write, on purpose
-
-- **It never invents a number.** No recovery times, uptime targets, retention periods, or error budgets.
-- **It never writes a legal instrument.** Seventeen of the ninety-six documents in its catalog are hard refusals enforced in code. Ask for one and it declines by name.
-- **It never writes an emergency procedure.** It will write the index of which alerts have a runbook.
-- **It never fakes a dependency list.** It detects your ecosystem and hands you the exact command.
-- **It never touches your code.** It reports where code and documents disagree.
-
-Full detail: [docs/COMPLIANCE.md](docs/COMPLIANCE.md).
-
-## What is proven, and what is not
-
-Inspect the product-claim matrix with `python3 skill/scripts/docdna_proof.py`.
-
-- **Measured and solid.** Across 51 repositories the underlying signal layer discriminated strongly and never errored.
-- **Not yet measured.** Nobody has independently judged whether the selected document set is *correct* for a given repository. Selection ships with no accuracy percentage attached.
-- **Measured and modest.** Stale-reference leads are right about 3 to 11 percent of the time depending on the kind, which is why they are labelled leads.
-
-Numbers and method: [docs/MEASUREMENT.md](docs/MEASUREMENT.md).
-
-## Compliance, briefly
-
-The catalog carries the SOC 2, HIPAA, PCI, GDPR, EU AI Act, CRA, and ITSG-33 rows. It does not follow that your repository owes any of them. Ninety-six entries means ninety-six rows **ruled on**, most of them not applicable with a stated reason.
-
-| Example | Needed | Ruled out | HIPAA | PCI | SOC 2 |
-| --- | --- | --- | --- | --- | --- |
-| A plain internal web app | 41 | 55 | not applicable | not applicable | not applicable |
-| One handling patient records | 35 | 61 | **optional**, data inventory recommended | not applicable | not applicable |
-| One handling card payments | 33 | 63 | not applicable | **optional**, data flow recommended | not applicable |
-
-Full posture in [docs/COMPLIANCE.md](docs/COMPLIANCE.md).
-
-## Does it stand alone?
-
-Yes. docdna needs Python 3.8 on a POSIX host. Its filesystem layer checks for descriptor-relative, no-follow primitives before using them and refuses the operation when the host cannot provide them. It needs no third-party Python package. Windows is not supported.
-
-If you also use [codedna](https://github.com/hannsxpeter/codedna), the two run side by side: separate projects, separate installs, no shared code.
-
-## Documentation
-
-- [docs/QUICKSTART.md](docs/QUICKSTART.md), guided first run and glossary
-- [docs/HOW-IT-DECIDES.md](docs/HOW-IT-DECIDES.md), how the document set is chosen
-- [docs/MEASUREMENT.md](docs/MEASUREMENT.md), what has been measured
-- [docs/COMPLIANCE.md](docs/COMPLIANCE.md), compliance posture and every refusal
-- [skill/SKILL.md](skill/SKILL.md), the instructions your coding assistant follows
-- [docs/AGENT_SUPPORT.md](docs/AGENT_SUPPORT.md), where it installs and what it wires
-- [CONTRIBUTING.md](CONTRIBUTING.md)
+If you also use [codedna](https://github.com/hannsxpeter/codedna), the two run side by side.
 
 ## License
 

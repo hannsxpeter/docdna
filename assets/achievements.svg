@@ -1,87 +1,87 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 540" width="1200" height="540" role="img" aria-labelledby="t d">
   <title id="t">docdna achievements</title>
-  <desc id="d">Eight milestones. Ledger Built, Absence Defended, First Draft Cited, Tripwire Armed, Doctor Pass, Status Next, Proof Replay, Zero Invented Numbers.</desc>
+  <desc id="d">Eight milestones. Ledger Built, Absence Defended, First Draft Cited, Tripwire Armed, Doctor Pass, Status Next, Proof Replay, Zero Fiction.</desc>
   <style>
     .sans{font-family:"Avenir Next","Helvetica Neue",Helvetica,Arial,sans-serif}
     .mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace}
   </style>
-  <rect x="0.5" y="0.5" width="1199" height="539" rx="10" fill="#1B1916" stroke="#34312B"/>
-  <path d="M1 44H1199V11a10 10 0 0 0-10-10H11A10 10 0 0 0 1 11Z" fill="#23211D"/>
-  <line x1="1" y1="44" x2="1199" y2="44" stroke="#34312B"/>
-  <text x="32" y="28" class="mono" font-size="13" font-weight="700" fill="#7EE0C8" letter-spacing="1.5">ACHIEVEMENTS</text>
-  <text x="1168" y="28" class="mono" font-size="13" fill="#A5A397" text-anchor="end">8 MILESTONES, EACH TIED TO A REAL OUTCOME</text>
+  <rect x="0.5" y="0.5" width="1199" height="539" rx="10" fill="#0E141B" stroke="#243140"/>
+  <path d="M1 44H1199V11a10 10 0 0 0-10-10H11A10 10 0 0 0 1 11Z" fill="#162029"/>
+  <line x1="1" y1="44" x2="1199" y2="44" stroke="#243140"/>
+  <text x="32" y="28" class="mono" font-size="13" font-weight="700" fill="#F0B429" letter-spacing="1.5">ACHIEVEMENTS</text>
+  <text x="1168" y="28" class="mono" font-size="13" fill="#7F91A3" text-anchor="end">8 MILESTONES, EACH TIED TO A REAL OUTCOME</text>
 
   <g transform="translate(36 84)">
-    <rect width="264" height="190" rx="4" fill="#23211D" stroke="#34312B"/>
-    <circle cx="48" cy="52" r="28" fill="#1B1916" stroke="#7EE0C8" stroke-width="2"/>
-    <text x="48" y="58" class="mono" font-size="18" font-weight="700" fill="#7EE0C8" text-anchor="middle">01</text>
-    <text x="244" y="30" class="mono" font-size="11" font-weight="700" fill="#A5A397" text-anchor="end" letter-spacing="1.5">UNLOCK</text>
-    <text x="20" y="116" class="sans" font-size="20" font-weight="700" fill="#EDEDE6">Ledger Built</text>
-    <text x="20" y="144" class="mono" font-size="13" font-weight="700" fill="#7EE0C8">survey</text>
-    <text x="20" y="168" class="sans" font-size="13" fill="#A5A397">DOCDNA.md on disk</text>
+    <rect width="264" height="190" rx="4" fill="#162029" stroke="#243140"/>
+    <circle cx="48" cy="52" r="28" fill="#0E141B" stroke="#F0B429" stroke-width="2"/>
+    <text x="48" y="58" class="mono" font-size="18" font-weight="700" fill="#F0B429" text-anchor="middle">01</text>
+    <text x="244" y="30" class="mono" font-size="11" font-weight="700" fill="#7F91A3" text-anchor="end" letter-spacing="1.5">UNLOCK</text>
+    <text x="20" y="116" class="sans" font-size="20" font-weight="700" fill="#E8F0F7">Ledger Built</text>
+    <text x="20" y="144" class="mono" font-size="13" font-weight="700" fill="#F0B429">survey</text>
+    <text x="20" y="168" class="sans" font-size="13" fill="#7F91A3">DOCDNA.md on disk</text>
   </g>
   <g transform="translate(324 84)">
-    <rect width="264" height="190" rx="4" fill="#23211D" stroke="#34312B"/>
-    <circle cx="48" cy="52" r="28" fill="#1B1916" stroke="#7EE0C8" stroke-width="2"/>
-    <text x="48" y="58" class="mono" font-size="18" font-weight="700" fill="#7EE0C8" text-anchor="middle">02</text>
-    <text x="244" y="30" class="mono" font-size="11" font-weight="700" fill="#A5A397" text-anchor="end" letter-spacing="1.5">UNLOCK</text>
-    <text x="20" y="116" class="sans" font-size="20" font-weight="700" fill="#EDEDE6">Absence Defended</text>
-    <text x="20" y="144" class="mono" font-size="13" font-weight="700" fill="#7EE0C8">not applicable</text>
-    <text x="20" y="168" class="sans" font-size="13" fill="#A5A397">Cited exclusions</text>
+    <rect width="264" height="190" rx="4" fill="#162029" stroke="#243140"/>
+    <circle cx="48" cy="52" r="28" fill="#0E141B" stroke="#F0B429" stroke-width="2"/>
+    <text x="48" y="58" class="mono" font-size="18" font-weight="700" fill="#F0B429" text-anchor="middle">02</text>
+    <text x="244" y="30" class="mono" font-size="11" font-weight="700" fill="#7F91A3" text-anchor="end" letter-spacing="1.5">UNLOCK</text>
+    <text x="20" y="116" class="sans" font-size="20" font-weight="700" fill="#E8F0F7">Absence Defended</text>
+    <text x="20" y="144" class="mono" font-size="13" font-weight="700" fill="#F0B429">not applicable</text>
+    <text x="20" y="168" class="sans" font-size="13" fill="#7F91A3">Cited exclusions</text>
   </g>
   <g transform="translate(612 84)">
-    <rect width="264" height="190" rx="4" fill="#23211D" stroke="#34312B"/>
-    <circle cx="48" cy="52" r="28" fill="#1B1916" stroke="#7EE0C8" stroke-width="2"/>
-    <text x="48" y="58" class="mono" font-size="18" font-weight="700" fill="#7EE0C8" text-anchor="middle">03</text>
-    <text x="244" y="30" class="mono" font-size="11" font-weight="700" fill="#A5A397" text-anchor="end" letter-spacing="1.5">UNLOCK</text>
-    <text x="20" y="116" class="sans" font-size="20" font-weight="700" fill="#EDEDE6">First Draft Cited</text>
-    <text x="20" y="144" class="mono" font-size="13" font-weight="700" fill="#7EE0C8">backfill</text>
-    <text x="20" y="168" class="sans" font-size="13" fill="#A5A397">Citation or GAP</text>
+    <rect width="264" height="190" rx="4" fill="#162029" stroke="#243140"/>
+    <circle cx="48" cy="52" r="28" fill="#0E141B" stroke="#F0B429" stroke-width="2"/>
+    <text x="48" y="58" class="mono" font-size="18" font-weight="700" fill="#F0B429" text-anchor="middle">03</text>
+    <text x="244" y="30" class="mono" font-size="11" font-weight="700" fill="#7F91A3" text-anchor="end" letter-spacing="1.5">UNLOCK</text>
+    <text x="20" y="116" class="sans" font-size="20" font-weight="700" fill="#E8F0F7">First Draft Cited</text>
+    <text x="20" y="144" class="mono" font-size="13" font-weight="700" fill="#F0B429">backfill</text>
+    <text x="20" y="168" class="sans" font-size="13" fill="#7F91A3">Citation or GAP</text>
   </g>
   <g transform="translate(900 84)">
-    <rect width="264" height="190" rx="4" fill="#23211D" stroke="#34312B"/>
-    <circle cx="48" cy="52" r="28" fill="#1B1916" stroke="#7EE0C8" stroke-width="2"/>
-    <text x="48" y="58" class="mono" font-size="18" font-weight="700" fill="#7EE0C8" text-anchor="middle">04</text>
-    <text x="244" y="30" class="mono" font-size="11" font-weight="700" fill="#A5A397" text-anchor="end" letter-spacing="1.5">UNLOCK</text>
-    <text x="20" y="116" class="sans" font-size="20" font-weight="700" fill="#EDEDE6">Tripwire Armed</text>
-    <text x="20" y="144" class="mono" font-size="13" font-weight="700" fill="#7EE0C8">revisit_when</text>
-    <text x="20" y="168" class="sans" font-size="13" fill="#A5A397">Exclusions expire</text>
+    <rect width="264" height="190" rx="4" fill="#162029" stroke="#243140"/>
+    <circle cx="48" cy="52" r="28" fill="#0E141B" stroke="#F0B429" stroke-width="2"/>
+    <text x="48" y="58" class="mono" font-size="18" font-weight="700" fill="#F0B429" text-anchor="middle">04</text>
+    <text x="244" y="30" class="mono" font-size="11" font-weight="700" fill="#7F91A3" text-anchor="end" letter-spacing="1.5">UNLOCK</text>
+    <text x="20" y="116" class="sans" font-size="20" font-weight="700" fill="#E8F0F7">Tripwire Armed</text>
+    <text x="20" y="144" class="mono" font-size="13" font-weight="700" fill="#F0B429">revisit_when</text>
+    <text x="20" y="168" class="sans" font-size="13" fill="#7F91A3">Exclusions expire</text>
   </g>
 
   <g transform="translate(36 300)">
-    <rect width="264" height="190" rx="4" fill="#23211D" stroke="#34312B"/>
-    <circle cx="48" cy="52" r="28" fill="#1B1916" stroke="#7EE0C8" stroke-width="2"/>
-    <text x="48" y="58" class="mono" font-size="18" font-weight="700" fill="#7EE0C8" text-anchor="middle">05</text>
-    <text x="244" y="30" class="mono" font-size="11" font-weight="700" fill="#A5A397" text-anchor="end" letter-spacing="1.5">UNLOCK</text>
-    <text x="20" y="116" class="sans" font-size="20" font-weight="700" fill="#EDEDE6">Doctor Pass</text>
-    <text x="20" y="144" class="mono" font-size="13" font-weight="700" fill="#7EE0C8">docdna_doctor.py</text>
-    <text x="20" y="168" class="sans" font-size="13" fill="#A5A397">Installed bytes healthy</text>
+    <rect width="264" height="190" rx="4" fill="#162029" stroke="#243140"/>
+    <circle cx="48" cy="52" r="28" fill="#0E141B" stroke="#F0B429" stroke-width="2"/>
+    <text x="48" y="58" class="mono" font-size="18" font-weight="700" fill="#F0B429" text-anchor="middle">05</text>
+    <text x="244" y="30" class="mono" font-size="11" font-weight="700" fill="#7F91A3" text-anchor="end" letter-spacing="1.5">UNLOCK</text>
+    <text x="20" y="116" class="sans" font-size="20" font-weight="700" fill="#E8F0F7">Doctor Pass</text>
+    <text x="20" y="144" class="mono" font-size="13" font-weight="700" fill="#F0B429">docdna_doctor.py</text>
+    <text x="20" y="168" class="sans" font-size="13" fill="#7F91A3">Installed bytes healthy</text>
   </g>
   <g transform="translate(324 300)">
-    <rect width="264" height="190" rx="4" fill="#23211D" stroke="#34312B"/>
-    <circle cx="48" cy="52" r="28" fill="#1B1916" stroke="#7EE0C8" stroke-width="2"/>
-    <text x="48" y="58" class="mono" font-size="18" font-weight="700" fill="#7EE0C8" text-anchor="middle">06</text>
-    <text x="244" y="30" class="mono" font-size="11" font-weight="700" fill="#A5A397" text-anchor="end" letter-spacing="1.5">UNLOCK</text>
-    <text x="20" y="116" class="sans" font-size="20" font-weight="700" fill="#EDEDE6">Status Next</text>
-    <text x="20" y="144" class="mono" font-size="13" font-weight="700" fill="#7EE0C8">docdna_status.py</text>
-    <text x="20" y="168" class="sans" font-size="13" fill="#A5A397">One next action</text>
+    <rect width="264" height="190" rx="4" fill="#162029" stroke="#243140"/>
+    <circle cx="48" cy="52" r="28" fill="#0E141B" stroke="#F0B429" stroke-width="2"/>
+    <text x="48" y="58" class="mono" font-size="18" font-weight="700" fill="#F0B429" text-anchor="middle">06</text>
+    <text x="244" y="30" class="mono" font-size="11" font-weight="700" fill="#7F91A3" text-anchor="end" letter-spacing="1.5">UNLOCK</text>
+    <text x="20" y="116" class="sans" font-size="20" font-weight="700" fill="#E8F0F7">Status Next</text>
+    <text x="20" y="144" class="mono" font-size="13" font-weight="700" fill="#F0B429">docdna_status.py</text>
+    <text x="20" y="168" class="sans" font-size="13" fill="#7F91A3">One next action</text>
   </g>
   <g transform="translate(612 300)">
-    <rect width="264" height="190" rx="4" fill="#23211D" stroke="#34312B"/>
-    <circle cx="48" cy="52" r="28" fill="#1B1916" stroke="#7EE0C8" stroke-width="2"/>
-    <text x="48" y="58" class="mono" font-size="18" font-weight="700" fill="#7EE0C8" text-anchor="middle">07</text>
-    <text x="244" y="30" class="mono" font-size="11" font-weight="700" fill="#A5A397" text-anchor="end" letter-spacing="1.5">UNLOCK</text>
-    <text x="20" y="116" class="sans" font-size="20" font-weight="700" fill="#EDEDE6">Proof Replay</text>
-    <text x="20" y="144" class="mono" font-size="13" font-weight="700" fill="#7EE0C8">docdna_proof.py</text>
-    <text x="20" y="168" class="sans" font-size="13" fill="#A5A397">Golden workflows hold</text>
+    <rect width="264" height="190" rx="4" fill="#162029" stroke="#243140"/>
+    <circle cx="48" cy="52" r="28" fill="#0E141B" stroke="#F0B429" stroke-width="2"/>
+    <text x="48" y="58" class="mono" font-size="18" font-weight="700" fill="#F0B429" text-anchor="middle">07</text>
+    <text x="244" y="30" class="mono" font-size="11" font-weight="700" fill="#7F91A3" text-anchor="end" letter-spacing="1.5">UNLOCK</text>
+    <text x="20" y="116" class="sans" font-size="20" font-weight="700" fill="#E8F0F7">Proof Replay</text>
+    <text x="20" y="144" class="mono" font-size="13" font-weight="700" fill="#F0B429">docdna_proof.py</text>
+    <text x="20" y="168" class="sans" font-size="13" fill="#7F91A3">Golden workflows hold</text>
   </g>
   <g transform="translate(900 300)">
-    <rect width="264" height="190" rx="4" fill="#23211D" stroke="#34312B"/>
-    <circle cx="48" cy="52" r="28" fill="#1B1916" stroke="#7EE0C8" stroke-width="2"/>
-    <text x="48" y="58" class="mono" font-size="18" font-weight="700" fill="#7EE0C8" text-anchor="middle">08</text>
-    <text x="244" y="30" class="mono" font-size="11" font-weight="700" fill="#A5A397" text-anchor="end" letter-spacing="1.5">UNLOCK</text>
-    <text x="20" y="116" class="sans" font-size="20" font-weight="700" fill="#EDEDE6">Zero Fiction</text>
-    <text x="20" y="144" class="mono" font-size="13" font-weight="700" fill="#7EE0C8">no invented numbers</text>
-    <text x="20" y="168" class="sans" font-size="13" fill="#A5A397">Cite or GAP only</text>
+    <rect width="264" height="190" rx="4" fill="#162029" stroke="#243140"/>
+    <circle cx="48" cy="52" r="28" fill="#0E141B" stroke="#F0B429" stroke-width="2"/>
+    <text x="48" y="58" class="mono" font-size="18" font-weight="700" fill="#F0B429" text-anchor="middle">08</text>
+    <text x="244" y="30" class="mono" font-size="11" font-weight="700" fill="#7F91A3" text-anchor="end" letter-spacing="1.5">UNLOCK</text>
+    <text x="20" y="116" class="sans" font-size="20" font-weight="700" fill="#E8F0F7">Zero Fiction</text>
+    <text x="20" y="144" class="mono" font-size="13" font-weight="700" fill="#F0B429">no invented numbers</text>
+    <text x="20" y="168" class="sans" font-size="13" fill="#7F91A3">Cite or GAP only</text>
   </g>
 </svg>

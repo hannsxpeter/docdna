@@ -20,7 +20,7 @@ from docdna_fs import (MAX_CONTROL_BYTES, bind_root as safe_bind_root,
                        read_text as safe_read_text, write_text as safe_write_text)
 from docdna_runtime import RuntimeRegistryError, load_registry, wiring_target_ids
 
-VERSION = "1.5.0"
+VERSION = "1.5.1"
 
 START = "<!-- docdna:start -->"
 END = "<!-- docdna:end -->"

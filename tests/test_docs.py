@@ -217,33 +217,33 @@ class CompatibilityContractTests(unittest.TestCase):
         self.assertNotIn("actions/checkout@v4", workflow)
         self.assertNotIn("actions/setup-python@v5", workflow)
 
-    def test_install_examples_select_the_immutable_v1_5_0_tag(self):
+    def test_install_examples_select_the_immutable_v1_5_1_tag(self):
         for path in (ROOT / "README.md", ROOT / "docs" / "QUICKSTART.md"):
             text = path.read_text(encoding="utf-8")
-            self.assertIn("git clone --branch v1.5.0 --depth 1", text)
+            self.assertIn("git clone --branch v1.5.1 --depth 1", text)
             self.assertNotIn("git clone --branch main", text)
 
 
 class ReleaseContractTests(unittest.TestCase):
-    def test_all_runtime_version_surfaces_are_1_5_0(self):
+    def test_all_runtime_version_surfaces_are_1_5_1(self):
         skill = SKILL.read_text(encoding="utf-8")
-        self.assertIn("Version: 1.5.0", skill)
+        self.assertIn("Version: 1.5.1", skill)
 
         for name in VERSIONED_HELPERS:
             source = (SCRIPTS / name).read_text(encoding="utf-8")
-            self.assertIn('VERSION = "1.5.0"', source, name)
+            self.assertIn('VERSION = "1.5.1"', source, name)
 
         for name in VERSIONED_TEMPLATES:
             source = (ROOT / "skill" / "templates" / name).read_text(encoding="utf-8")
-            self.assertIn("docdna v1.5.0", source, name)
+            self.assertIn("docdna v1.5.1", source, name)
             self.assertNotIn("docdna v1.4.0", source, name)
 
     def test_recovery_commands_name_the_current_release(self):
         recoveries = {
-            ROOT / "README.md": "reinstall the immutable `v1.5.0` bytes",
-            ROOT / "docs" / "QUICKSTART.md": "reinstall tag `v1.5.0`",
-            ROOT / "docs" / "AGENT_SUPPORT.md": "`v1.5.0` bytes and rerun Doctor",
-            SKILL: "reinstall trusted v1.5.0.",
+            ROOT / "README.md": "reinstall the immutable `v1.5.1` bytes",
+            ROOT / "docs" / "QUICKSTART.md": "reinstall tag `v1.5.1`",
+            ROOT / "docs" / "AGENT_SUPPORT.md": "`v1.5.1` bytes and rerun Doctor",
+            SKILL: "reinstall trusted v1.5.1.",
         }
         for path, phrase in recoveries.items():
             text = path.read_text(encoding="utf-8")
@@ -362,7 +362,7 @@ class ReleaseContractTests(unittest.TestCase):
                 destination = override / "docdna"
                 expected = (
                     "Removed stale bare-file install at %s\n"
-                    "Installed docdna v1.5.0 for Registry\\cHost to %s\n"
+                    "Installed docdna v1.5.1 for Registry\\cHost to %s\n"
                     "Restart the target coding agent to pick it up.\n"
                 ) % (stale, destination)
                 self.assertEqual(process.returncode, 0, process.stderr)

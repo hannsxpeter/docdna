@@ -4,6 +4,15 @@ All notable changes to docdna are documented in this file. The format is based o
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-11-23
+
+### Changed
+
+- Product graphics match the codedna slate shell and DNA helix mark, with an amber accent so the
+  siblings stay distinct.
+- README about copy and GitHub description shortened to the codedna shape: one headline, one claim,
+  then quest map / engine / press start.
+
 ## [1.5.0] - 2026-11-23
 
 ### Added
@@ -348,7 +357,8 @@ Nothing before this was released, so there is nothing here to correct. The reaso
 - **A suite of 232 tests over 8 fixture repositories**, four of which exist only to hold false positives down: a client-side router is not a server route, a French locale is not weak crypto, a `Region` enum is not a jurisdiction, and a latitude is not personal data. Every runtime detection pattern ships with a negative fixture, not just a positive one.
 - **CI that dogfoods the tool on itself.** It compiles every helper, validates the catalog JSON, runs the suite, runs the whole pipeline end to end on this repository, requires `docdna_check.py` to report zero fabricated-number findings against docdna's own documentation, asserts that Survey converges, shellchecks the installer, and installs the skill and runs it from the installed location. docdna's own documentation is the one corpus whose every claim can be adjudicated by hand, and it is full of the shapes a number rule gets wrong.
 
-[Unreleased]: https://github.com/hannsxpeter/docdna/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/hannsxpeter/docdna/compare/v1.5.1...HEAD
+[1.5.1]: https://github.com/hannsxpeter/docdna/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/hannsxpeter/docdna/compare/v1.4.1...v1.5.0
 [1.4.1]: https://github.com/hannsxpeter/docdna/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/hannsxpeter/docdna/compare/v1.3.0...v1.4.0

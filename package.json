@@ -1,7 +1,7 @@
 {
   "name": "@hxp-tools/docdna",
-  "version": "1.5.0",
-  "description": "Decides which documents a codebase owes, rules out the rest with a cited reason and a tripwire, and writes the ones the code can prove. Stdlib-only Python skill for Claude Code, Codex, Cursor, and Windsurf.",
+  "version": "1.5.1",
+  "description": "Decides which documents a codebase owes, rules out the rest with a cited reason and tripwire, and writes what the code can prove. Portable skill for Claude Code, Codex, Cursor, and Windsurf.",
   "bin": {
     "docdna": "bin/docdna.js"
   },
